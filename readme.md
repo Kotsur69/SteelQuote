@@ -14,7 +14,7 @@ A modern tool for sales professionals to calculate steel surcharges, create offe
 
 
 
-\*\*Steel Surcharge Calculator\*\* is a web-based application designed to streamline pricing calculations for steel products. It supports sales teams in creating accurate offers quickly and efficiently.
+\*\*SteelQuote\*\* is a web-based application designed to streamline pricing calculations for steel products. It supports sales teams in creating accurate offers quickly and efficiently.
 
 
 
