@@ -174,29 +174,6 @@ The application works in real-time — all changes are instantly reflected in th
 
 
 
-\---
-
-
-
-\## 📂 Project Structure
-
-
-
-```
-
-/project
-
-│── index.html        # Main application (UI + logic)
-
-│── /assets           # (optional) styles, images
-
-│── /scripts          # (optional) JS logic
-
-│── /backend          # (optional) API / authentication
-
-```
-
-
 
 \---
 
