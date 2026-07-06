@@ -1,0 +1,2687 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kalkulator Dopłat do Stali</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================================================
+       CSS VARIABLES & RESET
+       ============================================================ */
+    :root {
+      --bg:          #0f1117;
+      --bg-panel:    #181c26;
+      --bg-card:     #1e2333;
+      --bg-input:    #141720;
+      --border:      #2a3048;
+      --border-hi:   #3d4a70;
+
+      --accent-hrs:  #e8a020;
+      --accent-cr:   #3b8ef5;
+      --accent-hdg:  #2ecc71;
+      --accent-sum:  #f5475a;
+
+      --text-primary:   #e8ecf5;
+      --text-secondary: #7b88aa;
+      --text-muted:     #4a536b;
+      --text-value:     #c8d4f0;
+
+      --font-sans: 'IBM Plex Sans', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+
+      --radius:  6px;
+      --shadow:  0 4px 24px rgba(0,0,0,0.45);
+    }
+
+    /* ── LIGHT MODE ─────────────────────────────────────────── */
+    body.light {
+      --bg:          #eef0f6;
+      --bg-panel:    #e2e6f0;
+      --bg-card:     #ffffff;
+      --bg-input:    #f4f5fa;
+      --border:      #b8c0d8;
+      --border-hi:   #7e90c0;
+
+      --text-primary:   #0d1220;
+      --text-secondary: #2e3a5c;
+      --text-muted:     #6b789a;
+      --text-value:     #141e3a;
+
+      --shadow:  0 4px 24px rgba(0,0,0,0.12);
+    }
+
+    /* Light mode – toggle buttons need darker border for visibility */
+    body.light .toggle-btn {
+      border-color: #9aa4c4;
+      color: #2e3a5c;
+    }
+    body.light .toggle-btn:hover {
+      border-color: #5a6fa8;
+      color: #0d1220;
+      background: #dde2f0;
+    }
+    body.light .toggle-btn.active-toggle {
+      border-color: var(--accent-cr);
+      background: rgba(59,142,245,0.12);
+      color: #1a5fcc;
+    }
+    body.light .type-btn {
+      border-color: #9aa4c4;
+    }
+    body.light .type-btn:hover {
+      border-color: #5a6fa8;
+    }
+    body.light .row-input {
+      border-color: #9aa4c4;
+      color: #0d1220;
+    }
+    body.light .param-group input,
+    body.light .param-group select {
+      border-color: #9aa4c4;
+      color: #0d1220;
+    }
+    body.light .grade-dropdown {
+      border-color: #7e90c0;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    }
+    body.light .grade-option .g-name { color: #141e3a; }
+    body.light .sum-row { background: rgba(0,0,0,0.04); }
+    body.light .data-row:hover { background: rgba(0,0,0,0.03); }
+    body.light .header-badge { border-color: #9aa4c4; }
+    body.light .dim-warning { color: #9b2a35; }
+
+    /* Theme toggle button */
+    .theme-toggle {
+      margin-left: auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 14px 5px 10px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .theme-toggle:hover { border-color: var(--border-hi); color: var(--text-primary); }
+    .theme-toggle .theme-icon { font-size: 14px; }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 28px 24px 48px;
+    }
+
+    /* ============================================================
+       HEADER
+       ============================================================ */
+    .app-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .app-header .logo-mark {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #3b8ef5 0%, #e8a020 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: -1px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .app-header h1 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--text-primary);
+    }
+
+    .app-header p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      font-family: var(--font-mono);
+    }
+
+    .header-badge {
+      margin-left: auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      letter-spacing: 0.05em;
+    }
+
+    /* ============================================================
+       STEEL TYPE SELECTOR (Top buttons)
+       ============================================================ */
+    .type-selector {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .type-btn {
+      flex: 1;
+      padding: 14px 20px;
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .type-btn::before {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      opacity: 0;
+      transition: opacity 0.18s;
+    }
+
+    .type-btn:hover {
+      border-color: var(--border-hi);
+      color: var(--text-primary);
+    }
+
+    .type-btn.active-hrs {
+      background: rgba(232,160,32,0.08);
+      border-color: var(--accent-hrs);
+      color: var(--accent-hrs);
+    }
+    .type-btn.active-hrs::before { background: var(--accent-hrs); opacity: 1; }
+
+    .type-btn.active-cr {
+      background: rgba(59,142,245,0.08);
+      border-color: var(--accent-cr);
+      color: var(--accent-cr);
+    }
+    .type-btn.active-cr::before { background: var(--accent-cr); opacity: 1; }
+
+    .type-btn.active-hdg {
+      background: rgba(46,204,113,0.08);
+      border-color: var(--accent-hdg);
+      color: var(--accent-hdg);
+    }
+    .type-btn.active-hdg::before { background: var(--accent-hdg); opacity: 1; }
+
+    .type-btn .btn-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.05em;
+      opacity: 0.7;
+      margin-top: 3px;
+    }
+
+    /* ============================================================
+       PARAMETERS SECTION (Inputs row)
+       ============================================================ */
+    .params-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .param-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .param-group label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .param-group input,
+    .param-group select {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      padding: 9px 12px;
+      transition: border-color 0.15s;
+      outline: none;
+      width: 100%;
+    }
+
+    .param-group input:focus,
+    .param-group select:focus {
+      border-color: var(--accent-cr);
+    }
+
+    .param-group select option { background: var(--bg-panel); }
+
+    /* ============================================================
+       MAIN 3-COLUMN GRID
+       ============================================================ */
+    .columns-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    /* ============================================================
+       CARD / COLUMN WRAPPER
+       ============================================================ */
+    .col-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .col-card-header {
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .col-card-header .col-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .col-card-header h2 {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+    }
+
+    .col-card-header .col-sub {
+      font-size: 10px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      margin-left: auto;
+    }
+
+    /* ============================================================
+       TABLE ROWS (inside columns)
+       ============================================================ */
+    .data-table {
+      flex: 1;
+      padding: 8px 0;
+    }
+
+    .data-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 18px;
+      border-bottom: 1px solid rgba(42,48,72,0.5);
+      transition: background 0.1s;
+      min-height: 42px;
+    }
+
+    .data-row:last-child { border-bottom: none; }
+
+    .data-row:hover { background: rgba(255,255,255,0.025); }
+
+    .data-row .row-label {
+      flex: 1;
+      font-size: 12px;
+      color: var(--text-secondary);
+      letter-spacing: 0.01em;
+    }
+
+    .data-row .row-value {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-value);
+      font-weight: 500;
+      text-align: right;
+      min-width: 64px;
+    }
+
+    /* Editable input inside row */
+    .data-row .row-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 5px 9px;
+      text-align: right;
+      width: 80px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .data-row .row-input:focus { border-color: var(--accent-cr); }
+
+    .data-row .row-input.wide { width: 110px; }
+
+    /* Unit suffix */
+    .data-row .row-unit {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-left: 4px;
+      width: 22px;
+      text-align: left;
+    }
+
+    /* ============================================================
+       TOTAL / SUM ROW
+       ============================================================ */
+    .sum-row {
+      display: flex;
+      align-items: center;
+      padding: 13px 18px;
+      border-top: 1.5px solid var(--border-hi);
+      background: rgba(0,0,0,0.18);
+      margin-top: auto;
+    }
+
+    .sum-row .sum-label {
+      flex: 1;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .sum-row .sum-value {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .sum-row .sum-unit {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      margin-left: 6px;
+    }
+
+    /* Column-specific accent colors */
+    .col-huta   .col-dot { background: var(--accent-hrs); }
+    .col-huta   .sum-label,
+    .col-huta   .sum-value { color: var(--accent-hrs); }
+
+    .col-ssc    .col-dot { background: var(--accent-cr); }
+    .col-ssc    .sum-label,
+    .col-ssc    .sum-value { color: var(--accent-cr); }
+
+    .col-summary .col-dot { background: var(--accent-sum); }
+    .col-summary .sum-label,
+    .col-summary .sum-value { color: var(--accent-sum); }
+
+    /* FINAL PRICE highlight */
+    .final-price-row {
+      background: rgba(245,71,90,0.08);
+      border: 1px solid rgba(245,71,90,0.25);
+      border-radius: 4px;
+      margin: 8px 14px 4px;
+    }
+
+    .final-price-row .row-label {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .final-price-row .row-value {
+      color: var(--accent-sum);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    /* Separator inside summary column */
+    .col-separator {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 18px;
+    }
+
+    /* ============================================================
+       ZESTAWIENIE TABLE
+       ============================================================ */
+    .zt {
+      padding: 9px 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-align: right;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+    }
+    .zr td {
+      padding: 9px 14px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-value);
+      text-align: right;
+      border-bottom: 1px solid rgba(42,48,72,0.4);
+      vertical-align: middle;
+    }
+    .zr:hover td { background: rgba(255,255,255,0.025); }
+    body.light .zr:hover td { background: rgba(0,0,0,0.025); }
+    body.light .zr td { color: var(--text-value); }
+    .zr td:nth-child(2) { text-align: left; }
+    .zr td:nth-child(3) { text-align: center; }
+    .zr .z-desc-grade { color: var(--text-primary); font-weight: 600; font-size: 12px; }
+    .zr .z-desc-dim   { color: var(--text-secondary); font-size: 10px; margin-top:2px; }
+    .zr .z-final      { color: var(--accent-sum); font-weight: 700; font-size: 13px; }
+    .z-action-btn {
+      background: none; border: 1px solid var(--border); border-radius: 4px;
+      padding: 4px 8px; cursor: pointer; font-size: 13px;
+      transition: all 0.13s; margin-left: 4px;
+    }
+    .z-action-btn:hover { border-color: var(--border-hi); }
+    .z-edit-btn:hover  { border-color: var(--accent-cr); color: var(--accent-cr); }
+    .z-del-btn:hover   { border-color: var(--accent-sum); color: var(--accent-sum); }
+    .z-dup-btn:hover   { border-color: #a78bfa; color: #a78bfa; }
+    .z-type-badge {
+      display: inline-block; font-family: var(--font-mono); font-size: 10px;
+      font-weight: 700; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.08em;
+    }
+    .z-type-HRS { background: rgba(232,160,32,0.12); color: var(--accent-hrs); }
+    .z-type-CR  { background: rgba(59,142,245,0.12);  color: var(--accent-cr);  }
+    .z-type-HDG { background: rgba(46,204,113,0.12);  color: var(--accent-hdg); }
+
+    /* ============================================================
+       FOOTER
+       ============================================================ */
+    .app-footer {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+
+    /* ============================================================
+       TOGGLE BUTTON GROUP
+       ============================================================ */
+    .toggle-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-left: auto;
+      justify-content: flex-end;
+    }
+
+    .toggle-btn {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 500;
+      padding: 3px 7px;
+      cursor: pointer;
+      transition: all 0.13s ease;
+      white-space: nowrap;
+      line-height: 1.3;
+    }
+
+    .toggle-btn:hover {
+      border-color: var(--border-hi);
+      color: var(--text-primary);
+    }
+
+    .toggle-btn.active-toggle {
+      background: rgba(59,142,245,0.15);
+      border-color: var(--accent-cr);
+      color: var(--accent-cr);
+      font-weight: 700;
+    }
+
+    /* Small value badge shown after toggle group */
+    .row-val-badge {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-value);
+      min-width: 28px;
+      text-align: right;
+      margin-left: 4px;
+    }
+
+    /* ============================================================
+       GRADE AUTOCOMPLETE DROPDOWN
+       ============================================================ */
+    .grade-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hi);
+      border-radius: var(--radius);
+      z-index: 999;
+      max-height: 240px;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+
+    .grade-dropdown.hidden { display: none; }
+
+    .grade-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(42,48,72,0.5);
+      transition: background 0.1s;
+    }
+
+    .grade-option:last-child { border-bottom: none; }
+
+    .grade-option:hover,
+    .grade-option.active {
+      background: rgba(59,142,245,0.12);
+      color: var(--text-primary);
+    }
+
+    .grade-option .g-name {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-value);
+    }
+
+    .grade-option .g-val {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-hrs);
+      background: rgba(232,160,32,0.08);
+      padding: 2px 7px;
+      border-radius: 3px;
+    }
+
+    /* ============================================================
+       DIMENSION VALIDATION WARNING
+       ============================================================ */
+    .dim-warning {
+      display: none;
+      margin: 0 0 16px 0;
+      background: rgba(245,71,90,0.08);
+      border: 1px solid rgba(245,71,90,0.4);
+      border-left: 3px solid var(--accent-sum);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      font-size: 12px;
+      color: #f5a0a8;
+      font-family: var(--font-mono);
+      animation: fadeIn 0.2s ease;
+    }
+    .dim-warning.visible { display: flex; align-items: center; gap: 10px; }
+    .dim-warning .warn-icon { font-size: 16px; flex-shrink: 0; }
+    .dim-warning strong { color: var(--accent-sum); }
+
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */    @media (max-width: 900px) {
+      .columns-grid { grid-template-columns: 1fr; }
+      .params-bar   { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 560px) {
+      .type-selector { gap: 6px; }
+      .type-btn { font-size: 13px; padding: 11px 10px; }
+      .params-bar { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===================== HEADER ===================== -->
+  <header class="app-header">
+    <div class="logo-mark">SSC</div>
+    <div>
+      <h1>Kalkulator Dopłat do Stali</h1>
+      <p>steel surcharge pricing tool · v1.0</p>
+    </div>
+    <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()">
+      <span class="theme-icon" id="theme-icon">☀️</span>
+      <span id="theme-label">Light mode</span>
+    </button>
+  </header>
+
+  <!-- ===================== STEEL TYPE SELECTOR ===================== -->
+  <div class="type-selector">
+    <button class="type-btn active-hrs" data-type="HRS" onclick="selectType('HRS', this)">
+      HRS
+      <span class="btn-label">Hot Rolled Steel</span>
+    </button>
+    <button class="type-btn" data-type="CR" onclick="selectType('CR', this)">
+      CR
+      <span class="btn-label">Cold Rolled Steel</span>
+    </button>
+    <button class="type-btn" data-type="HDG" onclick="selectType('HDG', this)">
+      HDG
+      <span class="btn-label">Hot Dip Galvanized</span>
+    </button>
+  </div>
+
+  <!-- ===================== INPUT PARAMETERS BAR ===================== -->
+  <div class="params-bar">
+    <div class="param-group">
+      <label>Grubość (mm)</label>
+      <input type="number" id="inp-thickness" value="5.00" step="0.01" min="0" />
+    </div>
+    <div class="param-group">
+      <label>Szerokość (mm)</label>
+      <input type="number" id="inp-width" value="1520" step="1" min="0" />
+    </div>
+    <div class="param-group">
+      <label>Długość (mm)</label>
+      <input type="number" id="inp-length" value="6000" step="1" min="0" />
+    </div>
+    <div class="param-group" style="position:relative;">
+      <label>Gatunek</label>
+      <input type="text" id="inp-grade" placeholder="Szukaj gatunku…" autocomplete="off" />
+      <div id="grade-dropdown" class="grade-dropdown hidden"></div>
+    </div>
+  </div>
+
+  <!-- ===================== 3-COLUMN MAIN GRID ===================== -->
+  <!-- Ostrzezenie walidacji wymiarow -->
+  <div id="dim-warning" class="dim-warning">
+    <span class="warn-icon">⚠</span>
+    <span id="dim-warning-msg">Kombinacja grubości i szerokości niedostępna.</span>
+  </div>
+
+  <div class="columns-grid">
+
+    <!-- =========================================================
+         COLUMN 1 – HUTA DOPŁATY
+         ========================================================= -->
+    <div class="col-card col-huta">
+      <div class="col-card-header">
+        <span class="col-dot"></span>
+        <h2>Huta Dopłaty</h2>
+        <span class="col-sub">mill surcharges</span>
+      </div>
+
+      <div class="data-table">
+        <!-- Okres ważności PGL -->
+        <div class="data-row">
+          <span class="row-label">Okres ważności PGL</span>
+          <span class="row-value" id="val-pgl-period">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Grubość / szerokość – wartość z macierzy -->
+        <div class="data-row">
+          <span class="row-label">Grubość / szerokość</span>
+          <span class="row-value" id="val-dim-surcharge">—</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Gatunek -->
+        <div class="data-row">
+          <span class="row-label">Gatunek</span>
+          <span class="row-value" id="val-grade">1</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Tolerancja grubości – opcje zależą od typu stali -->
+        <div class="data-row">
+          <span class="row-label">Tolerancja grubości</span>
+          <div class="toggle-group" id="tg-huta-tolthick"><!-- wypełniane przez JS --></div>
+          <input type="hidden" id="huta-tol-thick" value="0" />
+          <span class="row-val-badge" id="disp-huta-tol-thick">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Certyfikat -->
+        <div class="data-row">
+          <span class="row-label">Certyfikat</span>
+          <div class="toggle-group" id="tg-huta-cert">
+            <button class="toggle-btn" onclick="setToggle('tg-huta-cert','huta-cert',0,this)">2.2</button>
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-huta-cert','huta-cert',5,this)">3.1</button>
+            <button class="toggle-btn" onclick="setToggle('tg-huta-cert','huta-cert',10,this)">3.2</button>
+          </div>
+          <input type="hidden" id="huta-cert" value="5" />
+          <span class="row-val-badge" id="disp-huta-cert">5</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Powłoka – tylko dla HDG -->
+        <div class="data-row" id="row-coating" style="display:none;flex-wrap:wrap;gap:4px 0;align-items:flex-start;">
+          <span class="row-label" style="width:100%;margin-bottom:4px;">Powłoka</span>
+          <div class="toggle-group" id="tg-coating" style="flex-wrap:wrap;justify-content:flex-start;margin-left:0;gap:3px;">
+            <button class="toggle-btn active-toggle" onclick="setCoating('Z100',this)">Z100</button>
+            <button class="toggle-btn" onclick="setCoating('Z140',this)">Z140</button>
+            <button class="toggle-btn" onclick="setCoating('Z200',this)">Z200</button>
+            <button class="toggle-btn" onclick="setCoating('Z225',this)">Z225</button>
+            <button class="toggle-btn" onclick="setCoating('Z275',this)">Z275</button>
+            <button class="toggle-btn" onclick="setCoating('Z350',this)">Z350</button>
+            <button class="toggle-btn" onclick="setCoating('Z450',this)">Z450</button>
+            <button class="toggle-btn" onclick="setCoating('Z600',this)">Z600</button>
+            <button class="toggle-btn" onclick="setCoating('Z725',this)">Z725</button>
+            <button class="toggle-btn" onclick="setCoating('Z800',this)">Z800</button>
+          </div>
+          <span class="row-val-badge" id="val-coating" style="width:100%;margin-top:4px;text-align:left;">—</span>
+          <span class="row-unit" id="coating-unit" style="display:none;">€/t</span>
+        </div>
+        <!-- CR-only extra rows (inside data-table) -->
+        <div id="cr-huta-rows" style="display:none;">
+
+        <!-- Zabezpieczenie -->
+        <div class="data-row">
+          <span class="row-label">Zabezpieczenie</span>
+          <div class="toggle-group" id="tg-cr-zabezp">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-cr-zabezp','cr-zabezp',0,this)">O</button>
+            <button class="toggle-btn" onclick="setToggle('tg-cr-zabezp','cr-zabezp',3,this)">U</button>
+            <button class="toggle-btn" onclick="setToggle('tg-cr-zabezp','cr-zabezp',5,this)">A</button>
+          </div>
+          <input type="hidden" id="cr-zabezp" value="0" />
+          <span class="row-val-badge" id="disp-cr-zabezp">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Opakowanie -->
+        <div class="data-row">
+          <span class="row-label">Opakowanie</span>
+          <div class="toggle-group" id="tg-cr-opak">
+            <button class="toggle-btn" onclick="setToggle('tg-cr-opak','cr-opak',0,this)">Bez papieru</button>
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-cr-opak','cr-opak',5,this)">Papier/plastik</button>
+            <button class="toggle-btn" onclick="setToggle('tg-cr-opak','cr-opak',5,this)">Transport morski</button>
+          </div>
+          <input type="hidden" id="cr-opak" value="5" />
+          <span class="row-val-badge" id="disp-cr-opak">5</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Powierzchnia CR -->
+        <div class="data-row">
+          <span class="row-label">Powierzchnia (CR)</span>
+          <div class="toggle-group" id="tg-cr-powierz">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-cr-powierz','cr-powierz',0,this)">A</button>
+            <button class="toggle-btn" onclick="setToggle('tg-cr-powierz','cr-powierz',40,this)">B</button>
+          </div>
+          <input type="hidden" id="cr-powierz" value="0" />
+          <span class="row-val-badge" id="disp-cr-powierz">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Wykończenie powierzchni -->
+        <div class="data-row">
+          <span class="row-label">Wykończenie pow.</span>
+          <div class="toggle-group" id="tg-cr-wykon">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-cr-wykon','cr-wykon',0,this)">Normalna</button>
+            <button class="toggle-btn" onclick="setToggle('tg-cr-wykon','cr-wykon',10,this)">Szorstka</button>
+            <button class="toggle-btn" onclick="setToggle('tg-cr-wykon','cr-wykon',25,this)">Połyskująca</button>
+            <button class="toggle-btn" onclick="setToggle('tg-cr-wykon','cr-wykon',10,this)">Półpołysk.</button>
+          </div>
+          <input type="hidden" id="cr-wykon" value="0" />
+          <span class="row-val-badge" id="disp-cr-wykon">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Zgrzew -->
+        <div class="data-row">
+          <span class="row-label">Zgrzew</span>
+          <div class="toggle-group" id="tg-cr-zgrzew">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-cr-zgrzew','cr-zgrzew',-3,this)">Dozwolony</button>
+            <button class="toggle-btn" onclick="setToggle('tg-cr-zgrzew','cr-zgrzew',5,this)">Niedozwolony</button>
+            <button class="toggle-btn" onclick="setToggle('tg-cr-zgrzew','cr-zgrzew',0,this)">Inne</button>
+          </div>
+          <input type="hidden" id="cr-zgrzew" value="-3" />
+          <span class="row-val-badge" id="disp-cr-zgrzew">-3</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        </div><!-- /cr-huta-rows -->
+        <!-- HDG-only extra rows (inside data-table) -->
+        <div id="hdg-huta-rows" style="display:none;">
+
+          <!-- Zabezpieczenie HDG -->
+          <div class="data-row">
+            <span class="row-label">Zabezpieczenie</span>
+            <div class="toggle-group" id="tg-hdg-zabezp">
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-zabezp','hdg-zabezp',2,this)">O</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-zabezp','hdg-zabezp',2,this)">EO</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-zabezp','hdg-zabezp',20,this)">S</button>
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-hdg-zabezp','hdg-zabezp',0,this)">CE</button>
+            </div>
+            <input type="hidden" id="hdg-zabezp" value="0" />
+            <span class="row-val-badge" id="disp-hdg-zabezp">0</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+          <!-- Opakowanie HDG -->
+          <div class="data-row">
+            <span class="row-label">Opakowanie</span>
+            <div class="toggle-group" id="tg-hdg-opak">
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-opak','hdg-opak',0,this)">Bez papieru</button>
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-hdg-opak','hdg-opak',5,this)">Papier/plastik</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-opak','hdg-opak',5,this)">Transport morski</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-opak','hdg-opak',0,this)">Papier/plastik (CE)</button>
+            </div>
+            <input type="hidden" id="hdg-opak" value="5" />
+            <span class="row-val-badge" id="disp-hdg-opak">5</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+          <!-- Powierzchnia HDG -->
+          <div class="data-row">
+            <span class="row-label">Powierzchnia (HDG)</span>
+            <div class="toggle-group" id="tg-hdg-powierz">
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-hdg-powierz','hdg-powierz',0,this)">MA</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-powierz','hdg-powierz',35,this)">MB</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-powierz','hdg-powierz',20,this)">MC</button>
+            </div>
+            <input type="hidden" id="hdg-powierz" value="0" />
+            <span class="row-val-badge" id="disp-hdg-powierz">0</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+          <!-- Wykończenie powierzchni HDG -->
+          <div class="data-row">
+            <span class="row-label">Wykończenie pow.</span>
+            <div class="toggle-group" id="tg-hdg-wykon">
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-hdg-wykon','hdg-wykon',0,this)">Standard</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-wykon','hdg-wykon',15,this)">Błyszczące</button>
+            </div>
+            <input type="hidden" id="hdg-wykon" value="0" />
+            <span class="row-val-badge" id="disp-hdg-wykon">0</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+          <!-- Zgrzew HDG -->
+          <div class="data-row">
+            <span class="row-label">Zgrzew</span>
+            <div class="toggle-group" id="tg-hdg-zgrzew">
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-hdg-zgrzew','hdg-zgrzew',-3,this)">Dozwolony</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-zgrzew','hdg-zgrzew',5,this)">Niedozwolony</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-zgrzew','hdg-zgrzew',0,this)">Inne</button>
+            </div>
+            <input type="hidden" id="hdg-zgrzew" value="-3" />
+            <span class="row-val-badge" id="disp-hdg-zgrzew">-3</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+        </div><!-- /hdg-huta-rows -->
+
+      </div><!-- /.data-table -->
+
+      <!-- SUM HUTA -->
+      <div class="sum-row">
+        <span class="sum-label">SUMA Huta</span>
+        <span class="sum-value" id="sum-huta">—</span>
+        <span class="sum-unit">€/t</span>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         COLUMN 2 – SSC DOPŁATY PROCESSING
+         ========================================================= -->
+    <div class="col-card col-ssc">
+      <div class="col-card-header">
+        <span class="col-dot"></span>
+        <h2>SSC Dopłaty Processing</h2>
+        <span class="col-sub">processing surcharges</span>
+      </div>
+
+      <div class="data-table">
+
+        <!-- Podstawowa dopłata – auto dla HRS (macierz), manual dla CR/HDG -->
+        <div class="data-row">
+          <span class="row-label">Podstawowa dopłata (dług.)</span>
+          <!-- HRS: wartość z macierzy (tylko odczyt) -->
+          <span class="row-value" id="ssc-base-display" style="display:none;">—</span>
+          <!-- CR/HDG: edytowalny input -->
+          <input class="row-input ssc-input" id="ssc-base" type="number" value="29" min="0" />
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Tolerancja długości -->
+        <div class="data-row">
+          <span class="row-label">Tolerancja długości</span>
+          <div class="toggle-group" id="tg-ssc-len-tol">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-len-tol','ssc-len-tol',0,this)">Normalna</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-len-tol','ssc-len-tol',8,this)"><5mm</button>
+          </div>
+          <input type="hidden" id="ssc-len-tol" value="0" />
+          <span class="row-val-badge" id="disp-ssc-len-tol">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Płaskość -->
+        <div class="data-row">
+          <span class="row-label">Płaskość</span>
+          <div class="toggle-group" id="tg-ssc-flatness">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-flatness','ssc-flatness',0,this)">Wg normy EN</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-flatness','ssc-flatness',13,this)">Laser 1/3</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-flatness','ssc-flatness',8,this)">Wg klienta</button>
+          </div>
+          <input type="hidden" id="ssc-flatness" value="0" />
+          <span class="row-val-badge" id="disp-ssc-flatness">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Powierzchnia -->
+        <div class="data-row">
+          <span class="row-label">Powierzchnia</span>
+          <div class="toggle-group" id="tg-ssc-surface">
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-surface','ssc-surface',0,this)">Normalna</button>
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-surface','ssc-surface',10,this)">Ulepszona</button>
+          </div>
+          <input type="hidden" id="ssc-surface" value="10" />
+          <span class="row-val-badge" id="disp-ssc-surface">10</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Max. waga paczki -->
+        <div class="data-row">
+          <span class="row-label">Max. waga paczki</span>
+          <div class="toggle-group" id="tg-ssc-maxweight">
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-maxweight','ssc-maxweight',20,this)"><1T</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-maxweight','ssc-maxweight',10,this)">1–1,5T</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-maxweight','ssc-maxweight',7.5,this)">1,5–2,25T</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-maxweight','ssc-maxweight',5,this)">2,2–2,5T</button>
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-maxweight','ssc-maxweight',0,this)">2,5–3,5T</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-maxweight','ssc-maxweight',-3,this)">>3,5T</button>
+          </div>
+          <input type="hidden" id="ssc-maxweight" value="0" />
+          <span class="row-val-badge" id="disp-ssc-maxweight">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Oznakowanie -->
+        <div class="data-row">
+          <span class="row-label">Oznakowanie</span>
+          <div class="toggle-group" id="tg-ssc-marking">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-marking','ssc-marking',0,this)">Brak</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-marking','ssc-marking',5,this)">Grawerem</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-marking','ssc-marking',3,this)">Markerem</button>
+          </div>
+          <input type="hidden" id="ssc-marking" value="0" />
+          <span class="row-val-badge" id="disp-ssc-marking">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Brzegowanie -->
+        <div class="data-row">
+          <span class="row-label">Brzegowanie</span>
+          <div class="toggle-group" id="tg-ssc-edging">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-edging','ssc-edging',0,this)">Nie</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-edging','ssc-edging',18,this)">Tak</button>
+          </div>
+          <input type="hidden" id="ssc-edging" value="0" />
+          <span class="row-val-badge" id="disp-ssc-edging">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Granica plastyczności – tylko dla HRS (wybranych gatunków), stała = 7 -->
+        <div class="data-row" id="row-yield" style="display:none;">
+          <span class="row-label">Granica plastyczności</span>
+          <span class="row-value" id="val-yield">7</span>
+          <input type="hidden" id="ssc-yield" value="7" />
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Pakowanie -->
+        <div class="data-row">
+          <span class="row-label">Pakowanie</span>
+          <div class="toggle-group" id="tg-ssc-packing">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-packing','ssc-packing',0,this)">S01</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-packing','ssc-packing',10,this)">S03</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-packing','ssc-packing',5,this)">S12</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-packing','ssc-packing',10,this)">S13</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-packing','ssc-packing',23,this)">SB2</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-packing','ssc-packing',29,this)">SB3</button>
+          </div>
+          <input type="hidden" id="ssc-packing" value="0" />
+          <span class="row-val-badge" id="disp-ssc-packing">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Specjalne etykiety -->
+        <div class="data-row">
+          <span class="row-label">Specjalne etykiety</span>
+          <div class="toggle-group" id="tg-ssc-labels">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-labels','ssc-labels',0,this)">Brak</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-labels','ssc-labels',0.5,this)">Koperta plast.</button>
+          </div>
+          <input type="hidden" id="ssc-labels" value="0" />
+          <span class="row-val-badge" id="disp-ssc-labels">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Złom – stała -->
+        <div class="data-row">
+          <span class="row-label">Złom <small style="color:var(--text-muted)">(stała)</small></span>
+          <span class="row-value" id="val-scrap">10</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+      </div><!-- /.data-table -->
+
+      <!-- SUM SSC -->
+      <div class="sum-row">
+        <span class="sum-label">SUMA SSC</span>
+        <span class="sum-value" id="sum-ssc">—</span>
+        <span class="sum-unit">€/t</span>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         COLUMN 3 – PODSUMOWANIE
+         ========================================================= -->
+    <div class="col-card col-summary">
+      <div class="col-card-header">
+        <span class="col-dot"></span>
+        <h2>Podsumowanie</h2>
+        <span class="col-sub">final pricing</span>
+      </div>
+
+      <div class="data-table">
+
+        <!-- PGL cena bazowa -->
+        <div class="data-row">
+          <span class="row-label">PGL (cena bazowa)</span>
+          <input class="row-input wide" id="sum-pgl-input" type="number" value="645" min="0" />
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Cena wsadu -->
+        <div class="data-row">
+          <span class="row-label">Cena wsadu PGL + Σ Huta</span>
+          <span class="row-value" id="val-wsad">—</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="col-separator"></div>
+
+        <!-- Marża netto % -->
+        <div class="data-row">
+          <span class="row-label">Marża netto %</span>
+          <input class="row-input" id="sum-margin-pct" type="number" value="7" min="0" step="0.1" />
+          <span class="row-unit">%</span>
+        </div>
+
+        <!-- Marża netto obliczona -->
+        <div class="data-row">
+          <span class="row-label">Marża netto</span>
+          <span class="row-value" id="val-margin">—</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="col-separator"></div>
+
+        <!-- Dodatkowa dopłata -->
+        <div class="data-row">
+          <span class="row-label">Dodatkowa dopłata</span>
+          <input class="row-input" id="sum-extra" type="number" value="10" min="0" />
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Transport -->
+        <div class="data-row">
+          <span class="row-label">Transport</span>
+          <input class="row-input" id="sum-transport" type="number" value="20" min="0" />
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="col-separator"></div>
+
+        <!-- SUMA SSC echo -->
+        <div class="data-row">
+          <span class="row-label">Σ SSC Processing</span>
+          <span class="row-value" id="val-ssc-echo">—</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- FINAL PRICE highlight row -->
+        <div class="data-row final-price-row">
+          <span class="row-label">CENA KOŃCOWA</span>
+          <span class="row-value" id="val-final">—</span>
+          <span class="row-unit" style="color:var(--accent-sum)">€/t</span>
+        </div>
+
+        <!-- Ilość ton -->
+        <div class="data-row" style="margin:8px 14px 0;">
+          <span class="row-label" style="font-weight:600;">Ilość ton</span>
+          <input class="row-input" id="inp-tons" type="number" value="1" min="0.01" step="0.5"
+            style="width:80px;text-align:right;" />
+          <span class="row-unit">t</span>
+        </div>
+
+        <!-- ADD TO ZESTAWIENIE button -->
+        <div style="padding:10px 14px 6px;">
+          <button id="btn-add-zestawienie" onclick="addToZestawienie()" style="
+            width:100%;padding:11px;
+            background:linear-gradient(135deg,#e8a020,#f0c040);
+            border:none;border-radius:5px;
+            color:#0d1220;font-family:var(--font-mono);
+            font-size:12px;font-weight:700;letter-spacing:0.08em;
+            cursor:pointer;transition:opacity 0.15s;
+          " onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+            ＋ DODAJ DO ZESTAWIENIA
+          </button>
+        </div>
+
+      </div>
+
+      <!-- SUM block (just label) -->
+      <div class="sum-row">
+        <span class="sum-label">Suma (Marża + SSC)</span>
+        <span class="sum-value" id="val-final-echo">—</span>
+        <span class="sum-unit">€/t</span>
+      </div>
+    </div>
+
+  </div><!-- /.columns-grid -->
+
+  <!-- ===================== ZESTAWIENIE ===================== -->
+  <div id="zestawienie-section" style="margin-top:24px;">
+    <div style="
+      background:var(--bg-card);border:1px solid var(--border);
+      border-radius:var(--radius);overflow:hidden;
+    ">
+      <!-- Header -->
+      <div style="
+        padding:13px 20px;border-bottom:1px solid var(--border);
+        display:flex;align-items:center;gap:12px;
+      ">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--accent-hrs);display:inline-block;flex-shrink:0;"></span>
+        <span style="font-size:12px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;">Zestawienie pozycji ofertowych</span>
+        <span id="zest-count" style="font-size:10px;font-family:var(--font-mono);color:var(--text-secondary);margin-left:4px;"></span>
+        <button onclick="clearZestawienie()" style="
+          margin-left:auto;background:transparent;border:1px solid var(--border);
+          border-radius:4px;color:var(--text-muted);font-family:var(--font-mono);
+          font-size:10px;padding:4px 10px;cursor:pointer;transition:all 0.15s;
+        " onmouseover="this.style.borderColor='var(--accent-sum)';this.style.color='var(--accent-sum)'"
+           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
+          Wyczyść wszystko
+        </button>
+      </div>
+
+      <!-- Table -->
+      <div style="overflow-x:auto;">
+        <table id="zest-table" style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg-panel);border-bottom:1px solid var(--border);">
+              <th class="zt">Lp.</th>
+              <th class="zt" style="text-align:left;min-width:180px;">Opis (Gatunek / Wymiary)</th>
+              <th class="zt" style="text-align:center;">Typ</th>
+              <th class="zt">Σ Huta</th>
+              <th class="zt">Σ SSC</th>
+              <th class="zt">Marża</th>
+              <th class="zt">Cena jedn.</th>
+              <th class="zt">Ilość ton</th>
+              <th class="zt">Łączna wartość</th>
+              <th class="zt">Akcje</th>
+            </tr>
+          </thead>
+          <tbody id="zest-tbody">
+            <tr id="zest-empty-row">
+              <td colspan="8" style="
+                text-align:center;padding:28px;
+                font-family:var(--font-mono);font-size:12px;
+                color:var(--text-muted);font-style:italic;
+              ">Brak pozycji — kliknij „DODAJ DO ZESTAWIENIA" aby zapisać kalkulację</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Total row -->
+      <div style="
+        display:flex;align-items:center;justify-content:space-between;
+        padding:14px 20px;border-top:1.5px solid var(--border-hi);
+        background:rgba(0,0,0,0.10);
+      ">
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:var(--text-secondary);">
+          SUMA CAŁKOWITA ZESTAWIENIA
+        </span>
+        <span style="display:flex;align-items:baseline;gap:6px;">
+          <span id="zest-total" style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--accent-sum);">—</span>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);">€ łącznie</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-footer" style="margin-top:16px;">
+    © 2025 · Steel Surcharge Calculator · Wszelkie wartości w €/t · Dane techniczne według specyfikacji EN 10051
+  </div>
+
+  <!-- ============================================================
+       JAVASCRIPT – BUSINESS LOGIC
+       ============================================================ -->
+  <script>
+    /* ============================================================
+       0. TABELE GATUNKÓW (Grade Surcharge Tables)
+          Format: { name: <string>, value: <number €/t> }
+          Aby dodać gatunki dla CR/HDG, uzupełnij GRADE_TABLE_CR
+          i GRADE_TABLE_HDG analogicznie.
+       ============================================================ */
+    const GRADE_TABLE_HRS = [
+      { name: "16Mo3",                              value: 176 },
+      { name: "1937-03",                            value: 20  },
+      { name: "Amstrong® 360MC Laser",              value: 70  },
+      { name: "Amstrong® 420MC Laser",              value: 90  },
+      { name: "Amstrong® Ultra 650MC",              value: 163 },
+      { name: "Amstrong® Ultra 700MC_B",            value: 165 },
+      { name: "Amstrong® Ultra 700MCT",             value: 165 },
+      { name: "Amstrong® Ultra 700MCT_A",           value: 165 },
+      { name: "AMSTRONG®355MC",                     value: 48  },
+      { name: "AMSTRONG®420MC",                     value: 68  },
+      { name: "AMSTRONG®460MC",                     value: 78  },
+      { name: "AMSTRONG®500MC",                     value: 83  },
+      { name: "AMSTRONG®550MC",                     value: 103 },
+      { name: "DD 11",                              value: 2   },
+      { name: "DD 12",                              value: 12  },
+      { name: "DD 13",                              value: 17  },
+      { name: "DD 14",                              value: 27  },
+      { name: "DD11-CAT_A",                         value: 2   },
+      { name: "DD12-CAT_A",                         value: 12  },
+      { name: "DD13",                               value: 17  },
+      { name: "DD13-CAT_A",                         value: 17  },
+      { name: "Durabor® 30MnB5",                   value: 137 },
+      { name: "HC",                                 value: 12  },
+      { name: "K171-S355J2+N EN10025-2 AMDS",      value: 58  },
+      { name: "P235S",                              value: 51  },
+      { name: "P245NB+N",                           value: 39  },
+      { name: "P265GH",                             value: 36  },
+      { name: "P265GH-CAT_A",                       value: 36  },
+      { name: "P275SL",                             value: 66  },
+      { name: "P310NB+N",                           value: 57  },
+      { name: "P355GH",                             value: 86  },
+      { name: "P355NB+N",                           value: 67  },
+      { name: "P355NL1",                            value: 101 },
+      { name: "P355NL1_TS50",                       value: 111 },
+      { name: "S235J0+N-CAT_A",                     value: 24  },
+      { name: "S235J2+AR",                          value: 19  },
+      { name: "S235J2+AR-CAT_A",                    value: 19  },
+      { name: "S235J2+N",                           value: 24  },
+      { name: "S235J2+N-CAT_A",                     value: 24  },
+      { name: "S235J2+N-CAT_B",                     value: 24  },
+      { name: "S235JR+AR",                          value: 9   },
+      { name: "S235JR+AR-CAT_A",                    value: 9   },
+      { name: "S235JR+N",                           value: 24  },
+      { name: "S235JR+N-CAT_A",                     value: 24  },
+      { name: "S235JR+N-CAT_B",                     value: 24  },
+      { name: "S235JRC+AR",                         value: 24  },
+      { name: "S235JRC+AR-CAT_A",                   value: 24  },
+      { name: "S235JRC+N",                          value: 39  },
+      { name: "S235JRC+N-CAT_A",                    value: 29  },
+      { name: "S235JRCU+AR",                        value: 34  },
+      { name: "S235JRCU+N",                         value: 49  },
+      { name: "S235JRCU+N-CAT_A",                   value: 49  },
+      { name: "S240 D",                             value: 14  },
+      { name: "S240 Laser",                         value: 25  },
+      { name: "S275J0+AR-CAT_A",                    value: 35  },
+      { name: "S275J2+N",                           value: 40  },
+      { name: "S275J2+N-CAT_A",                     value: 40  },
+      { name: "S275J2C+N",                          value: 55  },
+      { name: "S275JR+AR",                          value: 20  },
+      { name: "S275JR+AR-CAT_A",                    value: 20  },
+      { name: "S275JR+N",                           value: 40  },
+      { name: "S275JR+N-CAT_A",                     value: 40  },
+      { name: "S315MC",                             value: 43  },
+      { name: "S355 Laser",                         value: 60  },
+      { name: "S355J0+AR-CAT_B",                    value: 47  },
+      { name: "S355J0WP+AR",                        value: 135 },
+      { name: "S355J2+AR",                          value: 52  },
+      { name: "S355J2+AR-CAT_A",                    value: 52  },
+      { name: "S355J2+N",                           value: 57  },
+      { name: "S355J2+N_TS190",                     value: 86  },
+      { name: "S355J2+N-CAT_A",                     value: 57  },
+      { name: "S355J2+N-CAT_B",                     value: 57  },
+      { name: "S355J2C+N",                          value: 72  },
+      { name: "S355J2C+N-CAT_A (57)",               value: 57  },
+      { name: "S355J2C+N-CAT_A (72)",               value: 72  },
+      { name: "S355J2CU+N (97)",                    value: 97  },
+      { name: "S355J2CU+N (82)",                    value: 82  },
+      { name: "S355J2W+AR",                         value: 180 },
+      { name: "S355J2W+N",                          value: 175 },
+      { name: "S355J2WC+N",                         value: 190 },
+      { name: "S355JR+AR",                          value: 42  },
+      { name: "S355JR+AR-CAT_A",                    value: 42  },
+      { name: "S355JR+AR-CAT_B",                    value: 42  },
+      { name: "S355JR+N",                           value: 57  },
+      { name: "S355JR+N-CAT_A",                     value: 57  },
+      { name: "S355JRCU+AR",                        value: 67  },
+      { name: "S355K2+N",                           value: 62  },
+      { name: "S355MC (68)",                        value: 68  },
+      { name: "S355MC (48)",                        value: 48  },
+      { name: "S355MC_AGROWHEELS",                  value: 48  },
+      { name: "S355MC-CAT_A",                       value: 48  },
+      { name: "S355MC-CAT_B",                       value: 48  },
+      { name: "S420MC",                             value: 68  },
+      { name: "S420MC-CAT_A",                       value: 68  },
+      { name: "S460MC",                             value: 78  },
+      { name: "S460MC-CAT_A",                       value: 78  },
+      { name: "S500MC",                             value: 83  },
+      { name: "S500MC-CAT_A",                       value: 83  },
+      { name: "S550MC",                             value: 103 },
+      { name: "S550MC-CAT_A",                       value: 103 },
+      { name: "S650MC",                             value: 163 },
+      { name: "S700MC",                             value: 165 },
+      { name: "S700MC-CAT_A",                       value: 165 },
+      { name: "SS Grade 36 Type 2",                 value: 20  },
+    ];
+
+    // Tabela gatunkow CR – ARCELOR
+    const GRADE_TABLE_CR = [
+      { name: "ARCELOR 220 BH",              value: 47  },
+      { name: "CR210LA-UC",                  value: 35  },
+      { name: "CR270LA",                     value: 45  },
+      { name: "CR340LA",                     value: 70  },
+      { name: "DC01",                        value: 0   },
+      { name: "DC01-CAT_A",                  value: 5   },
+      { name: "DC01EK",                      value: 20  },
+      { name: "DC03",                        value: 10  },
+      { name: "DC03ED",                      value: 60  },
+      { name: "DC04",                        value: 16  },
+      { name: "DC04BS",                      value: 91  },
+      { name: "DC04ED",                      value: 60  },
+      { name: "DC04EK",                      value: 32  },
+      { name: "DC05",                        value: 40  },
+      { name: "DC06",                        value: 80  },
+      { name: "DC06 EK A",                   value: 80  },
+      { name: "DC06EK",                      value: 80  },
+      { name: "Dual Phase 600",              value: 150 },
+      { name: "GMW2-ST-S CR1",               value: 0   },
+      { name: "GMW3032M-ST-S CR340LA",       value: 70  },
+      { name: "HC 240",                      value: 15  },
+      { name: "HC1590X",                     value: 150 },
+      { name: "HC180",                       value: 0   },
+      { name: "HC180CA",                     value: 3   },
+      { name: "HC180-DC01",                  value: 0   },
+      { name: "HC220",                       value: 8   },
+      { name: "HC220CA",                     value: 11  },
+      { name: "HC220P",                      value: 35  },
+      { name: "HC220Y",                      value: 65  },
+      { name: "HC260 LA",                    value: 35  },
+      { name: "HC260CA",                     value: 15  },
+      { name: "HC260LA",                     value: 35  },
+      { name: "HC300 LA",                    value: 35  },
+      { name: "HC300LA",                     value: 35  },
+      { name: "HC340LA",                     value: 50  },
+      { name: "HC340LA-MT15536",             value: 55  },
+      { name: "HC380LA",                     value: 70  },
+      { name: "HC420LA",                     value: 75  },
+      { name: "HC460LA",                     value: 80  },
+      { name: "HC500LA",                     value: 120 },
+      { name: "HSLA 300",                    value: 45  },
+      { name: "HSLA 340",                    value: 55  },
+      { name: "HSLA 420",                    value: 75  },
+      { name: "S215G",                       value: 15  },
+      { name: "St 37-2 G",                   value: 15  },
+      { name: "XE",                          value: 10  },
+      { name: "XES",                         value: 25  },
+    ];
+    const GRADE_TABLE_HDG = [
+      { name: "HX260LAD+Z",              value:  33 },
+      { name: "S220GD+Z",                value:   3 },
+      { name: "S250GD+Z",                value:   8 },
+      { name: "S280GD+Z",                value:  18 },
+      { name: "S320GD+Z",                value:  26 },
+      { name: "S350GD+Z",                value:  43 },
+      { name: "S390GD+Z",                value:  53 },
+      { name: "S420GD+Z",                value:  63 },
+      { name: "S450GD+Z",                value:  73 },
+      { name: "S450GD-HYPer+Z",          value:  78 },
+      { name: "S550GD-HYPer+Z",          value: 103 },
+      { name: "FE 590 FB +Z",            value: 120 },
+      { name: "CR210LA-GI",              value:  38 },
+      { name: "CR270LA-GI",              value:  48 },
+      { name: "CR300LA-GI",              value:  58 },
+      { name: "CR300LA-GI-U",            value:  53 },
+      { name: "CR340LA-GI",              value:  73 },
+      { name: "CR380LA-GI",              value:  78 },
+      { name: "CR420LA-GI",              value:  78 },
+      { name: "FEE 340 F",               value:  73 },
+      { name: "HC260LAD+Z",              value:  33 },
+      { name: "HSLA 260+Z",              value:  33 },
+      { name: "HSLA 340+Z",              value:  53 },
+      { name: "HX300LAD+Z",              value:  48 },
+      { name: "HX340LAD+Z",              value:  53 },
+      { name: "HX380LAD+Z",              value:  73 },
+      { name: "HX420LAD+Z",              value:  83 },
+      { name: "HX500LAD+Z",              value: 103 },
+      { name: "CR210IF-GI-U",            value:  95 },
+      { name: "HX220YD+Z",              value:  95 },
+      { name: "3CG",                     value:  54 },
+      { name: "CR3-GI",                  value:  92 },
+      { name: "CR4-GI-U",               value: 112 },
+      { name: "DX51D+Z",                value:   2 },
+      { name: "DX51D+Z_YS220",          value:   2 },
+      { name: "DX52D+Z",                value:  27 },
+      { name: "DX52D+Z-MA",             value:  27 },
+      { name: "DX53D+Z",                value:  54 },
+      { name: "DX54D+Z",                value:  92 },
+      { name: "DX56D+Z",                value: 112 },
+      { name: "FEP12+Z",                value:  54 },
+      { name: "CR290Y490T-DP-GI",        value: 142 },
+      { name: "CR330Y590T-DP-GI",        value: 162 },
+      { name: "HCT450X+Z",              value: 132 },
+      { name: "HCT600X+Z",              value: 162 },
+      { name: "CR180BH-GI",             value:  72 },
+      { name: "CR210BH-GI",             value:  62 },
+      { name: "CR270BH",                value:  87 },
+      { name: "HX220BD+Z",              value:  62 },
+      { name: "H220D+Z",                value:  16 },
+    ];
+
+    const GRADE_TABLES = { HRS: GRADE_TABLE_HRS, CR: GRADE_TABLE_CR, HDG: GRADE_TABLE_HDG };
+
+    let activeGradeTable = GRADE_TABLE_HRS;
+    let selectedGrade = null;
+
+    /* ============================================================
+       1. DIMENSION SURCHARGE MATRIX
+       ============================================================ */
+    /* ============================================================
+       DIMENSION SURCHARGE MATRIX – HRS
+       Kolumny szerokosci: B=600-799, C=800-899, D=900-1099, E=1100-1499,
+       F=1500-1549, G=1550-1599, H=1600-1849, I=1850-2049, J=2050+
+       Wartosc null = kombinacja niedostepna (wyswietli ostrzezenie).
+       Aby dodac macierze dla CR/HDG, stworz DIMENSION_MATRIX_CR itp.
+       ============================================================ */
+    const DIMENSION_MATRIX_HRS = [
+      // thMin,  thMax,   wMin,  wMax, value
+      // Wiersze 1.00–1.49: puste w nowej tabeli – brak dopłaty
+      // ── 1.50-1.59 ──────────────────────────────────────────────
+      { thicknessMin:  1.50, thicknessMax:  1.59, widthMin:  600, widthMax:  799, value: 107 },
+      { thicknessMin:  1.50, thicknessMax:  1.59, widthMin:  800, widthMax:  899, value:  54 },
+      { thicknessMin:  1.50, thicknessMax:  1.59, widthMin:  900, widthMax: 1099, value:  49 },
+      { thicknessMin:  1.50, thicknessMax:  1.59, widthMin: 1100, widthMax: 1499, value:  45 },
+      // ── 1.60-1.69 ──────────────────────────────────────────────
+      { thicknessMin:  1.60, thicknessMax:  1.69, widthMin:  600, widthMax:  799, value:  97 },
+      { thicknessMin:  1.60, thicknessMax:  1.69, widthMin:  800, widthMax:  899, value:  44 },
+      { thicknessMin:  1.60, thicknessMax:  1.69, widthMin:  900, widthMax: 1099, value:  43 },
+      { thicknessMin:  1.60, thicknessMax:  1.69, widthMin: 1100, widthMax: 1499, value:  40 },
+      { thicknessMin:  1.60, thicknessMax:  1.69, widthMin: 1500, widthMax: 1549, value:  40 },
+      // ── 1.70-1.79 ──────────────────────────────────────────────
+      { thicknessMin:  1.70, thicknessMax:  1.79, widthMin:  600, widthMax:  799, value:  80 },
+      { thicknessMin:  1.70, thicknessMax:  1.79, widthMin:  800, widthMax:  899, value:  44 },
+      { thicknessMin:  1.70, thicknessMax:  1.79, widthMin:  900, widthMax: 1099, value:  39 },
+      { thicknessMin:  1.70, thicknessMax:  1.79, widthMin: 1100, widthMax: 1499, value:  35 },
+      { thicknessMin:  1.70, thicknessMax:  1.79, widthMin: 1500, widthMax: 1549, value:  35 },
+      // ── 1.80-1.99 ──────────────────────────────────────────────
+      { thicknessMin:  1.80, thicknessMax:  1.99, widthMin:  600, widthMax:  799, value:  72 },
+      { thicknessMin:  1.80, thicknessMax:  1.99, widthMin:  800, widthMax:  899, value:  39 },
+      { thicknessMin:  1.80, thicknessMax:  1.99, widthMin:  900, widthMax: 1099, value:  35 },
+      { thicknessMin:  1.80, thicknessMax:  1.99, widthMin: 1100, widthMax: 1499, value:  30 },
+      { thicknessMin:  1.80, thicknessMax:  1.99, widthMin: 1500, widthMax: 1549, value:  30 },
+      // ── 2.00-2.49 ──────────────────────────────────────────────
+      { thicknessMin:  2.00, thicknessMax:  2.49, widthMin:  600, widthMax:  799, value:  61 },
+      { thicknessMin:  2.00, thicknessMax:  2.49, widthMin:  800, widthMax:  899, value:  34 },
+      { thicknessMin:  2.00, thicknessMax:  2.49, widthMin:  900, widthMax: 1099, value:  28 },
+      { thicknessMin:  2.00, thicknessMax:  2.49, widthMin: 1100, widthMax: 1499, value:  24 },
+      { thicknessMin:  2.00, thicknessMax:  2.49, widthMin: 1500, widthMax: 1549, value:  24 },
+      { thicknessMin:  2.00, thicknessMax:  2.49, widthMin: 1550, widthMax: 1599, value:  28 },
+      { thicknessMin:  2.00, thicknessMax:  2.49, widthMin: 1600, widthMax: 1849, value:  28 },
+      { thicknessMin:  2.00, thicknessMax:  2.49, widthMin: 1850, widthMax: 2049, value:  35 },
+      // ── 2.50-2.99 ──────────────────────────────────────────────
+      { thicknessMin:  2.50, thicknessMax:  2.99, widthMin:  600, widthMax:  799, value:  59 },
+      { thicknessMin:  2.50, thicknessMax:  2.99, widthMin:  800, widthMax:  899, value:  29 },
+      { thicknessMin:  2.50, thicknessMax:  2.99, widthMin:  900, widthMax: 1099, value:  25 },
+      { thicknessMin:  2.50, thicknessMax:  2.99, widthMin: 1100, widthMax: 1499, value:  21 },
+      { thicknessMin:  2.50, thicknessMax:  2.99, widthMin: 1500, widthMax: 1549, value:  21 },
+      { thicknessMin:  2.50, thicknessMax:  2.99, widthMin: 1550, widthMax: 1599, value:  21 },
+      { thicknessMin:  2.50, thicknessMax:  2.99, widthMin: 1600, widthMax: 1849, value:  21 },
+      { thicknessMin:  2.50, thicknessMax:  2.99, widthMin: 1850, widthMax: 2049, value:  30 },
+      { thicknessMin:  2.50, thicknessMax:  2.99, widthMin: 2050, widthMax: 9999, value:  38 },
+      // ── 3.00-3.99 ──────────────────────────────────────────────
+      { thicknessMin:  3.00, thicknessMax:  3.99, widthMin:  600, widthMax:  799, value:  53 },
+      { thicknessMin:  3.00, thicknessMax:  3.99, widthMin:  800, widthMax:  899, value:  29 },
+      { thicknessMin:  3.00, thicknessMax:  3.99, widthMin:  900, widthMax: 1099, value:  23 },
+      { thicknessMin:  3.00, thicknessMax:  3.99, widthMin: 1100, widthMax: 1499, value:  19 },
+      { thicknessMin:  3.00, thicknessMax:  3.99, widthMin: 1500, widthMax: 1549, value:  19 },
+      { thicknessMin:  3.00, thicknessMax:  3.99, widthMin: 1550, widthMax: 1599, value:  21 },
+      { thicknessMin:  3.00, thicknessMax:  3.99, widthMin: 1600, widthMax: 1849, value:  21 },
+      { thicknessMin:  3.00, thicknessMax:  3.99, widthMin: 1850, widthMax: 2049, value:  28 },
+      { thicknessMin:  3.00, thicknessMax:  3.99, widthMin: 2050, widthMax: 9999, value:  36 },
+      // ── 4.00-6.99 ──────────────────────────────────────────────
+      { thicknessMin:  4.00, thicknessMax:  6.99, widthMin:  600, widthMax:  799, value:  53 },
+      { thicknessMin:  4.00, thicknessMax:  6.99, widthMin:  800, widthMax:  899, value:  24 },
+      { thicknessMin:  4.00, thicknessMax:  6.99, widthMin:  900, widthMax: 1099, value:  20 },
+      { thicknessMin:  4.00, thicknessMax:  6.99, widthMin: 1100, widthMax: 1499, value:  17 },
+      { thicknessMin:  4.00, thicknessMax:  6.99, widthMin: 1500, widthMax: 1549, value:  17 },
+      { thicknessMin:  4.00, thicknessMax:  6.99, widthMin: 1550, widthMax: 1599, value:  19 },
+      { thicknessMin:  4.00, thicknessMax:  6.99, widthMin: 1600, widthMax: 1849, value:  19 },
+      { thicknessMin:  4.00, thicknessMax:  6.99, widthMin: 1850, widthMax: 2049, value:  28 },
+      { thicknessMin:  4.00, thicknessMax:  6.99, widthMin: 2050, widthMax: 9999, value:  36 },
+      // ── 7.00-9.99 ──────────────────────────────────────────────
+      { thicknessMin:  7.00, thicknessMax:  9.99, widthMin:  600, widthMax:  799, value:  55 },
+      { thicknessMin:  7.00, thicknessMax:  9.99, widthMin:  800, widthMax:  899, value:  29 },
+      { thicknessMin:  7.00, thicknessMax:  9.99, widthMin:  900, widthMax: 1099, value:  25 },
+      { thicknessMin:  7.00, thicknessMax:  9.99, widthMin: 1100, widthMax: 1499, value:  21 },
+      { thicknessMin:  7.00, thicknessMax:  9.99, widthMin: 1500, widthMax: 1549, value:  20 },
+      { thicknessMin:  7.00, thicknessMax:  9.99, widthMin: 1550, widthMax: 1599, value:  21 },
+      { thicknessMin:  7.00, thicknessMax:  9.99, widthMin: 1600, widthMax: 1849, value:  22 },
+      { thicknessMin:  7.00, thicknessMax:  9.99, widthMin: 1850, widthMax: 2049, value:  28 },
+      { thicknessMin:  7.00, thicknessMax:  9.99, widthMin: 2050, widthMax: 9999, value:  38 },
+      // ── 10.00-11.99 ────────────────────────────────────────────
+      { thicknessMin: 10.00, thicknessMax: 11.99, widthMin:  600, widthMax:  799, value:  57 },
+      { thicknessMin: 10.00, thicknessMax: 11.99, widthMin:  800, widthMax:  899, value:  34 },
+      { thicknessMin: 10.00, thicknessMax: 11.99, widthMin:  900, widthMax: 1099, value:  28 },
+      { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 1100, widthMax: 1499, value:  23 },
+      { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 1500, widthMax: 1549, value:  23 },
+      { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 1550, widthMax: 1599, value:  24 },
+      { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 1600, widthMax: 1849, value:  25 },
+      { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 1850, widthMax: 2049, value:  28 },
+      { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 2050, widthMax: 9999, value:  38 },
+      // ── 12.00-14.99 ────────────────────────────────────────────
+      { thicknessMin: 12.00, thicknessMax: 14.99, widthMin:  600, widthMax:  799, value:  59 },
+      { thicknessMin: 12.00, thicknessMax: 14.99, widthMin:  800, widthMax:  899, value:  34 },
+      { thicknessMin: 12.00, thicknessMax: 14.99, widthMin:  900, widthMax: 1099, value:  28 },
+      { thicknessMin: 12.00, thicknessMax: 14.99, widthMin: 1100, widthMax: 1499, value:  25 },
+      { thicknessMin: 12.00, thicknessMax: 14.99, widthMin: 1500, widthMax: 1549, value:  25 },
+      { thicknessMin: 12.00, thicknessMax: 14.99, widthMin: 1550, widthMax: 1599, value:  25 },
+      { thicknessMin: 12.00, thicknessMax: 14.99, widthMin: 1600, widthMax: 1849, value:  25 },
+      { thicknessMin: 12.00, thicknessMax: 14.99, widthMin: 1850, widthMax: 2049, value:  30 },
+      { thicknessMin: 12.00, thicknessMax: 14.99, widthMin: 2050, widthMax: 9999, value:  38 },
+      // ── 15.00-19.99 ────────────────────────────────────────────
+      { thicknessMin: 15.00, thicknessMax: 19.99, widthMin:  600, widthMax:  799, value:  61 },
+      { thicknessMin: 15.00, thicknessMax: 19.99, widthMin:  800, widthMax:  899, value:  38 },
+      { thicknessMin: 15.00, thicknessMax: 19.99, widthMin:  900, widthMax: 1099, value:  40 },
+      { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 1100, widthMax: 1499, value:  30 },
+      { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 1500, widthMax: 1549, value:  30 },
+      { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 1550, widthMax: 1599, value:  25 },
+      { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 1600, widthMax: 1849, value:  25 },
+      { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 1850, widthMax: 2049, value:  35 },
+      { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 2050, widthMax: 9999, value:  40 },
+      // ── 20.00+ ─────────────────────────────────────────────────
+      { thicknessMin: 20.00, thicknessMax: 99.00, widthMin:  600, widthMax:  799, value:  64 },
+      { thicknessMin: 20.00, thicknessMax: 99.00, widthMin:  800, widthMax:  899, value:  48 },
+      { thicknessMin: 20.00, thicknessMax: 99.00, widthMin:  900, widthMax: 1099, value:  50 },
+      { thicknessMin: 20.00, thicknessMax: 99.00, widthMin: 1100, widthMax: 1499, value:  40 },
+      { thicknessMin: 20.00, thicknessMax: 99.00, widthMin: 1500, widthMax: 1549, value:  40 },
+      { thicknessMin: 20.00, thicknessMax: 99.00, widthMin: 1550, widthMax: 1599, value:  35 },
+      { thicknessMin: 20.00, thicknessMax: 99.00, widthMin: 1600, widthMax: 1849, value:  35 },
+      { thicknessMin: 20.00, thicknessMax: 99.00, widthMin: 1850, widthMax: 2049, value:  45 },
+      { thicknessMin: 20.00, thicknessMax: 99.00, widthMin: 2050, widthMax: 9999, value:  45 },
+    ];
+
+    // ── Min grubosci dla HRS (zaktualizowane) ────────────────────
+    const MIN_THICKNESS_HRS = [
+      { widthMin:  600, widthMax:  799, minThickness: 1.50 },
+      { widthMin:  800, widthMax:  899, minThickness: 1.50 },
+      { widthMin:  900, widthMax: 1099, minThickness: 1.50 },
+      { widthMin: 1100, widthMax: 1499, minThickness: 1.50 },
+      { widthMin: 1500, widthMax: 1549, minThickness: 1.60 },
+      { widthMin: 1550, widthMax: 1599, minThickness: 2.00 },
+      { widthMin: 1600, widthMax: 1849, minThickness: 2.00 },
+      { widthMin: 1850, widthMax: 2049, minThickness: 2.00 },
+      { widthMin: 2050, widthMax: 9999, minThickness: 2.50 },
+    ];
+
+    let activeDimensionMatrix = DIMENSION_MATRIX_HRS;
+    let activeMinThickness = MIN_THICKNESS_HRS;
+
+    /**
+     * getDimensionSurcharge(thickness, width)
+     * Zwraca wartosc dopłaty lub null jesli kombinacja niedostepna.
+     */
+    function getDimensionSurcharge(thickness, width) {
+      for (const row of activeDimensionMatrix) {
+        if (thickness >= row.thicknessMin && thickness <= row.thicknessMax &&
+            width    >= row.widthMin     && width    <= row.widthMax) {
+          return row.value;
+        }
+      }
+      return null; // brak dopasowania
+    }
+
+    /**
+     * getMinThicknessForWidth(width)
+     * Zwraca minimalna grubosc dla podanej szerokosci lub null jesli
+     * szerokosc jest poza zakresem.
+     */
+    function getMinThicknessForWidth(width) {
+      for (const rule of activeMinThickness) {
+        if (width >= rule.widthMin && width <= rule.widthMax) {
+          return rule.minThickness;
+        }
+      }
+      return null;
+    }
+
+    /* ============================================================
+       2. STALE WARTOSCI HUTY
+       ============================================================ */
+    const HUTA_CONSTANTS = {
+      pglPeriod: 0,
+      tolThick:  2,
+      cert:      1,
+      coating:   2,
+    };
+
+    const SCRAP_CONSTANT = 10;
+
+    function numVal(id) {
+      return parseFloat(document.getElementById(id).value) || 0;
+    }
+
+    /* ============================================================
+       3. AUTOCOMPLETE – pole "Gatunek"
+       ============================================================ */
+    (function initGradeAutocomplete() {
+      const input    = document.getElementById('inp-grade');
+      const dropdown = document.getElementById('grade-dropdown');
+      let activeIdx  = -1;
+
+      function renderDropdown(query) {
+        const q = query.toLowerCase().trim();
+        const matches = q.length === 0
+          ? activeGradeTable
+          : activeGradeTable.filter(g => g.name.toLowerCase().includes(q));
+
+        if (matches.length === 0) { dropdown.classList.add('hidden'); return; }
+
+        dropdown.innerHTML = matches.map((g, i) =>
+          '<div class="grade-option" data-idx="' + i + '" data-name="' + g.name.replace(/"/g, '&quot;') + '" data-val="' + g.value + '">' +
+            '<span class="g-name">' + hl(g.name, q) + '</span>' +
+            '<span class="g-val">' + g.value + ' &euro;/t</span>' +
+          '</div>'
+        ).join('');
+
+        dropdown.classList.remove('hidden');
+        activeIdx = -1;
+
+        dropdown.querySelectorAll('.grade-option').forEach(opt => {
+          opt.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            pick(this.dataset.name, +this.dataset.val);
+          });
+        });
+      }
+
+      function hl(text, q) {
+        if (!q) return text;
+        const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+        return text.replace(re, '<mark style="background:rgba(232,160,32,0.35);color:var(--text-primary);border-radius:2px;padding:0 1px">$1</mark>');
+      }
+
+      function pick(name, value) {
+        input.value   = name;
+        selectedGrade = { name, value };
+        dropdown.classList.add('hidden');
+        updateYieldVisibility();
+        recalculate();
+      }
+
+      input.addEventListener('focus', function() { renderDropdown(this.value); });
+      input.addEventListener('input', function() {
+        selectedGrade = null;
+        renderDropdown(this.value);
+        recalculate();
+      });
+      input.addEventListener('blur', function() {
+        setTimeout(function() { dropdown.classList.add('hidden'); }, 160);
+      });
+      input.addEventListener('keydown', function(e) {
+        const opts = dropdown.querySelectorAll('.grade-option');
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          activeIdx = Math.min(activeIdx + 1, opts.length - 1);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          activeIdx = Math.max(activeIdx - 1, 0);
+        } else if (e.key === 'Enter' && activeIdx >= 0) {
+          e.preventDefault();
+          var o = opts[activeIdx];
+          pick(o.dataset.name, +o.dataset.val);
+          return;
+        } else if (e.key === 'Escape') {
+          dropdown.classList.add('hidden'); return;
+        }
+        opts.forEach(function(o, i) { o.classList.toggle('active', i === activeIdx); });
+        if (opts[activeIdx]) opts[activeIdx].scrollIntoView({ block: 'nearest' });
+      });
+
+      var def = GRADE_TABLE_HRS.find(function(g) { return g.name === 'S235JR+N'; }) || GRADE_TABLE_HRS.find(function(g) { return g.name.indexOf('S235') !== -1; }) || GRADE_TABLE_HRS[0];
+      if (def) { input.value = def.name; selectedGrade = def; }
+    })();
+
+    /* ============================================================
+       TOGGLE HELPER
+       setToggle(groupId, hiddenInputId, value, clickedBtn)
+       Aktualizuje stan przyciskow i ukryty input, po czym przelicza.
+       ============================================================ */
+    function setToggle(groupId, inputId, value, btn) {
+      document.querySelectorAll('#' + groupId + ' .toggle-btn').forEach(function(b) {
+        b.classList.remove('active-toggle');
+      });
+      btn.classList.add('active-toggle');
+      document.getElementById(inputId).value = value;
+      // Update the visible value badge next to the toggle group
+      var badge = document.getElementById('disp-' + inputId);
+      if (badge) badge.textContent = value;
+      recalculate();
+    }
+
+    /* ============================================================
+       POWLOKA (COATING) MATRIX – HDG only
+       Kolumny: Z100 Z140 Z200 Z225 Z275 Z350 Z450 Z600 Z725 Z800
+       null = kombinacja niedostepna dla danej grubosci
+       ============================================================ */
+    const COATING_MATRIX_HDG = [
+      // { thMin, thMax, Z100, Z140, Z200, Z225, Z275, Z350, Z450, Z600, Z725, Z800 }
+      { thMin: 0.19, thMax: 0.20, Z100:51,  Z140:102, Z200:187, Z225:225, Z275:null, Z350:null, Z450:null, Z600:null, Z725:null, Z800:null },
+      { thMin: 0.21, thMax: 0.22, Z100:46,  Z140:93,  Z200:169, Z225:205, Z275:null, Z350:null, Z450:null, Z600:null, Z725:null, Z800:null },
+      { thMin: 0.23, thMax: 0.24, Z100:43,  Z140:86,  Z200:154, Z225:189, Z275:234,  Z350:null, Z450:null, Z600:null, Z725:null, Z800:null },
+      { thMin: 0.25, thMax: 0.29, Z100:36,  Z140:76,  Z200:138, Z225:168, Z275:212,  Z350:null, Z450:null, Z600:null, Z725:null, Z800:null },
+      { thMin: 0.30, thMax: 0.34, Z100:31,  Z140:64,  Z200:118, Z225:142, Z275:179,  Z350:233,  Z450:null, Z600:null, Z725:null, Z800:null },
+      { thMin: 0.35, thMax: 0.39, Z100:28,  Z140:57,  Z200:101, Z225:122, Z275:154,  Z350:203,  Z450:null, Z600:null, Z725:null, Z800:null },
+      { thMin: 0.40, thMax: 0.44, Z100:24,  Z140:51,  Z200:89,  Z225:109, Z275:136,  Z350:177,  Z450:null, Z600:null, Z725:null, Z800:null },
+      { thMin: 0.45, thMax: 0.49, Z100:20,  Z140:44,  Z200:80,  Z225:95,  Z275:121,  Z350:161,  Z450:null, Z600:null, Z725:null, Z800:null },
+      { thMin: 0.50, thMax: 0.54, Z100:20,  Z140:39,  Z200:71,  Z225:88,  Z275:109,  Z350:145,  Z450:null, Z600:null, Z725:null, Z800:null },
+      { thMin: 0.55, thMax: 0.59, Z100:18,  Z140:35,  Z200:66,  Z225:79,  Z275:99,   Z350:134,  Z450:null, Z600:null, Z725:null, Z800:null },
+      { thMin: 0.60, thMax: 0.69, Z100:16,  Z140:32,  Z200:58,  Z225:71,  Z275:89,   Z350:118,  Z450:159,  Z600:null, Z725:null, Z800:null },
+      { thMin: 0.70, thMax: 0.79, Z100:12,  Z140:27,  Z200:49,  Z225:61,  Z275:77,   Z350:101,  Z450:138,  Z600:188,  Z725:null, Z800:null },
+      { thMin: 0.80, thMax: 0.89, Z100:11,  Z140:23,  Z200:44,  Z225:55,  Z275:69,   Z350:89,   Z450:122,  Z600:167,  Z725:null, Z800:null },
+      { thMin: 0.90, thMax: 0.99, Z100:10,  Z140:23,  Z200:39,  Z225:48,  Z275:60,   Z350:78,   Z450:106,  Z600:150,  Z725:null, Z800:null },
+      { thMin: 1.00, thMax: 1.24, Z100:8,   Z140:19,  Z200:36,  Z225:42,  Z275:50,   Z350:71,   Z450:95,   Z600:132,  Z725:null, Z800:null },
+      { thMin: 1.25, thMax: 1.49, Z100:7,   Z140:15,  Z200:30,  Z225:36,  Z275:43,   Z350:58,   Z450:77,   Z600:105,  Z725:null, Z800:null },
+      { thMin: 1.50, thMax: 1.99, Z100:5,   Z140:13,  Z200:24,  Z225:29,  Z275:36,   Z350:46,   Z450:65,   Z600:87,   Z725:114,  Z800:134  },
+      { thMin: 2.00, thMax: 2.49, Z100:5,   Z140:9,   Z200:16,  Z225:22,  Z275:28,   Z350:35,   Z450:45,   Z600:67,   Z725:86,   Z800:101  },
+      { thMin: 2.50, thMax: 2.99, Z100:4,   Z140:9,   Z200:14,  Z225:17,  Z275:23,   Z350:30,   Z450:40,   Z600:55,   Z725:72,   Z800:79   },
+      { thMin: 3.00, thMax: 3.99, Z100:3,   Z140:6,   Z200:10,  Z225:12,  Z275:17,   Z350:25,   Z450:32,   Z600:42,   Z725:57,   Z800:67   },
+      { thMin: 4.00, thMax: 4.99, Z100:2,   Z140:5,   Z200:9,   Z225:10,  Z275:16,   Z350:17,   Z450:26,   Z600:33,   Z725:45,   Z800:52   },
+      { thMin: 5.00, thMax: 99.0, Z100:2,   Z140:5,   Z200:9,   Z225:10,  Z275:16,   Z350:17,   Z450:26,   Z600:33,   Z725:45,   Z800:52   },
+    ];
+    // ── CR Dimension Matrix ──────────────────────────────────────
+    const DIMENSION_MATRIX_CR = [
+      // 0.20-0.29: puste
+      // 0.30-0.39: puste
+      // ── 0.40-0.49 ──────────────────────────────────────────────
+      { thicknessMin: 0.40, thicknessMax: 0.49, widthMin:  600, widthMax:  699, value: 125 },
+      { thicknessMin: 0.40, thicknessMax: 0.49, widthMin:  700, widthMax:  799, value: 100 },
+      { thicknessMin: 0.40, thicknessMax: 0.49, widthMin:  800, widthMax:  899, value:  85 },
+      { thicknessMin: 0.40, thicknessMax: 0.49, widthMin:  900, widthMax: 1099, value:  75 },
+      { thicknessMin: 0.40, thicknessMax: 0.49, widthMin: 1100, widthMax: 1299, value:  65 },
+      { thicknessMin: 0.40, thicknessMax: 0.49, widthMin: 1300, widthMax: 1699, value:  70 },
+      // ── 0.50-0.59 ──────────────────────────────────────────────
+      { thicknessMin: 0.50, thicknessMax: 0.59, widthMin:  600, widthMax:  699, value: 105 },
+      { thicknessMin: 0.50, thicknessMax: 0.59, widthMin:  700, widthMax:  799, value:  85 },
+      { thicknessMin: 0.50, thicknessMax: 0.59, widthMin:  800, widthMax:  899, value:  60 },
+      { thicknessMin: 0.50, thicknessMax: 0.59, widthMin:  900, widthMax: 1099, value:  50 },
+      { thicknessMin: 0.50, thicknessMax: 0.59, widthMin: 1100, widthMax: 1299, value:  40 },
+      { thicknessMin: 0.50, thicknessMax: 0.59, widthMin: 1300, widthMax: 1699, value:  40 },
+      { thicknessMin: 0.50, thicknessMax: 0.59, widthMin: 1700, widthMax: 1849, value:  50 },
+      { thicknessMin: 0.50, thicknessMax: 0.59, widthMin: 1850, widthMax: 1925, value:  50 },
+      // ── 0.60-0.69 ──────────────────────────────────────────────
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin:  600, widthMax:  699, value: 100 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin:  700, widthMax:  799, value:  74 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin:  800, widthMax:  899, value:  50 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin:  900, widthMax: 1099, value:  40 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 1100, widthMax: 1299, value:  30 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 1300, widthMax: 1699, value:  30 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 1700, widthMax: 1849, value:  31 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 1850, widthMax: 1925, value:  76 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 1926, widthMax: 2000, value: 161 },
+      // ── 0.70-0.79 ──────────────────────────────────────────────
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin:  600, widthMax:  699, value:  80 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin:  700, widthMax:  799, value:  59 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin:  800, widthMax:  899, value:  45 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin:  900, widthMax: 1099, value:  35 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 1100, widthMax: 1299, value:  25 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 1300, widthMax: 1699, value:  25 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 1700, widthMax: 1849, value:  26 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 1850, widthMax: 1925, value:  66 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 1926, widthMax: 2000, value: 144 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 2001, widthMax: 9999, value: 195 },
+      // ── 0.80-0.89 ──────────────────────────────────────────────
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin:  600, widthMax:  699, value:  70 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin:  700, widthMax:  799, value:  54 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin:  800, widthMax:  899, value:  40 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin:  900, widthMax: 1099, value:  31 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 1100, widthMax: 1299, value:  21 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 1300, widthMax: 1699, value:  19 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 1700, widthMax: 1849, value:  19 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 1850, widthMax: 1925, value:  56 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 1926, widthMax: 2000, value: 122 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 2001, widthMax: 9999, value: 165 },
+      // ── 0.90-1.24 ──────────────────────────────────────────────
+      { thicknessMin: 0.90, thicknessMax: 1.24, widthMin:  600, widthMax:  699, value:  60 },
+      { thicknessMin: 0.90, thicknessMax: 1.24, widthMin:  700, widthMax:  799, value:  49 },
+      { thicknessMin: 0.90, thicknessMax: 1.24, widthMin:  800, widthMax:  899, value:  35 },
+      { thicknessMin: 0.90, thicknessMax: 1.24, widthMin:  900, widthMax: 1099, value:  21 },
+      { thicknessMin: 0.90, thicknessMax: 1.24, widthMin: 1100, widthMax: 1299, value:  16 },
+      { thicknessMin: 0.90, thicknessMax: 1.24, widthMin: 1300, widthMax: 1699, value:  16 },
+      { thicknessMin: 0.90, thicknessMax: 1.24, widthMin: 1700, widthMax: 1849, value:  16 },
+      { thicknessMin: 0.90, thicknessMax: 1.24, widthMin: 1850, widthMax: 1925, value:  46 },
+      { thicknessMin: 0.90, thicknessMax: 1.24, widthMin: 1926, widthMax: 2000, value:  97 },
+      { thicknessMin: 0.90, thicknessMax: 1.24, widthMin: 2001, widthMax: 9999, value: 135 },
+      // ── 1.25-1.49 ──────────────────────────────────────────────
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin:  600, widthMax:  699, value:  55 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin:  700, widthMax:  799, value:  44 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin:  800, widthMax:  899, value:  30 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin:  900, widthMax: 1099, value:  16 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 1100, widthMax: 1299, value:  11 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 1300, widthMax: 1699, value:  11 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 1700, widthMax: 1849, value:  11 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 1850, widthMax: 1925, value:  36 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 1926, widthMax: 2000, value:  79 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 2001, widthMax: 9999, value: 110 },
+      // ── 1.50-1.99 ──────────────────────────────────────────────
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin:  600, widthMax:  699, value:  50 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin:  700, widthMax:  799, value:  39 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin:  800, widthMax:  899, value:  25 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin:  900, widthMax: 1099, value:  11 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 1100, widthMax: 1299, value:   6 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 1300, widthMax: 1699, value:   6 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 1700, widthMax: 1849, value:   6 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 1850, widthMax: 1925, value:  36 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 1926, widthMax: 2000, value:  74 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 2001, widthMax: 9999, value: 115 },
+      // ── 2.00-2.99 ──────────────────────────────────────────────
+      { thicknessMin: 2.00, thicknessMax: 2.99, widthMin:  600, widthMax:  699, value:  50 },
+      { thicknessMin: 2.00, thicknessMax: 2.99, widthMin:  700, widthMax:  799, value:  39 },
+      { thicknessMin: 2.00, thicknessMax: 2.99, widthMin:  800, widthMax:  899, value:  20 },
+      { thicknessMin: 2.00, thicknessMax: 2.99, widthMin:  900, widthMax: 1099, value:  11 },
+      { thicknessMin: 2.00, thicknessMax: 2.99, widthMin: 1100, widthMax: 1299, value:   6 },
+      { thicknessMin: 2.00, thicknessMax: 2.99, widthMin: 1300, widthMax: 1699, value:   6 },
+      { thicknessMin: 2.00, thicknessMax: 2.99, widthMin: 1700, widthMax: 1849, value:   6 },
+      { thicknessMin: 2.00, thicknessMax: 2.99, widthMin: 1850, widthMax: 1925, value:  56 },
+      { thicknessMin: 2.00, thicknessMax: 2.99, widthMin: 1926, widthMax: 2000, value:  87 },
+      { thicknessMin: 2.00, thicknessMax: 2.99, widthMin: 2001, widthMax: 9999, value: 120 },
+      // ── 3.00+ ──────────────────────────────────────────────────
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin:  600, widthMax:  699, value:  60 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin:  700, widthMax:  799, value:  54 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin:  800, widthMax:  899, value:  35 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin:  900, widthMax: 1099, value:  26 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin: 1100, widthMax: 1299, value:  21 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin: 1300, widthMax: 1699, value:  21 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin: 1700, widthMax: 1849, value:  21 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin: 1850, widthMax: 1925, value:  86 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin: 1926, widthMax: 2000, value: 117 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin: 2001, widthMax: 9999, value: 150 },
+    ];
+
+    const MIN_THICKNESS_CR = [
+      { widthMin:  600, widthMax:  699, minThickness: 0.40 },
+      { widthMin:  700, widthMax:  799, minThickness: 0.40 },
+      { widthMin:  800, widthMax:  899, minThickness: 0.40 },
+      { widthMin:  900, widthMax: 1099, minThickness: 0.40 },
+      { widthMin: 1100, widthMax: 1299, minThickness: 0.40 },
+      { widthMin: 1300, widthMax: 1699, minThickness: 0.40 },
+      { widthMin: 1700, widthMax: 1849, minThickness: 0.50 },
+      { widthMin: 1850, widthMax: 1925, minThickness: 0.50 },
+      { widthMin: 1926, widthMax: 2000, minThickness: 0.60 },
+      { widthMin: 2001, widthMax: 9999, minThickness: 0.70 },
+    ];
+    // ── HDG Dimension Matrix ─────────────────────────────────
+    const DIMENSION_MATRIX_HDG = [
+      // 0.19-0.39: puste w tabeli
+      // ── 0.40-0.44 ──────────────────────────────────────────────
+      { thicknessMin: 0.40, thicknessMax: 0.44, widthMin:  600, widthMax:  699, value: 196 },
+      { thicknessMin: 0.40, thicknessMax: 0.44, widthMin:  700, widthMax:  799, value: 177 },
+      { thicknessMin: 0.40, thicknessMax: 0.44, widthMin:  800, widthMax:  899, value: 157 },
+      { thicknessMin: 0.40, thicknessMax: 0.44, widthMin:  900, widthMax: 1099, value: 138 },
+      { thicknessMin: 0.40, thicknessMax: 0.44, widthMin: 1100, widthMax: 1299, value: 127 },
+      { thicknessMin: 0.40, thicknessMax: 0.44, widthMin: 1300, widthMax: 1499, value: 127 },
+      { thicknessMin: 0.40, thicknessMax: 0.44, widthMin: 1500, widthMax: 1850, value: 127 },
+      // ── 0.45-0.49 ──────────────────────────────────────────────
+      { thicknessMin: 0.45, thicknessMax: 0.49, widthMin:  600, widthMax:  699, value: 188 },
+      { thicknessMin: 0.45, thicknessMax: 0.49, widthMin:  700, widthMax:  799, value: 168 },
+      { thicknessMin: 0.45, thicknessMax: 0.49, widthMin:  800, widthMax:  899, value: 148 },
+      { thicknessMin: 0.45, thicknessMax: 0.49, widthMin:  900, widthMax: 1099, value: 131 },
+      { thicknessMin: 0.45, thicknessMax: 0.49, widthMin: 1100, widthMax: 1299, value: 124 },
+      { thicknessMin: 0.45, thicknessMax: 0.49, widthMin: 1300, widthMax: 1499, value: 124 },
+      { thicknessMin: 0.45, thicknessMax: 0.49, widthMin: 1500, widthMax: 1850, value: 124 },
+      // ── 0.50-0.54 ──────────────────────────────────────────────
+      { thicknessMin: 0.50, thicknessMax: 0.54, widthMin:  600, widthMax:  699, value: 175 },
+      { thicknessMin: 0.50, thicknessMax: 0.54, widthMin:  700, widthMax:  799, value: 160 },
+      { thicknessMin: 0.50, thicknessMax: 0.54, widthMin:  800, widthMax:  899, value: 134 },
+      { thicknessMin: 0.50, thicknessMax: 0.54, widthMin:  900, widthMax: 1099, value: 114 },
+      { thicknessMin: 0.50, thicknessMax: 0.54, widthMin: 1100, widthMax: 1299, value: 106 },
+      { thicknessMin: 0.50, thicknessMax: 0.54, widthMin: 1300, widthMax: 1499, value: 106 },
+      { thicknessMin: 0.50, thicknessMax: 0.54, widthMin: 1500, widthMax: 1850, value: 106 },
+      // ── 0.55-0.59 ──────────────────────────────────────────────
+      { thicknessMin: 0.55, thicknessMax: 0.59, widthMin:  600, widthMax:  699, value: 172 },
+      { thicknessMin: 0.55, thicknessMax: 0.59, widthMin:  700, widthMax:  799, value: 153 },
+      { thicknessMin: 0.55, thicknessMax: 0.59, widthMin:  800, widthMax:  899, value: 128 },
+      { thicknessMin: 0.55, thicknessMax: 0.59, widthMin:  900, widthMax: 1099, value: 113 },
+      { thicknessMin: 0.55, thicknessMax: 0.59, widthMin: 1100, widthMax: 1299, value: 103 },
+      { thicknessMin: 0.55, thicknessMax: 0.59, widthMin: 1300, widthMax: 1499, value: 103 },
+      { thicknessMin: 0.55, thicknessMax: 0.59, widthMin: 1500, widthMax: 1850, value: 103 },
+      // ── 0.60-0.69 ──────────────────────────────────────────────
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin:  600, widthMax:  699, value: 142 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin:  700, widthMax:  799, value: 121 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin:  800, widthMax:  899, value:  97 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin:  900, widthMax: 1099, value:  86 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 1100, widthMax: 1299, value:  78 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 1300, widthMax: 1499, value:  78 },
+      { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 1500, widthMax: 1850, value:  78 },
+      // ── 0.70-0.79 ──────────────────────────────────────────────
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin:  600, widthMax:  699, value: 129 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin:  700, widthMax:  799, value: 112 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin:  800, widthMax:  899, value:  91 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin:  900, widthMax: 1099, value:  82 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 1100, widthMax: 1299, value:  71 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 1300, widthMax: 1499, value:  71 },
+      { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 1500, widthMax: 1850, value:  71 },
+      // ── 0.80-0.89 ──────────────────────────────────────────────
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin:  600, widthMax:  699, value: 115 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin:  700, widthMax:  799, value:  97 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin:  800, widthMax:  899, value:  85 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin:  900, widthMax: 1099, value:  76 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 1100, widthMax: 1299, value:  66 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 1300, widthMax: 1499, value:  66 },
+      { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 1500, widthMax: 1850, value:  66 },
+      // ── 0.90-0.99 ──────────────────────────────────────────────
+      { thicknessMin: 0.90, thicknessMax: 0.99, widthMin:  600, widthMax:  699, value: 102 },
+      { thicknessMin: 0.90, thicknessMax: 0.99, widthMin:  700, widthMax:  799, value:  85 },
+      { thicknessMin: 0.90, thicknessMax: 0.99, widthMin:  800, widthMax:  899, value:  70 },
+      { thicknessMin: 0.90, thicknessMax: 0.99, widthMin:  900, widthMax: 1099, value:  60 },
+      { thicknessMin: 0.90, thicknessMax: 0.99, widthMin: 1100, widthMax: 1299, value:  51 },
+      { thicknessMin: 0.90, thicknessMax: 0.99, widthMin: 1300, widthMax: 1499, value:  51 },
+      { thicknessMin: 0.90, thicknessMax: 0.99, widthMin: 1500, widthMax: 1850, value:  51 },
+      // ── 1.00-1.24 ──────────────────────────────────────────────
+      { thicknessMin: 1.00, thicknessMax: 1.24, widthMin:  600, widthMax:  699, value:  93 },
+      { thicknessMin: 1.00, thicknessMax: 1.24, widthMin:  700, widthMax:  799, value:  78 },
+      { thicknessMin: 1.00, thicknessMax: 1.24, widthMin:  800, widthMax:  899, value:  63 },
+      { thicknessMin: 1.00, thicknessMax: 1.24, widthMin:  900, widthMax: 1099, value:  53 },
+      { thicknessMin: 1.00, thicknessMax: 1.24, widthMin: 1100, widthMax: 1299, value:  48 },
+      { thicknessMin: 1.00, thicknessMax: 1.24, widthMin: 1300, widthMax: 1499, value:  48 },
+      { thicknessMin: 1.00, thicknessMax: 1.24, widthMin: 1500, widthMax: 1850, value:  48 },
+      // ── 1.25-1.49 ──────────────────────────────────────────────
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin:  600, widthMax:  699, value:  85 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin:  700, widthMax:  799, value:  72 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin:  800, widthMax:  899, value:  57 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin:  900, widthMax: 1099, value:  45 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 1100, widthMax: 1299, value:  40 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 1300, widthMax: 1499, value:  40 },
+      { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 1500, widthMax: 1850, value:  40 },
+      // ── 1.50-1.99 ──────────────────────────────────────────────
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin:  600, widthMax:  699, value:  79 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin:  700, widthMax:  799, value:  66 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin:  800, widthMax:  899, value:  51 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin:  900, widthMax: 1099, value:  38 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 1100, widthMax: 1299, value:  34 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 1300, widthMax: 1499, value:  34 },
+      { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 1500, widthMax: 1850, value:  34 },
+      // ── 2.00-2.49 ──────────────────────────────────────────────
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin:  600, widthMax:  699, value:  65 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin:  700, widthMax:  799, value:  52 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin:  800, widthMax:  899, value:  38 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin:  900, widthMax: 1099, value:  28 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1100, widthMax: 1299, value:  22 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1300, widthMax: 1499, value:  22 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1500, widthMax: 1850, value:  22 },
+      // ── 2.50-2.99 ──────────────────────────────────────────────
+      { thicknessMin: 2.50, thicknessMax: 2.99, widthMin:  600, widthMax:  699, value:  64 },
+      { thicknessMin: 2.50, thicknessMax: 2.99, widthMin:  700, widthMax:  799, value:  52 },
+      { thicknessMin: 2.50, thicknessMax: 2.99, widthMin:  800, widthMax:  899, value:  38 },
+      { thicknessMin: 2.50, thicknessMax: 2.99, widthMin:  900, widthMax: 1099, value:  27 },
+      { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 1100, widthMax: 1299, value:  22 },
+      { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 1300, widthMax: 1499, value:  22 },
+      { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 1500, widthMax: 1850, value:  22 },
+      // ── 3.00-3.99 ──────────────────────────────────────────────
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin:  600, widthMax:  699, value:  77 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin:  700, widthMax:  799, value:  66 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin:  800, widthMax:  899, value:  52 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin:  900, widthMax: 1099, value:  39 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin: 1100, widthMax: 1299, value:  34 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin: 1300, widthMax: 1499, value:  33 },
+      { thicknessMin: 3.00, thicknessMax: 3.00, widthMin: 1500, widthMax: 1850, value:  33 },
+    ];
+
+    const MIN_THICKNESS_HDG = [
+      { widthMin:  600, widthMax:  699, minThickness: 0.40 },
+      { widthMin:  700, widthMax:  799, minThickness: 0.40 },
+      { widthMin:  800, widthMax:  899, minThickness: 0.40 },
+      { widthMin:  900, widthMax: 1099, minThickness: 0.40 },
+      { widthMin: 1100, widthMax: 1299, minThickness: 0.40 },
+      { widthMin: 1300, widthMax: 1499, minThickness: 0.40 },
+      { widthMin: 1500, widthMax: 1850, minThickness: 0.40 },
+    ];
+
+
+
+    var selectedCoating = 'Z100'; // domyslna powloka HDG
+
+    function getCoatingSurcharge(thickness, coating) {
+      for (var i = 0; i < COATING_MATRIX_HDG.length; i++) {
+        var row = COATING_MATRIX_HDG[i];
+        if (thickness >= row.thMin && thickness <= row.thMax) {
+          var val = row[coating];
+          return (val !== null && val !== undefined) ? val : null;
+        }
+      }
+      return null;
+    }
+
+    function setCoating(coating, btn) {
+      selectedCoating = coating;
+      document.querySelectorAll('#tg-coating .toggle-btn').forEach(function(b) {
+        b.classList.remove('active-toggle');
+      });
+      btn.classList.add('active-toggle');
+      recalculate();
+    }
+
+    /* Show/hide coating row depending on steel type */
+    function updateCoatingVisibility(type) {
+      var rowCoat = document.getElementById('row-coating');
+      if (rowCoat) rowCoat.style.display = (type === 'HDG') ? '' : 'none';
+
+      var rowCR  = document.getElementById('cr-huta-rows');
+      if (rowCR) rowCR.style.display = (type === 'CR') ? '' : 'none';
+
+      var rowHDG = document.getElementById('hdg-huta-rows');
+      if (rowHDG) rowHDG.style.display = (type === 'HDG') ? '' : 'none';
+
+      // Reset CR fields when not CR
+      var crDefaults = { 'cr-zabezp': 0, 'cr-opak': 5, 'cr-powierz': 0, 'cr-wykon': 0, 'cr-zgrzew': -3 };
+      ['cr-zabezp','cr-opak','cr-powierz','cr-wykon','cr-zgrzew'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.value = (type === 'CR') ? crDefaults[id] : 0;
+      });
+
+      // Certyfikat default: 2.2 (0) for CR, 3.1 (5) for HRS/HDG
+      var certDefault = (type === 'CR') ? 0 : 5;
+      var certEl = document.getElementById('huta-cert');
+      if (certEl) certEl.value = certDefault;
+      var certBadge = document.getElementById('disp-huta-cert');
+      if (certBadge) certBadge.textContent = certDefault;
+      document.querySelectorAll('#tg-huta-cert .toggle-btn').forEach(function(b) {
+        b.classList.remove('active-toggle');
+        var v = parseFloat(b.getAttribute('onclick').match(/,([\d.]+),this/)[1]);
+        if (v === certDefault) b.classList.add('active-toggle');
+      });
+
+      // Reset HDG fields when not HDG
+      var hdgDefaults = { 'hdg-zabezp': 0, 'hdg-opak': 5, 'hdg-powierz': 0, 'hdg-wykon': 0, 'hdg-zgrzew': -3 };
+      Object.keys(hdgDefaults).forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.value = (type === 'HDG') ? hdgDefaults[id] : 0;
+      });
+    }
+
+    /* Gatunki HRS które maja dopłatę za granicę plastyczności */
+    var YIELD_GRADES = ['S550MC','S550MC-CAT_A','S650MC','S700MC','S700MC-CAT_A','Amstrong® Ultra 650MC','Amstrong® Ultra 700MC_B','Amstrong® Ultra 700MCT','Amstrong® Ultra 700MCT_A','AMSTRONG®550MC'];
+
+    /* Show/hide Granica plastyczności depending on type + selected grade */
+    function updateYieldVisibility() {
+      var row = document.getElementById('row-yield');
+      if (!row) return;
+      var grade = (document.getElementById('inp-grade').value || '').trim();
+      var show  = (currentType === 'HRS' && YIELD_GRADES.indexOf(grade) !== -1);
+      row.style.display = show ? '' : 'none';
+      // Stała wartość 7; przy ukryciu zerujemy aby nie wpływać na sumę
+      document.getElementById('ssc-yield').value = show ? 7 : 0;
+    }
+
+    /* ============================================================
+       THEME TOGGLE – Light / Dark
+       ============================================================ */
+    var isDark = true;
+    function toggleTheme() {
+      isDark = !isDark;
+      document.body.classList.toggle('light', !isDark);
+      document.getElementById('theme-icon').textContent  = isDark ? '☀️' : '🌙';
+      document.getElementById('theme-label').textContent = isDark ? 'Light' : 'Dark';
+    }
+
+    /* ============================================================
+       TOLERANCJA GRUBOSCI – opcje per typ stali
+       ============================================================ */
+    var TOL_THICK_OPTIONS = {
+      HRS: [
+        { label: '3/4 EN',  value: 0  },
+        { label: '1/2',     value: 5  },
+        { label: '1/3',     value: 15 },
+        { label: '1/4',     value: 25 },
+      ],
+      CR: [
+        { label: 'Normalna',  value: 0  },
+        { label: 'Specjalna', value: 5  },
+        { label: '1/2 EN',    value: 10 },
+        { label: '1/3 EN',    value: 20 },
+      ],
+      HDG: [
+        { label: 'Normalna',  value: 0  },
+        { label: 'Specjalna', value: 0  },
+        { label: '1/2 EN',    value: 10 },
+        { label: '1/3 EN',    value: 20 },
+        { label: '1/4 EN',    value: 20 },
+      ],
+    };
+
+    function updateTolThickButtons(type) {
+      var group   = document.getElementById('tg-huta-tolthick');
+      var hidden  = document.getElementById('huta-tol-thick');
+      var badge   = document.getElementById('disp-huta-tol-thick');
+      var options = TOL_THICK_OPTIONS[type] || TOL_THICK_OPTIONS['HRS'];
+
+      group.innerHTML = '';
+      options.forEach(function(opt, i) {
+        var btn = document.createElement('button');
+        btn.className = 'toggle-btn' + (i === 0 ? ' active-toggle' : '');
+        btn.textContent = opt.label;
+        btn.onclick = function() { setToggle('tg-huta-tolthick', 'huta-tol-thick', opt.value, btn); };
+        group.appendChild(btn);
+      });
+
+      // Resetuj do pierwszej opcji
+      var first = options[0];
+      hidden.value     = first.value;
+      badge.textContent = first.value;
+    }
+
+    /* ============================================================
+       PODSTAWOWA DOPŁATA ZA DŁUGOŚĆ – HRS (macierz)
+       Kolumny: 650-999, 1000-1999, 2000-6000, 6001-8999, 9000-12300
+       ============================================================ */
+    const LENGTH_SURCHARGE_HRS = [
+      { thMin:  1.50, thMax:  1.99, l1: 67, l2: 56, l3: 42, l4: 47, l5: 52 },
+      { thMin:  2.00, thMax:  2.99, l1: 67, l2: 51, l3: 31, l4: 37, l5: 42 },
+      { thMin:  3.00, thMax:  9.99, l1: 67, l2: 44, l3: 31, l4: 37, l5: 42 },
+      { thMin: 10.00, thMax: 11.99, l1: 67, l2: 44, l3: 31, l4: 37, l5: 42 },
+      { thMin: 12.00, thMax: 16.00, l1: 67, l2: 39, l3: 31, l4: 37, l5: 42 },
+      { thMin: 16.01, thMax: 20.00, l1: 67, l2: 51, l3: 31, l4: 37, l5: 42 },
+    ];
+
+    /* ============================================================
+       PODSTAWOWA DOPŁATA – CR i HDG (macierz: grubość × szerokość)
+       Kolumny: <299, 300-599, 600-899, 900-1500, >1500
+       ============================================================ */
+    const BASE_SURCHARGE_CR_HDG = [
+      { thMin: 0.50, thMax: 0.59, w1: 96, w2: 90, w3: 80, w4: 65, w5: 77 },
+      { thMin: 0.60, thMax: 0.99, w1: 90, w2: 84, w3: 74, w4: 59, w5: 71 },
+      { thMin: 1.00, thMax: 1.49, w1: 83, w2: 77, w3: 67, w4: 52, w5: 64 },
+      { thMin: 1.50, thMax: 2.50, w1: 79, w2: 73, w3: 63, w4: 48, w5: 60 },
+      { thMin: 2.51, thMax: 3.00, w1: 87, w2: 81, w3: 71, w4: 56, w5: 68 },
+    ];
+
+    function getBaseSurchargeCRHDG(thickness, width) {
+      for (var i = 0; i < BASE_SURCHARGE_CR_HDG.length; i++) {
+        var row = BASE_SURCHARGE_CR_HDG[i];
+        if (thickness >= row.thMin && thickness <= row.thMax) {
+          if (width <  299)                   return row.w1;
+          if (width >= 300  && width <= 599)  return row.w2;
+          if (width >= 600  && width <= 899)  return row.w3;
+          if (width >= 900  && width <= 1500) return row.w4;
+          if (width >  1500)                  return row.w5;
+          return null;
+        }
+      }
+      return null;
+    }
+
+    function getBaseLengthSurchargeHRS(thickness, length) {
+      for (var i = 0; i < LENGTH_SURCHARGE_HRS.length; i++) {
+        var row = LENGTH_SURCHARGE_HRS[i];
+        if (thickness >= row.thMin && thickness <= row.thMax) {
+          if (length >=  650 && length <=  999) return row.l1;
+          if (length >= 1000 && length <= 1999) return row.l2;
+          if (length >= 2000 && length <= 6000) return row.l3;
+          if (length >= 6001 && length <= 8999) return row.l4;
+          if (length >= 9000 && length <= 12300) return row.l5;
+          return null; // długość poza zakresem
+        }
+      }
+      return null; // grubość poza zakresem
+    }
+
+    /* All types now use auto-lookup – always show display span, hide manual input */
+    function updateBaseDoplataMode(type) {
+      var inp  = document.getElementById('ssc-base');
+      var disp = document.getElementById('ssc-base-display');
+      // All three types use matrix lookup – show display, hide editable input
+      inp.style.display  = 'none';
+      disp.style.display = '';
+    }
+
+    /* ============================================================
+       4. GLOWNA FUNKCJA OBLICZENIOWA
+       ============================================================ */
+    function recalculate() {
+      const thickness    = numVal('inp-thickness');
+      const width        = numVal('inp-width');
+      const dimSurcharge = getDimensionSurcharge(thickness, width);
+      const gradeSurcharge = selectedGrade ? selectedGrade.value : 0;
+
+      // ── WALIDACJA WYMIARU ─────────────────────────────────────
+      const warning    = document.getElementById('dim-warning');
+      const warningMsg = document.getElementById('dim-warning-msg');
+      const dimCell    = document.getElementById('val-dim-surcharge');
+
+      if (dimSurcharge === null) {
+        var minTh = getMinThicknessForWidth(width);
+        var warnText;
+        if (minTh !== null) {
+          if (thickness < minTh) {
+            // Za mała grubość
+            warnText = 'Dla szerokości <strong>' + width + ' mm</strong> minimalna grubość wynosi <strong>' + minTh.toFixed(2) + ' mm</strong>. Wpisana wartość (' + thickness.toFixed(2) + ' mm) jest za mała.';
+          } else {
+            // Za duża grubość – znajdź maksymalną dostępną w tej kolumnie szerokości
+            var maxTh = null;
+            for (var r = 0; r < activeDimensionMatrix.length; r++) {
+              var row = activeDimensionMatrix[r];
+              if (width >= row.widthMin && width <= row.widthMax) {
+                if (maxTh === null || row.thicknessMax > maxTh) maxTh = row.thicknessMax;
+              }
+            }
+            if (maxTh !== null && maxTh < 99) {
+              warnText = 'Dla szerokości <strong>' + width + ' mm</strong> maksymalna dostępna grubość wynosi <strong>' + maxTh.toFixed(2) + ' mm</strong>. Wpisana wartość (' + thickness.toFixed(2) + ' mm) jest za duża.';
+            } else {
+              warnText = 'Kombinacja grubości <strong>' + thickness.toFixed(2) + ' mm</strong> i szerokości <strong>' + width + ' mm</strong> jest poza zakresem tabeli.';
+            }
+          }
+        } else {
+          warnText = 'Szerokość <strong>' + width + ' mm</strong> jest poza zakresem tabeli.';
+        }
+        warningMsg.innerHTML = warnText;
+        warning.classList.add('visible');
+        dimCell.textContent = '—';
+        dimCell.style.color = 'var(--accent-sum)';
+      } else {
+        warning.classList.remove('visible');
+        dimCell.textContent = dimSurcharge;
+        dimCell.style.color = '';
+      }
+
+      const effectiveDim = dimSurcharge !== null ? dimSurcharge : 0;
+
+      var tolThick = parseFloat(document.getElementById('huta-tol-thick').value) || 0;
+      var cert     = parseFloat(document.getElementById('huta-cert').value) || 0;
+
+      document.getElementById('val-pgl-period').textContent = HUTA_CONSTANTS.pglPeriod;
+      document.getElementById('val-grade').textContent      = gradeSurcharge;
+      document.getElementById('disp-huta-tol-thick').textContent = tolThick;
+      document.getElementById('disp-huta-cert').textContent        = cert;
+      // Powloka – tylko dla HDG, z macierzy
+      var coatingSurcharge = 0;
+      var coatingEl = document.getElementById('val-coating');
+      if (currentType === 'HDG') {
+        var cv = getCoatingSurcharge(thickness, selectedCoating);
+        if (cv !== null) {
+          coatingSurcharge = cv;
+          if (coatingEl) coatingEl.textContent = cv + ' €/t';
+        } else {
+          if (coatingEl) coatingEl.textContent = '— (niedostępne)';
+        }
+      } else {
+        if (coatingEl) coatingEl.textContent = '—';
+      }
+
+      // CR-only dopłaty w kolumnie Huta
+      var crExtra = 0;
+      if (currentType === 'CR') {
+        crExtra = (parseFloat(document.getElementById('cr-zabezp').value)  || 0)
+                + (parseFloat(document.getElementById('cr-opak').value)    || 0)
+                + (parseFloat(document.getElementById('cr-powierz').value) || 0)
+                + (parseFloat(document.getElementById('cr-wykon').value)   || 0)
+                + (parseFloat(document.getElementById('cr-zgrzew').value)  || 0);
+      }
+      // HDG-only dopłaty w kolumnie Huta
+      if (currentType === 'HDG') {
+        crExtra = (parseFloat(document.getElementById('hdg-zabezp').value)  || 0)
+                + (parseFloat(document.getElementById('hdg-opak').value)    || 0)
+                + (parseFloat(document.getElementById('hdg-powierz').value) || 0)
+                + (parseFloat(document.getElementById('hdg-wykon').value)   || 0)
+                + (parseFloat(document.getElementById('hdg-zgrzew').value)  || 0);
+      }
+
+      const sumaHuta =
+        HUTA_CONSTANTS.pglPeriod +
+        effectiveDim             +
+        gradeSurcharge           +
+        tolThick                 +
+        cert                     +
+        coatingSurcharge         +
+        crExtra;
+
+      document.getElementById('sum-huta').textContent = sumaHuta.toFixed(2);
+
+      // Podstawowa dopłata – HRS: macierz (grubość×długość); CR/HDG: macierz (grubość×szerokość)
+      var baseVal;
+      var baseComputed = null;
+      if (currentType === 'HRS') {
+        baseComputed = getBaseLengthSurchargeHRS(thickness, numVal('inp-length'));
+      } else {
+        baseComputed = getBaseSurchargeCRHDG(thickness, width);
+      }
+      if (baseComputed !== null) {
+        baseVal = baseComputed;
+        document.getElementById('ssc-base').value = baseVal;
+        var dispEl = document.getElementById('ssc-base-display');
+        if (dispEl) dispEl.textContent = baseVal;
+      } else {
+        baseVal = numVal('ssc-base');
+        var dispEl2 = document.getElementById('ssc-base-display');
+        if (dispEl2) dispEl2.textContent = '—';
+      }
+
+      const sumaSSC = [
+        baseVal, numVal('ssc-len-tol'), numVal('ssc-flatness'),
+        numVal('ssc-surface'), numVal('ssc-maxweight'), numVal('ssc-marking'),
+        numVal('ssc-edging'), numVal('ssc-yield'), numVal('ssc-packing'),
+        numVal('ssc-labels'), SCRAP_CONSTANT,
+      ].reduce(function(a, v) { return a + v; }, 0);
+
+      document.getElementById('val-scrap').textContent = SCRAP_CONSTANT;
+      document.getElementById('sum-ssc').textContent   = sumaSSC.toFixed(2);
+
+      const pglBase   = numVal('sum-pgl-input');
+      const marginPct = numVal('sum-margin-pct');
+      const extra     = numVal('sum-extra');
+      const transport = numVal('sum-transport');
+
+      const cenaWsadu   = pglBase + sumaHuta;
+      const marzaNetto  = cenaWsadu * (marginPct / 100);
+      const cenaKoncowa = cenaWsadu + marzaNetto + extra + transport + sumaSSC;
+
+      document.getElementById('val-wsad').textContent       = cenaWsadu.toFixed(2);
+      document.getElementById('val-margin').textContent     = marzaNetto.toFixed(2);
+      document.getElementById('val-ssc-echo').textContent   = sumaSSC.toFixed(2);
+      document.getElementById('val-final').textContent      = cenaKoncowa.toFixed(2);
+      document.getElementById('val-final-echo').textContent = cenaKoncowa.toFixed(2);
+    }
+
+    /* ============================================================
+       5. WYBOR TYPU STALI
+       ============================================================ */
+    let currentType = 'HRS';
+
+    function selectType(type, btn) {
+      currentType = type;
+      document.querySelectorAll('.type-btn').forEach(function(b) { b.className = 'type-btn'; });
+      var classMap = { HRS: 'active-hrs', CR: 'active-cr', HDG: 'active-hdg' };
+      btn.classList.add(classMap[type]);
+
+      activeGradeTable = GRADE_TABLES[type] || [];
+      // Podmien macierz wymiarow
+      var dimMatrices   = { HRS: DIMENSION_MATRIX_HRS, CR: DIMENSION_MATRIX_CR,  HDG: DIMENSION_MATRIX_HDG };
+      var minThMatrices = { HRS: MIN_THICKNESS_HRS,   CR: MIN_THICKNESS_CR,    HDG: MIN_THICKNESS_HDG  };
+      activeDimensionMatrix = dimMatrices[type]   || DIMENSION_MATRIX_HRS;
+      activeMinThickness    = minThMatrices[type] || MIN_THICKNESS_HRS;
+      selectedGrade = null;
+      var inp = document.getElementById('inp-grade');
+      inp.value = '';
+      document.getElementById('grade-dropdown').classList.add('hidden');
+      // Default grade per type
+      var defaultGrades = { HRS: 'S235JR+N', CR: 'DC01', HDG: 'DX51D+Z' };
+      var defaultName   = defaultGrades[type] || '';
+      var defaultEntry  = activeGradeTable.find(function(g) {
+        return g.name.replace(/\s/g,'').toLowerCase() === defaultName.replace(/\s/g,'').toLowerCase();
+      }) || activeGradeTable.find(function(g) {
+        return g.name.toLowerCase().indexOf(defaultName.split('+')[0].toLowerCase()) !== -1;
+      }) || (activeGradeTable.length > 0 ? activeGradeTable[0] : null);
+      if (defaultEntry) {
+        inp.value = defaultEntry.name;
+        selectedGrade = defaultEntry;
+      }
+      // Default coating for HDG
+      if (type === 'HDG') {
+        selectedCoating = 'Z275';
+        document.querySelectorAll('#tg-coating .toggle-btn').forEach(function(b) {
+          b.classList.remove('active-toggle');
+          if (b.textContent.trim() === 'Z275') b.classList.add('active-toggle');
+        });
+      }
+      updateCoatingVisibility(type);
+      updateYieldVisibility();
+      updateTolThickButtons(type);
+      updateBaseDoplataMode(type);
+      recalculate();
+    }
+
+    /* ============================================================
+       6. LISTENERY
+       ============================================================ */
+    document.querySelectorAll('input:not(#inp-grade), select').forEach(function(el) {
+      el.addEventListener('input', recalculate);
+    });
+
+    /* ============================================================
+       7. PIERWSZE OBLICZENIE
+       ============================================================ */
+    /* ============================================================
+       7. PIERWSZE OBLICZENIE
+       ============================================================ */
+    recalculate();
+
+    /* ============================================================
+       8. ZESTAWIENIE – LOGIKA
+       ============================================================ */
+    var zestawienie = [];   // tablica pozycji
+    var editingId   = null; // null = nowa pozycja; liczba = edytujemy istniejącą
+
+    /* Pobiera aktualny snapshot kalkulatora */
+    function getSnapshot() {
+      var thickness = document.getElementById('inp-thickness').value;
+      var width     = document.getElementById('inp-width').value;
+      var length    = document.getElementById('inp-length').value;
+      var grade     = document.getElementById('inp-grade').value || '—';
+      var type      = currentType;
+
+      var sumaHuta  = parseFloat(document.getElementById('sum-huta').textContent)  || 0;
+      var sumaSSC   = parseFloat(document.getElementById('sum-ssc').textContent)   || 0;
+      var marza     = parseFloat(document.getElementById('val-margin').textContent) || 0;
+      var finalPrice= parseFloat(document.getElementById('val-final').textContent)  || 0;
+      var pgl       = parseFloat(document.getElementById('sum-pgl-input').value)    || 0;
+
+      var tons = parseFloat(document.getElementById('inp-tons').value) || 1;
+      return {
+        id:         Date.now(),
+        type:       type,
+        grade:      grade,
+        thickness:  parseFloat(thickness) || 0,
+        width:      parseFloat(width)     || 0,
+        length:     parseFloat(length)    || 0,
+        sumaHuta:   sumaHuta,
+        sumaSSC:    sumaSSC,
+        marza:      marza,
+        finalPrice: finalPrice,
+        tons:       tons,
+        totalValue: Math.round(finalPrice * tons * 100) / 100,
+        pgl:        pgl,
+      };
+    }
+
+    /* Przywraca snapshot do pól kalkulatora */
+    function restoreSnapshot(snap) {
+      document.getElementById('inp-thickness').value  = snap.thickness;
+      document.getElementById('inp-width').value      = snap.width;
+      document.getElementById('inp-length').value     = snap.length;
+      document.getElementById('inp-grade').value      = snap.grade;
+      document.getElementById('sum-pgl-input').value  = snap.pgl;
+      document.getElementById('inp-tons').value       = snap.tons || 1;
+
+      // Przełącz typ stali
+      var btns = document.querySelectorAll('.type-btn');
+      btns.forEach(function(b) {
+        if (b.dataset.type === snap.type) { selectType(snap.type, b); }
+      });
+
+      recalculate();
+    }
+
+    /* Renderuje całą tabelę od zera */
+    function renderZestawienie() {
+      var tbody = document.getElementById('zest-tbody');
+      var emptyRow = document.getElementById('zest-empty-row');
+
+      // Wyczyść istniejące wiersze (poza empty-row)
+      var rows = tbody.querySelectorAll('.zr');
+      rows.forEach(function(r) { r.remove(); });
+
+      if (zestawienie.length === 0) {
+        if (emptyRow) emptyRow.style.display = '';
+        document.getElementById('zest-total').textContent = '—';
+        document.getElementById('zest-count').textContent = '';
+        return;
+      }
+      if (emptyRow) emptyRow.style.display = 'none';
+
+      var total = 0;
+      zestawienie.forEach(function(item, idx) {
+        total += item.finalPrice;
+        var tr = document.createElement('tr');
+        tr.className = 'zr';
+        tr.innerHTML =
+          '<td>' + (idx + 1) + '</td>' +
+          '<td><div class="z-desc-grade">' + escHtml(item.grade) + '</div>' +
+            '<div class="z-desc-dim">' + item.thickness + ' × ' + item.width + ' × ' + item.length + ' mm</div></td>' +
+          '<td><span class="z-type-badge z-type-' + item.type + '">' + item.type + '</span></td>' +
+          '<td>' + item.sumaHuta.toFixed(2) + '</td>' +
+          '<td>' + item.sumaSSC.toFixed(2)  + '</td>' +
+          '<td>' + item.marza.toFixed(2)     + '</td>' +
+          '<td class="z-final">' + item.finalPrice.toFixed(2) + ' €/t</td>' +
+          '<td style="color:var(--text-value);">' + (item.tons || 1).toFixed(2) + ' t</td>' +
+          '<td class="z-final">' + ((item.totalValue !== undefined ? item.totalValue : item.finalPrice * (item.tons||1))).toFixed(2) + ' €</td>' +
+          '<td>' +
+            '<button class="z-action-btn z-edit-btn" title="Edytuj"     onclick="editItem(' + item.id + ')">✏️</button>' +
+            '<button class="z-action-btn z-dup-btn" title="Duplikuj" onclick="dupItem(' + item.id + ')">⧉</button>' +
+            '<button class="z-action-btn z-del-btn" title="Usuń"     onclick="deleteItem(' + item.id + ')">🗑</button>' +
+          '</td>';
+        tbody.appendChild(tr);
+      });
+
+      var totalTons  = zestawienie.reduce(function(s,i){ return s + (i.tons||1); }, 0);
+      var totalValue = zestawienie.reduce(function(s,i){ return s + (i.totalValue !== undefined ? i.totalValue : i.finalPrice*(i.tons||1)); }, 0);
+      var avgUnit    = totalTons > 0 ? total / zestawienie.length : 0;
+      document.getElementById('zest-total').textContent = totalValue.toFixed(2);
+      document.getElementById('zest-count').textContent = '(' + zestawienie.length + ' ' +
+        (zestawienie.length === 1 ? 'pozycja' : zestawienie.length < 5 ? 'pozycje' : 'pozycji') +
+        ' · ' + totalTons.toFixed(2) + ' t)';
+    }
+
+    function escHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    /* Dodaj / zaktualizuj pozycję */
+    function addToZestawienie() {
+      var snap = getSnapshot();
+      var btn  = document.getElementById('btn-add-zestawienie');
+
+      if (editingId !== null) {
+        // Zamień istniejącą pozycję
+        var idx = zestawienie.findIndex(function(i) { return i.id === editingId; });
+        if (idx !== -1) {
+          snap.id = editingId; // zachowaj to samo id
+          zestawienie[idx] = snap;
+        }
+        editingId = null;
+        btn.textContent = '＋ DODAJ DO ZESTAWIENIA';
+      } else {
+        zestawienie.push(snap);
+      }
+
+      renderZestawienie();
+
+      // Scroll do zestawienia
+      document.getElementById('zestawienie-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    /* Edytuj pozycję */
+    function editItem(id) {
+      var item = zestawienie.find(function(i) { return i.id === id; });
+      if (!item) return;
+
+      editingId = id;
+      restoreSnapshot(item);
+
+      // Zmień napis przycisku
+      var btn = document.getElementById('btn-add-zestawienie');
+      btn.textContent = '💾 ZAKTUALIZUJ POZYCJĘ';
+
+      // Scroll do kalkulatora
+      document.querySelector('.type-selector').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    /* Duplikuj pozycję */
+    function dupItem(id) {
+      var item = zestawienie.find(function(i) { return i.id === id; });
+      if (!item) return;
+      var copy = Object.assign({}, item, { id: Date.now() });
+      var idx = zestawienie.findIndex(function(i) { return i.id === id; });
+      zestawienie.splice(idx + 1, 0, copy);
+      renderZestawienie();
+    }
+
+    /* Usuń pozycję */
+    function deleteItem(id) {
+      zestawienie = zestawienie.filter(function(i) { return i.id !== id; });
+      if (editingId === id) {
+        editingId = null;
+        document.getElementById('btn-add-zestawienie').textContent = '＋ DODAJ DO ZESTAWIENIA';
+      }
+      renderZestawienie();
+    }
+
+    /* Wyczyść całe zestawienie */
+    function clearZestawienie() {
+      if (zestawienie.length === 0) return;
+      if (!confirm('Czy na pewno chcesz usunąć wszystkie pozycje zestawienia?')) return;
+      zestawienie = [];
+      editingId   = null;
+      document.getElementById('btn-add-zestawienie').textContent = '＋ DODAJ DO ZESTAWIENIA';
+      renderZestawienie();
+    }
+
+    // Inicjalizuj przyciski tolerancji dla domyslnego typu
+    updateTolThickButtons('HRS');
+    updateBaseDoplataMode('HRS');
+    // Pierwsze wyrenderowanie (pusta tabela)
+    renderZestawienie();
+  </script>
+
+</body>
+</html>

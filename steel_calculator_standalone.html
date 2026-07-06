@@ -1,0 +1,2325 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kalkulator Dopłat do Stali</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ==== CSS VARIABLES & RESET ==== */
+    :root {
+      --bg:          #0f1117;
+      --bg-panel:    #181c26;
+      --bg-card:     #1e2333;
+      --bg-input:    #141720;
+      --border:      #2a3048;
+      --border-hi:   #3d4a70;
+
+      --accent-hrs:  #e8a020;
+      --accent-cr:   #3b8ef5;
+      --accent-hdg:  #2ecc71;
+      --accent-sum:  #f5475a;
+
+      --text-primary:   #e8ecf5;
+      --text-secondary: #7b88aa;
+      --text-muted:     #4a536b;
+      --text-value:     #c8d4f0;
+
+      --font-sans: 'IBM Plex Sans', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+
+      --radius:  6px;
+      --shadow:  0 4px 24px rgba(0,0,0,0.45);
+    }
+
+    /* LIGHT MODE */
+    body.light {
+      --bg:          #eef0f6;
+      --bg-panel:    #e2e6f0;
+      --bg-card:     #ffff;
+      --bg-input:    #f4f5fa;
+      --border:      #b8c0d8;
+      --border-hi:   #7e90c0;
+
+      --text-primary:   #0d1220;
+      --text-secondary: #2e3a5c;
+      --text-muted:     #6b789a;
+      --text-value:     #141e3a;
+
+      --shadow:  0 4px 24px rgba(0,0,0,0.12);
+    }
+
+    body.light .toggle-btn {
+      border-color: #9aa4c4;
+      color: #2e3a5c;
+    }
+    body.light .toggle-btn:hover {
+      border-color: #5a6fa8;
+      color: #0d1220;
+      background: #dde2f0;
+    }
+    body.light .toggle-btn.active-toggle {
+      border-color: var(--accent-cr);
+      background: rgba(59,142,245,0.12);
+      color: #1a5fcc;
+    }
+    body.light .type-btn {
+      border-color: #9aa4c4;
+    }
+    body.light .type-btn:hover {
+      border-color: #5a6fa8;
+    }
+    body.light .row-input {
+      border-color: #9aa4c4;
+      color: #0d1220;
+    }
+    body.light .param-group input,
+    body.light .param-group select {
+      border-color: #9aa4c4;
+      color: #0d1220;
+    }
+    body.light .grade-dropdown {
+      border-color: #7e90c0;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    }
+    body.light .grade-option .g-name { color: #141e3a; }
+    body.light .sum-row { background: rgba(0,0,0,0.04); }
+    body.light .data-row:hover { background: rgba(0,0,0,0.03); }
+    body.light .header-badge { border-color: #9aa4c4; }
+    body.light .dim-warning { color: #9b2a35; }
+
+    /* Theme toggle button */
+    .theme-toggle {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 14px 5px 10px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .theme-toggle:hover { border-color: var(--border-hi); color: var(--text-primary); }
+    .theme-toggle .theme-icon { font-size: 14px; }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 28px 24px 48px;
+    }
+
+    /* HEADER */
+    .app-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .app-header .logo-mark {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #3b8ef5 0%, #e8a020 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: -1px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .app-header h1 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--text-primary);
+    }
+
+    .app-header p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      font-family: var(--font-mono);
+    }
+
+    .header-controls {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Language Selector */
+    .lang-selector {
+      display: flex;
+      gap: 6px;
+    }
+
+    .lang-btn {
+      background: var(--bg-card);
+      border: 2px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.6;
+    }
+
+    .lang-btn:hover {
+      border-color: var(--border-hi);
+      opacity: 0.9;
+    }
+
+    .lang-btn.active {
+      border-color: var(--accent-cr);
+      opacity: 1;
+      background: rgba(59,142,245,0.1);
+    }
+
+    .lang-btn svg {
+      width: 24px;
+      height: 16px;
+      display: block;
+    }
+
+    /* STEEL TYPE SELECTOR */
+    .type-selector {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .type-btn {
+      flex: 1;
+      padding: 14px 20px;
+      background: var(--bg-panel);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .type-btn::before {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      opacity: 0;
+      transition: opacity 0.18s;
+    }
+
+    .type-btn:hover {
+      border-color: var(--border-hi);
+      color: var(--text-primary);
+    }
+
+    .type-btn.active-hrs {
+      background: rgba(232,160,32,0.08);
+      border-color: var(--accent-hrs);
+      color: var(--accent-hrs);
+    }
+    .type-btn.active-hrs::before { background: var(--accent-hrs); opacity: 1; }
+
+    .type-btn.active-cr {
+      background: rgba(59,142,245,0.08);
+      border-color: var(--accent-cr);
+      color: var(--accent-cr);
+    }
+    .type-btn.active-cr::before { background: var(--accent-cr); opacity: 1; }
+
+    .type-btn.active-hdg {
+      background: rgba(46,204,113,0.08);
+      border-color: var(--accent-hdg);
+      color: var(--accent-hdg);
+    }
+    .type-btn.active-hdg::before { background: var(--accent-hdg); opacity: 1; }
+
+    .type-btn .btn-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.05em;
+      opacity: 0.7;
+      margin-top: 3px;
+    }
+
+    /* PARAMETERS SECTION */
+    .params-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .param-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .param-group label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .param-group input,
+    .param-group select {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      padding: 9px 12px;
+      transition: border-color 0.15s;
+      outline: none;
+      width: 100%;
+    }
+
+    .param-group input:focus,
+    .param-group select:focus {
+      border-color: var(--accent-cr);
+    }
+
+    .param-group select option { background: var(--bg-panel); }
+
+    /* MAIN 3-COLUMN GRID */
+    .columns-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    /* CARD / COLUMN WRAPPER */
+    .col-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .col-card-header {
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .col-card-header .col-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .col-card-header h2 {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+    }
+
+    .col-card-header .col-sub {
+      font-size: 10px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      margin-left: auto;
+    }
+
+    /* TABLE ROWS */
+    .data-table {
+      flex: 1;
+      padding: 8px 0;
+    }
+
+    .data-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 18px;
+      border-bottom: 1px solid rgba(42,48,72,0.5);
+      transition: background 0.1s;
+      min-height: 42px;
+    }
+
+    .data-row:last-child { border-bottom: none; }
+
+    .data-row:hover { background: rgba(255,255,255,0.025); }
+
+    .data-row .row-label {
+      flex: 1;
+      font-size: 12px;
+      color: var(--text-secondary);
+      letter-spacing: 0.01em;
+    }
+
+    .data-row .row-value {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-value);
+      font-weight: 500;
+      text-align: right;
+      min-width: 64px;
+    }
+
+    .data-row .row-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 5px 9px;
+      text-align: right;
+      width: 80px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .data-row .row-input:focus { border-color: var(--accent-cr); }
+
+    .data-row .row-input.wide { width: 110px; }
+
+    .data-row .row-unit {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-left: 4px;
+      width: 22px;
+      text-align: left;
+    }
+
+    /* TOTAL / SUM ROW */
+    .sum-row {
+      display: flex;
+      align-items: center;
+      padding: 13px 18px;
+      border-top: 1.5px solid var(--border-hi);
+      background: rgba(0,0,0,0.18);
+      margin-top: auto;
+    }
+
+    .sum-row .sum-label {
+      flex: 1;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .sum-row .sum-value {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .sum-row .sum-unit {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      margin-left: 6px;
+    }
+
+    .col-huta   .col-dot { background: var(--accent-hrs); }
+    .col-huta   .sum-label,
+    .col-huta   .sum-value { color: var(--accent-hrs); }
+
+    .col-ssc    .col-dot { background: var(--accent-cr); }
+    .col-ssc    .sum-label,
+    .col-ssc    .sum-value { color: var(--accent-cr); }
+
+    .col-summary .col-dot { background: var(--accent-sum); }
+    .col-summary .sum-label,
+    .col-summary .sum-value { color: var(--accent-sum); }
+
+    /* FINAL PRICE highlight */
+    .final-price-row {
+      background: rgba(245,71,90,0.08);
+      border: 1px solid rgba(245,71,90,0.25);
+      border-radius: 4px;
+      margin: 8px 14px 4px;
+    }
+
+    .final-price-row .row-label {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .final-price-row .row-value {
+      color: var(--accent-sum);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .col-separator {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 18px;
+    }
+
+    /* ZESTAWIENIE TABLE */
+    .zt {
+      padding: 9px 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-align: right;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+    }
+    .zr td {
+      padding: 9px 14px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-value);
+      text-align: right;
+      border-bottom: 1px solid rgba(42,48,72,0.4);
+      vertical-align: middle;
+    }
+    .zr:hover td { background: rgba(255,255,255,0.025); }
+    body.light .zr:hover td { background: rgba(0,0,0,0.025); }
+    body.light .zr td { color: var(--text-value); }
+    .zr td:nth-child(2) { text-align: left; }
+    .zr td:nth-child(3) { text-align: center; }
+    .zr .z-desc-grade { color: var(--text-primary); font-weight: 600; font-size: 12px; }
+    .zr .z-desc-dim   { color: var(--text-secondary); font-size: 10px; margin-top:2px; }
+    .zr .z-final      { color: var(--accent-sum); font-weight: 700; font-size: 13px; }
+    .z-action-btn {
+      background: none; border: 1px solid var(--border); border-radius: 4px;
+      padding: 4px 8px; cursor: pointer; font-size: 13px;
+      transition: all 0.13s; margin-left: 4px;
+    }
+    .z-action-btn:hover { border-color: var(--border-hi); }
+    .z-edit-btn:hover  { border-color: var(--accent-cr); color: var(--accent-cr); }
+    .z-del-btn:hover   { border-color: var(--accent-sum); color: var(--accent-sum); }
+    .z-dup-btn:hover   { border-color: #a78bfa; color: #a78bfa; }
+    .z-type-badge {
+      display: inline-block; font-family: var(--font-mono); font-size: 10px;
+      font-weight: 700; padding: 2px 7px; border-radius: 3px; letter-spacing: 0.08em;
+    }
+    .z-type-HRS { background: rgba(232,160,32,0.12); color: var(--accent-hrs); }
+    .z-type-CR  { background: rgba(59,142,245,0.12);  color: var(--accent-cr);  }
+    .z-type-HDG { background: rgba(46,204,113,0.12);  color: var(--accent-hdg); }
+
+    /* FOOTER */
+    .app-footer {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* TOGGLE BUTTON GROUP */
+    .toggle-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-left: auto;
+      justify-content: flex-end;
+    }
+
+    .toggle-btn {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 500;
+      padding: 3px 7px;
+      cursor: pointer;
+      transition: all 0.13s ease;
+      white-space: nowrap;
+      line-height: 1.3;
+    }
+
+    .toggle-btn:hover {
+      border-color: var(--border-hi);
+      color: var(--text-primary);
+    }
+
+    .toggle-btn.active-toggle {
+      background: rgba(59,142,245,0.15);
+      border-color: var(--accent-cr);
+      color: var(--accent-cr);
+      font-weight: 700;
+    }
+
+    .row-val-badge {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-value);
+      min-width: 28px;
+      text-align: right;
+      margin-left: 4px;
+    }
+
+    /* GRADE AUTOCOMPLETE DROPDOWN */
+    .grade-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-hi);
+      border-radius: var(--radius);
+      z-index: 999;
+      max-height: 240px;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+
+    .grade-dropdown.hidden { display: none; }
+
+    .grade-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(42,48,72,0.5);
+      transition: background 0.1s;
+    }
+
+    .grade-option:last-child { border-bottom: none; }
+
+    .grade-option:hover,
+    .grade-option.active {
+      background: rgba(59,142,245,0.12);
+      color: var(--text-primary);
+    }
+
+    .grade-option .g-name {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-value);
+    }
+
+    .grade-option .g-val {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-hrs);
+      background: rgba(232,160,32,0.08);
+      padding: 2px 7px;
+      border-radius: 3px;
+    }
+
+    /* DIMENSION VALIDATION WARNING */
+    .dim-warning {
+      display: none;
+      margin: 0 0 16px 0;
+      background: rgba(245,71,90,0.08);
+      border: 1px solid rgba(245,71,90,0.4);
+      border-left: 3px solid var(--accent-sum);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      font-size: 12px;
+      color: #f5a0a8;
+      font-family: var(--font-mono);
+      animation: fadeIn 0.2s ease;
+    }
+    .dim-warning.visible { display: flex; align-items: center; gap: 10px; }
+    .dim-warning .warn-icon { font-size: 16px; flex-shrink: 0; }
+    .dim-warning strong { color: var(--accent-sum); }
+
+    @keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+      .columns-grid { grid-template-columns: 1fr; }
+      .params-bar   { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 560px) {
+      .type-selector { gap: 6px; }
+      .type-btn { font-size: 13px; padding: 11px 10px; }
+      .params-bar { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==== HEADER ==== -->
+  <header class="app-header">
+    <div class="logo-mark">SSC</div>
+    <div>
+      <h1 id="app-title">Kalkulator Dopłat do Stali</h1>
+      <p id="app-subtitle">steel surcharge pricing tool · v1.0</p>
+    </div>
+    <div class="header-controls">
+      <div class="lang-selector">
+        <button class="lang-btn active" id="lang-pl" onclick="setLanguage('pl')" title="Polski">
+          <svg viewBox="0 0 640 480"><rect width="640" height="480" fill="#fff"/><rect y="240" width="640" height="240" fill="#dc143c"/></svg>
+        </button>
+        <button class="lang-btn" id="lang-en" onclick="setLanguage('en')" title="English">
+          <svg viewBox="0 0 60 30"><clipPath id="s"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="t"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#s)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#t)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>
+        </button>
+      </div>
+      <button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()">
+        <span class="theme-icon" id="theme-icon">☀️</span>
+        <span id="theme-label">Light</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==== STEEL TYPE SELECTOR ==== -->
+  <div class="type-selector">
+    <button class="type-btn active-hrs" data-type="HRS" onclick="selectType('HRS', this)">
+      HRS
+      <span class="btn-label" data-i18n="hrsLabel">Hot Rolled Steel</span>
+    </button>
+    <button class="type-btn" data-type="CR" onclick="selectType('CR', this)">
+      CR
+      <span class="btn-label" data-i18n="crLabel">Cold Rolled Steel</span>
+    </button>
+    <button class="type-btn" data-type="HDG" onclick="selectType('HDG', this)">
+      HDG
+      <span class="btn-label" data-i18n="hdgLabel">Hot Dip Galvanized</span>
+    </button>
+  </div>
+
+  <!-- ==== INPUT PARAMETERS BAR ==== -->
+  <div class="params-bar">
+    <div class="param-group">
+      <label data-i18n="thickness">Grubość (mm)</label>
+      <input type="number" id="inp-thickness" value="5.00" step="0.01" min="0" />
+    </div>
+    <div class="param-group">
+      <label data-i18n="width">Szerokość (mm)</label>
+      <input type="number" id="inp-width" value="1520" step="1" min="0" />
+    </div>
+    <div class="param-group">
+      <label data-i18n="length">Długość (mm)</label>
+      <input type="number" id="inp-length" value="6000" step="1" min="0" />
+    </div>
+    <div class="param-group" style="position:relative;">
+      <label data-i18n="grade">Gatunek</label>
+      <input type="text" id="inp-grade" data-placeholder-i18n="gradeSearch" placeholder="Szukaj gatunku…" autocomplete="off" />
+      <div id="grade-dropdown" class="grade-dropdown hidden"></div>
+    </div>
+  </div>
+
+  <!-- ==== 3-COLUMN MAIN GRID ==== -->
+  <div id="dim-warning" class="dim-warning">
+    <span class="warn-icon">⚠</span>
+    <span id="dim-warning-msg">Kombinacja grubości i szerokości niedostępna.</span>
+  </div>
+
+  <div class="columns-grid">
+
+    <!-- COLUMN 1 – HUTA DOPŁATY -->
+    <div class="col-card col-huta">
+      <div class="col-card-header">
+        <span class="col-dot"></span>
+        <h2 data-i18n="millSurcharges">Huta Dopłaty</h2>
+        <span class="col-sub" data-i18n="millSurchargesSub">mill surcharges</span>
+      </div>
+
+      <div class="data-table">
+        <div class="data-row">
+          <span class="row-label" data-i18n="pglPeriod">Okres ważności PGL</span>
+          <span class="row-value" id="val-pgl-period">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="dimSurcharge">Grubość / szerokość</span>
+          <span class="row-value" id="val-dim-surcharge">—</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="gradeLabel">Gatunek</span>
+          <span class="row-value" id="val-grade">1</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="thicknessTolerance">Tolerancja grubości</span>
+          <div class="toggle-group" id="tg-huta-tolthick"></div>
+          <input type="hidden" id="huta-tol-thick" value="0" />
+          <span class="row-val-badge" id="disp-huta-tol-thick">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="certificate">Certyfikat</span>
+          <div class="toggle-group" id="tg-huta-cert">
+            <button class="toggle-btn" onclick="setToggle('tg-huta-cert','huta-cert',0,this)">2.2</button>
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-huta-cert','huta-cert',5,this)">3.1</button>
+            <button class="toggle-btn" onclick="setToggle('tg-huta-cert','huta-cert',10,this)">3.2</button>
+          </div>
+          <input type="hidden" id="huta-cert" value="5" />
+          <span class="row-val-badge" id="disp-huta-cert">5</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <!-- Coating - HDG only -->
+        <div class="data-row" id="row-coating" style="display:none;flex-wrap:wrap;gap:4px 0;align-items:flex-start;">
+          <span class="row-label" style="width:100%;margin-bottom:4px;" data-i18n="coating">Powłoka</span>
+          <div class="toggle-group" id="tg-coating" style="flex-wrap:wrap;justify-content:flex-start;margin-left:0;gap:3px;">
+            <button class="toggle-btn active-toggle" onclick="setCoating('Z100',this)">Z100</button>
+            <button class="toggle-btn" onclick="setCoating('Z140',this)">Z140</button>
+            <button class="toggle-btn" onclick="setCoating('Z200',this)">Z200</button>
+            <button class="toggle-btn" onclick="setCoating('Z225',this)">Z225</button>
+            <button class="toggle-btn" onclick="setCoating('Z275',this)">Z275</button>
+            <button class="toggle-btn" onclick="setCoating('Z350',this)">Z350</button>
+            <button class="toggle-btn" onclick="setCoating('Z450',this)">Z450</button>
+            <button class="toggle-btn" onclick="setCoating('Z600',this)">Z600</button>
+            <button class="toggle-btn" onclick="setCoating('Z725',this)">Z725</button>
+            <button class="toggle-btn" onclick="setCoating('Z800',this)">Z800</button>
+          </div>
+          <span class="row-val-badge" id="val-coating" style="width:100%;margin-top:4px;text-align:left;">—</span>
+          <span class="row-unit" id="coating-unit" style="display:none;">€/t</span>
+        </div>
+
+        <!-- CR-only rows -->
+        <div id="cr-huta-rows" style="display:none;">
+          <div class="data-row">
+            <span class="row-label" data-i18n="protection">Zabezpieczenie</span>
+            <div class="toggle-group" id="tg-cr-zabezp">
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-cr-zabezp','cr-zabezp',0,this)">O</button>
+              <button class="toggle-btn" onclick="setToggle('tg-cr-zabezp','cr-zabezp',3,this)">U</button>
+              <button class="toggle-btn" onclick="setToggle('tg-cr-zabezp','cr-zabezp',5,this)">A</button>
+            </div>
+            <input type="hidden" id="cr-zabezp" value="0" />
+            <span class="row-val-badge" id="disp-cr-zabezp">0</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+          <div class="data-row">
+            <span class="row-label" data-i18n="packaging">Opakowanie</span>
+            <div class="toggle-group" id="tg-cr-opak">
+              <button class="toggle-btn" onclick="setToggle('tg-cr-opak','cr-opak',0,this)" data-i18n-btn="noPaper">Bez papieru</button>
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-cr-opak','cr-opak',5,this)" data-i18n-btn="paperPlastic">Papier/plastik</button>
+              <button class="toggle-btn" onclick="setToggle('tg-cr-opak','cr-opak',5,this)" data-i18n-btn="seaTransport">Transport morski</button>
+            </div>
+            <input type="hidden" id="cr-opak" value="5" />
+            <span class="row-val-badge" id="disp-cr-opak">5</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+          <div class="data-row">
+            <span class="row-label" data-i18n="surfaceCR">Powierzchnia (CR)</span>
+            <div class="toggle-group" id="tg-cr-powierz">
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-cr-powierz','cr-powierz',0,this)">A</button>
+              <button class="toggle-btn" onclick="setToggle('tg-cr-powierz','cr-powierz',40,this)">B</button>
+            </div>
+            <input type="hidden" id="cr-powierz" value="0" />
+            <span class="row-val-badge" id="disp-cr-powierz">0</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+          <div class="data-row">
+            <span class="row-label" data-i18n="surfaceFinish">Wykończenie pow.</span>
+            <div class="toggle-group" id="tg-cr-wykon">
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-cr-wykon','cr-wykon',0,this)" data-i18n-btn="normal">Normalna</button>
+              <button class="toggle-btn" onclick="setToggle('tg-cr-wykon','cr-wykon',10,this)" data-i18n-btn="rough">Szorstka</button>
+              <button class="toggle-btn" onclick="setToggle('tg-cr-wykon','cr-wykon',25,this)" data-i18n-btn="glossy">Połyskująca</button>
+              <button class="toggle-btn" onclick="setToggle('tg-cr-wykon','cr-wykon',10,this)" data-i18n-btn="semiGlossy">Półpołysk.</button>
+            </div>
+            <input type="hidden" id="cr-wykon" value="0" />
+            <span class="row-val-badge" id="disp-cr-wykon">0</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+          <div class="data-row">
+            <span class="row-label" data-i18n="weld">Zgrzew</span>
+            <div class="toggle-group" id="tg-cr-zgrzew">
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-cr-zgrzew','cr-zgrzew',-3,this)" data-i18n-btn="allowed">Dozwolony</button>
+              <button class="toggle-btn" onclick="setToggle('tg-cr-zgrzew','cr-zgrzew',5,this)" data-i18n-btn="notAllowed">Niedozwolony</button>
+              <button class="toggle-btn" onclick="setToggle('tg-cr-zgrzew','cr-zgrzew',0,this)" data-i18n-btn="other">Inne</button>
+            </div>
+            <input type="hidden" id="cr-zgrzew" value="-3" />
+            <span class="row-val-badge" id="disp-cr-zgrzew">-3</span>
+            <span class="row-unit">€/t</span>
+          </div>
+        </div>
+
+        <!-- HDG-only rows -->
+        <div id="hdg-huta-rows" style="display:none;">
+          <div class="data-row">
+            <span class="row-label" data-i18n="protection">Zabezpieczenie</span>
+            <div class="toggle-group" id="tg-hdg-zabezp">
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-zabezp','hdg-zabezp',2,this)">O</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-zabezp','hdg-zabezp',2,this)">EO</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-zabezp','hdg-zabezp',20,this)">S</button>
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-hdg-zabezp','hdg-zabezp',0,this)">CE</button>
+            </div>
+            <input type="hidden" id="hdg-zabezp" value="0" />
+            <span class="row-val-badge" id="disp-hdg-zabezp">0</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+          <div class="data-row">
+            <span class="row-label" data-i18n="packaging">Opakowanie</span>
+            <div class="toggle-group" id="tg-hdg-opak">
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-opak','hdg-opak',0,this)" data-i18n-btn="noPaper">Bez papieru</button>
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-hdg-opak','hdg-opak',5,this)" data-i18n-btn="paperPlastic">Papier/plastik</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-opak','hdg-opak',5,this)" data-i18n-btn="seaTransport">Transport morski</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-opak','hdg-opak',0,this)" data-i18n-btn="paperPlasticCE">Papier/plastik (CE)</button>
+            </div>
+            <input type="hidden" id="hdg-opak" value="5" />
+            <span class="row-val-badge" id="disp-hdg-opak">5</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+          <div class="data-row">
+            <span class="row-label" data-i18n="surfaceHDG">Powierzchnia (HDG)</span>
+            <div class="toggle-group" id="tg-hdg-powierz">
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-hdg-powierz','hdg-powierz',0,this)">MA</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-powierz','hdg-powierz',35,this)">MB</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-powierz','hdg-powierz',20,this)">MC</button>
+            </div>
+            <input type="hidden" id="hdg-powierz" value="0" />
+            <span class="row-val-badge" id="disp-hdg-powierz">0</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+          <div class="data-row">
+            <span class="row-label" data-i18n="surfaceFinish">Wykończenie pow.</span>
+            <div class="toggle-group" id="tg-hdg-wykon">
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-hdg-wykon','hdg-wykon',0,this)" data-i18n-btn="standard">Standard</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-wykon','hdg-wykon',15,this)" data-i18n-btn="shiny">Błyszczące</button>
+            </div>
+            <input type="hidden" id="hdg-wykon" value="0" />
+            <span class="row-val-badge" id="disp-hdg-wykon">0</span>
+            <span class="row-unit">€/t</span>
+          </div>
+
+          <div class="data-row">
+            <span class="row-label" data-i18n="weld">Zgrzew</span>
+            <div class="toggle-group" id="tg-hdg-zgrzew">
+              <button class="toggle-btn active-toggle" onclick="setToggle('tg-hdg-zgrzew','hdg-zgrzew',-3,this)" data-i18n-btn="allowed">Dozwolony</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-zgrzew','hdg-zgrzew',5,this)" data-i18n-btn="notAllowed">Niedozwolony</button>
+              <button class="toggle-btn" onclick="setToggle('tg-hdg-zgrzew','hdg-zgrzew',0,this)" data-i18n-btn="other">Inne</button>
+            </div>
+            <input type="hidden" id="hdg-zgrzew" value="-3" />
+            <span class="row-val-badge" id="disp-hdg-zgrzew">-3</span>
+            <span class="row-unit">€/t</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="sum-row">
+        <span class="sum-label" data-i18n="sumMill">SUMA Huta</span>
+        <span class="sum-value" id="sum-huta">—</span>
+        <span class="sum-unit">€/t</span>
+      </div>
+    </div>
+
+    <!-- COLUMN 2 – SSC DOPŁATY -->
+    <div class="col-card col-ssc">
+      <div class="col-card-header">
+        <span class="col-dot"></span>
+        <h2 data-i18n="sscSurcharges">SSC Dopłaty Processing</h2>
+        <span class="col-sub" data-i18n="sscSurchargesSub">processing surcharges</span>
+      </div>
+
+      <div class="data-table">
+        <div class="data-row">
+          <span class="row-label" data-i18n="baseSurcharge">Podstawowa dopłata (dług.)</span>
+          <span class="row-value" id="ssc-base-display" style="display:none;">—</span>
+          <input class="row-input ssc-input" id="ssc-base" type="number" value="29" min="0" />
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="lengthTolerance">Tolerancja długości</span>
+          <div class="toggle-group" id="tg-ssc-len-tol">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-len-tol','ssc-len-tol',0,this)" data-i18n-btn="normal">Normalna</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-len-tol','ssc-len-tol',8,this)">&lt;5mm</button>
+          </div>
+          <input type="hidden" id="ssc-len-tol" value="0" />
+          <span class="row-val-badge" id="disp-ssc-len-tol">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="flatness">Płaskość</span>
+          <div class="toggle-group" id="tg-ssc-flatness">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-flatness','ssc-flatness',0,this)" data-i18n-btn="enStandard">Wg normy EN</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-flatness','ssc-flatness',13,this)">Laser 1/3</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-flatness','ssc-flatness',8,this)" data-i18n-btn="perCustomer">Wg klienta</button>
+          </div>
+          <input type="hidden" id="ssc-flatness" value="0" />
+          <span class="row-val-badge" id="disp-ssc-flatness">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="surface">Powierzchnia</span>
+          <div class="toggle-group" id="tg-ssc-surface">
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-surface','ssc-surface',0,this)" data-i18n-btn="normal">Normalna</button>
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-surface','ssc-surface',10,this)" data-i18n-btn="improved">Ulepszona</button>
+          </div>
+          <input type="hidden" id="ssc-surface" value="10" />
+          <span class="row-val-badge" id="disp-ssc-surface">10</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="maxWeight">Max. waga paczki</span>
+          <div class="toggle-group" id="tg-ssc-maxweight">
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-maxweight','ssc-maxweight',20,this)">&lt;1T</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-maxweight','ssc-maxweight',10,this)">1–1,5T</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-maxweight','ssc-maxweight',7.5,this)">1,5–2,25T</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-maxweight','ssc-maxweight',5,this)">2,2–2,5T</button>
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-maxweight','ssc-maxweight',0,this)">2,5–3,5T</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-maxweight','ssc-maxweight',-3,this)">&gt;3,5T</button>
+          </div>
+          <input type="hidden" id="ssc-maxweight" value="0" />
+          <span class="row-val-badge" id="disp-ssc-maxweight">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="marking">Oznakowanie</span>
+          <div class="toggle-group" id="tg-ssc-marking">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-marking','ssc-marking',0,this)" data-i18n-btn="none">Brak</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-marking','ssc-marking',5,this)" data-i18n-btn="engraved">Grawerem</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-marking','ssc-marking',3,this)" data-i18n-btn="marker">Markerem</button>
+          </div>
+          <input type="hidden" id="ssc-marking" value="0" />
+          <span class="row-val-badge" id="disp-ssc-marking">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="edging">Brzegowanie</span>
+          <div class="toggle-group" id="tg-ssc-edging">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-edging','ssc-edging',0,this)" data-i18n-btn="no">Nie</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-edging','ssc-edging',18,this)" data-i18n-btn="yes">Tak</button>
+          </div>
+          <input type="hidden" id="ssc-edging" value="0" />
+          <span class="row-val-badge" id="disp-ssc-edging">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row" id="row-yield" style="display:none;">
+          <span class="row-label" data-i18n="yieldStrength">Granica plastyczności</span>
+          <span class="row-value" id="val-yield">7</span>
+          <input type="hidden" id="ssc-yield" value="7" />
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="packing">Pakowanie</span>
+          <div class="toggle-group" id="tg-ssc-packing">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-packing','ssc-packing',0,this)">S01</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-packing','ssc-packing',10,this)">S03</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-packing','ssc-packing',5,this)">S12</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-packing','ssc-packing',10,this)">S13</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-packing','ssc-packing',23,this)">SB2</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-packing','ssc-packing',29,this)">SB3</button>
+          </div>
+          <input type="hidden" id="ssc-packing" value="0" />
+          <span class="row-val-badge" id="disp-ssc-packing">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="specialLabels">Specjalne etykiety</span>
+          <div class="toggle-group" id="tg-ssc-labels">
+            <button class="toggle-btn active-toggle" onclick="setToggle('tg-ssc-labels','ssc-labels',0,this)" data-i18n-btn="none">Brak</button>
+            <button class="toggle-btn" onclick="setToggle('tg-ssc-labels','ssc-labels',0.5,this)" data-i18n-btn="plasticEnvelope">Koperta plast.</button>
+          </div>
+          <input type="hidden" id="ssc-labels" value="0" />
+          <span class="row-val-badge" id="disp-ssc-labels">0</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="scrap">Złom <small style="color:var(--text-muted)">(stała)</small></span>
+          <span class="row-value" id="val-scrap">10</span>
+          <span class="row-unit">€/t</span>
+        </div>
+      </div>
+
+      <div class="sum-row">
+        <span class="sum-label" data-i18n="sumSSC">SUMA SSC</span>
+        <span class="sum-value" id="sum-ssc">—</span>
+        <span class="sum-unit">€/t</span>
+      </div>
+    </div>
+
+    <!-- COLUMN 3 – PODSUMOWANIE -->
+    <div class="col-card col-summary">
+      <div class="col-card-header">
+        <span class="col-dot"></span>
+        <h2 data-i18n="summary">Podsumowanie</h2>
+        <span class="col-sub" data-i18n="summarySub">final pricing</span>
+      </div>
+
+      <div class="data-table">
+        <div class="data-row">
+          <span class="row-label" data-i18n="pglBase">PGL (cena bazowa)</span>
+          <input class="row-input wide" id="sum-pgl-input" type="number" value="645" min="0" />
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="inputPrice">Cena wsadu PGL + Σ Huta</span>
+          <span class="row-value" id="val-wsad">—</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="col-separator"></div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="marginPct">Marża netto %</span>
+          <input class="row-input" id="sum-margin-pct" type="number" value="7" min="0" step="0.1" />
+          <span class="row-unit">%</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="marginNet">Marża netto</span>
+          <span class="row-value" id="val-margin">—</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="col-separator"></div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="extraSurcharge">Dodatkowa dopłata</span>
+          <input class="row-input" id="sum-extra" type="number" value="10" min="0" />
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="transport">Transport</span>
+          <input class="row-input" id="sum-transport" type="number" value="20" min="0" />
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="col-separator"></div>
+
+        <div class="data-row">
+          <span class="row-label" data-i18n="sscProcessing">Σ SSC Processing</span>
+          <span class="row-value" id="val-ssc-echo">—</span>
+          <span class="row-unit">€/t</span>
+        </div>
+
+        <div class="data-row final-price-row">
+          <span class="row-label" data-i18n="finalPrice">CENA KOŃCOWA</span>
+          <span class="row-value" id="val-final">—</span>
+          <span class="row-unit" style="color:var(--accent-sum)">€/t</span>
+        </div>
+
+        <div class="data-row" style="margin:8px 14px 0;">
+          <span class="row-label" style="font-weight:600;" data-i18n="quantity">Ilość ton</span>
+          <input class="row-input" id="inp-tons" type="number" value="1" min="0.01" step="0.5" style="width:80px;text-align:right;" />
+          <span class="row-unit">t</span>
+        </div>
+
+        <div style="padding:10px 14px 6px;">
+          <button id="btn-add-zestawienie" onclick="addToZestawienie()" style="
+            width:100%;padding:11px;
+            background:linear-gradient(135deg,#e8a020,#f0c040);
+            border:none;border-radius:5px;
+            color:#0d1220;font-family:var(--font-mono);
+            font-size:12px;font-weight:700;letter-spacing:0.08em;
+            cursor:pointer;transition:opacity 0.15s;
+          " onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'" data-i18n="addToList">
+            ＋ DODAJ DO ZESTAWIENIA
+          </button>
+        </div>
+      </div>
+
+      <div class="sum-row">
+        <span class="sum-label" data-i18n="sumMarginSSC">Suma (Marża + SSC)</span>
+        <span class="sum-value" id="val-final-echo">—</span>
+        <span class="sum-unit">€/t</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==== ZESTAWIENIE ==== -->
+  <div id="zestawienie-section" style="margin-top:24px;">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+      <div style="padding:13px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--accent-hrs);display:inline-block;flex-shrink:0;"></span>
+        <span style="font-size:12px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;" data-i18n="orderList">Zestawienie pozycji ofertowych</span>
+        <span id="zest-count" style="font-size:10px;font-family:var(--font-mono);color:var(--text-secondary);margin-left:4px;"></span>
+        <button onclick="clearZestawienie()" style="
+          margin-left:auto;background:transparent;border:1px solid var(--border);
+          border-radius:4px;color:var(--text-muted);font-family:var(--font-mono);
+          font-size:10px;padding:4px 10px;cursor:pointer;transition:all 0.15s;
+        " onmouseover="this.style.borderColor='var(--accent-sum)';this.style.color='var(--accent-sum)'"
+           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'" data-i18n="clearAll">
+          Wyczyść wszystko
+        </button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table id="zest-table" style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bg-panel);border-bottom:1px solid var(--border);">
+              <th class="zt" data-i18n="no">Lp.</th>
+              <th class="zt" style="text-align:left;min-width:180px;" data-i18n="description">Opis (Gatunek / Wymiary)</th>
+              <th class="zt" style="text-align:center;" data-i18n="type">Typ</th>
+              <th class="zt">Σ Huta</th>
+              <th class="zt">Σ SSC</th>
+              <th class="zt" data-i18n="marginTh">Marża</th>
+              <th class="zt" data-i18n="unitPrice">Cena jedn.</th>
+              <th class="zt" data-i18n="tons">Ilość ton</th>
+              <th class="zt" data-i18n="totalValue">Łączna wartość</th>
+              <th class="zt" data-i18n="actions">Akcje</th>
+            </tr>
+          </thead>
+          <tbody id="zest-tbody">
+            <tr id="zest-empty-row">
+              <td colspan="10" style="text-align:center;padding:28px;font-family:var(--font-mono);font-size:12px;color:var(--text-muted);font-style:italic;" data-i18n="noItems">
+                Brak pozycji — kliknij „DODAJ DO ZESTAWIENIA" aby zapisać kalkulację
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1.5px solid var(--border-hi);background:rgba(0,0,0,0.10);">
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.10em;text-transform:uppercase;color:var(--text-secondary);" data-i18n="grandTotal">
+          SUMA CAŁKOWITA ZESTAWIENIA
+        </span>
+        <span style="display:flex;align-items:baseline;gap:6px;">
+          <span id="zest-total" style="font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--accent-sum);">—</span>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);" data-i18n="totalEur">€ łącznie</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-footer" style="margin-top:16px;" data-i18n="footer">
+    © 2025 · Steel Surcharge Calculator · Wszelkie wartości w €/t · Dane techniczne według specyfikacji EN 10051
+  </div>
+
+  <script>
+    /* ==== TRANSLATIONS ==== */
+    const translations = {
+      pl: {
+        title: 'Kalkulator Dopłat do Stali',
+        subtitle: 'narzędzie do kalkulacji dopłat · v1.0',
+        hrsLabel: 'Blacha gorącowalcowana',
+        crLabel: 'Blacha zimnowalcowana',
+        hdgLabel: 'Blacha ocynkowana',
+        thickness: 'Grubość (mm)',
+        width: 'Szerokość (mm)',
+        length: 'Długość (mm)',
+        grade: 'Gatunek',
+        gradeSearch: 'Szukaj gatunku…',
+        millSurcharges: 'Huta Dopłaty',
+        millSurchargesSub: 'dopłaty hut',
+        pglPeriod: 'Okres ważności PGL',
+        dimSurcharge: 'Grubość / szerokość',
+        gradeLabel: 'Gatunek',
+        thicknessTolerance: 'Tolerancja grubości',
+        certificate: 'Certyfikat',
+        coating: 'Powłoka',
+        protection: 'Zabezpieczenie',
+        packaging: 'Opakowanie',
+        surfaceCR: 'Powierzchnia (CR)',
+        surfaceHDG: 'Powierzchnia (HDG)',
+        surfaceFinish: 'Wykończenie pow.',
+        weld: 'Zgrzew',
+        sumMill: 'SUMA Huta',
+        sscSurcharges: 'SSC Dopłaty Processing',
+        sscSurchargesSub: 'dopłaty przetwarzania',
+        baseSurcharge: 'Podstawowa dopłata (dług.)',
+        lengthTolerance: 'Tolerancja długości',
+        flatness: 'Płaskość',
+        surface: 'Powierzchnia',
+        maxWeight: 'Max. waga paczki',
+        marking: 'Oznakowanie',
+        edging: 'Brzegowanie',
+        yieldStrength: 'Granica plastyczności',
+        packing: 'Pakowanie',
+        specialLabels: 'Specjalne etykiety',
+        scrap: 'Złom',
+        sumSSC: 'SUMA SSC',
+        summary: 'Podsumowanie',
+        summarySub: 'cena końcowa',
+        pglBase: 'PGL (cena bazowa)',
+        inputPrice: 'Cena wsadu PGL + Σ Huta',
+        marginPct: 'Marża netto %',
+        marginNet: 'Marża netto',
+        extraSurcharge: 'Dodatkowa dopłata',
+        transport: 'Transport',
+        sscProcessing: 'Σ SSC Processing',
+        finalPrice: 'CENA KOŃCOWA',
+        quantity: 'Ilość ton',
+        addToList: '＋ DODAJ DO ZESTAWIENIA',
+        updateItem: '💾 ZAKTUALIZUJ POZYCJĘ',
+        sumMarginSSC: 'Suma (Marża + SSC)',
+        orderList: 'Zestawienie pozycji ofertowych',
+        clearAll: 'Wyczyść wszystko',
+        no: 'Lp.',
+        description: 'Opis (Gatunek / Wymiary)',
+        type: 'Typ',
+        marginTh: 'Marża',
+        unitPrice: 'Cena jedn.',
+        tons: 'Ilość ton',
+        totalValue: 'Łączna wartość',
+        actions: 'Akcje',
+        noItems: 'Brak pozycji — kliknij „DODAJ DO ZESTAWIENIA" aby zapisać kalkulację',
+        grandTotal: 'SUMA CAŁKOWITA ZESTAWIENIA',
+        totalEur: '€ łącznie',
+        footer: '© 2025 · Kalkulator Dopłat do Stali · Wszelkie wartości w €/t · Dane wg EN 10051',
+        light: 'Jasny',
+        dark: 'Ciemny',
+        items: 'pozycji',
+        item1: 'pozycja',
+        items24: 'pozycje',
+        // Toggle button labels
+        noPaper: 'Bez papieru',
+        paperPlastic: 'Papier/plastik',
+        seaTransport: 'Transport morski',
+        paperPlasticCE: 'Papier/plastik (CE)',
+        normal: 'Normalna',
+        rough: 'Szorstka',
+        glossy: 'Połyskująca',
+        semiGlossy: 'Półpołysk.',
+        standard: 'Standard',
+        shiny: 'Błyszczące',
+        allowed: 'Dozwolony',
+        notAllowed: 'Niedozwolony',
+        other: 'Inne',
+        enStandard: 'Wg normy EN',
+        perCustomer: 'Wg klienta',
+        improved: 'Ulepszona',
+        none: 'Brak',
+        engraved: 'Grawerem',
+        marker: 'Markerem',
+        no: 'Nie',
+        yes: 'Tak',
+        plasticEnvelope: 'Koperta plast.',
+        // Tolerance labels
+        tol34en: '3/4 EN',
+        tol12: '1/2',
+        tol13: '1/3',
+        tol14: '1/4',
+        tolNormal: 'Normalna',
+        tolSpecial: 'Specjalna',
+        tol12en: '1/2 EN',
+        tol13en: '1/3 EN',
+        tol14en: '1/4 EN',
+        // Warnings
+        warnMinThickness: 'Dla szerokości <strong>{width} mm</strong> minimalna grubość wynosi <strong>{minTh} mm</strong>. Wpisana wartość ({th} mm) jest za mała.',
+        warnMaxThickness: 'Dla szerokości <strong>{width} mm</strong> maksymalna dostępna grubość wynosi <strong>{maxTh} mm</strong>. Wpisana wartość ({th} mm) jest za duża.',
+        warnOutOfRange: 'Kombinacja grubości <strong>{th} mm</strong> i szerokości <strong>{width} mm</strong> jest poza zakresem tabeli.',
+        warnWidthOutOfRange: 'Szerokość <strong>{width} mm</strong> jest poza zakresem tabeli.',
+        confirmClear: 'Czy na pewno chcesz usunąć wszystkie pozycje zestawienia?'
+      },
+      en: {
+        title: 'Steel Surcharge Calculator',
+        subtitle: 'surcharge pricing tool · v1.0',
+        hrsLabel: 'Hot Rolled Steel',
+        crLabel: 'Cold Rolled Steel',
+        hdgLabel: 'Hot Dip Galvanized',
+        thickness: 'Thickness (mm)',
+        width: 'Width (mm)',
+        length: 'Length (mm)',
+        grade: 'Grade',
+        gradeSearch: 'Search grade…',
+        millSurcharges: 'Mill Surcharges',
+        millSurchargesSub: 'mill extras',
+        pglPeriod: 'PGL validity period',
+        dimSurcharge: 'Thickness / width',
+        gradeLabel: 'Grade',
+        thicknessTolerance: 'Thickness tolerance',
+        certificate: 'Certificate',
+        coating: 'Coating',
+        protection: 'Protection',
+        packaging: 'Packaging',
+        surfaceCR: 'Surface (CR)',
+        surfaceHDG: 'Surface (HDG)',
+        surfaceFinish: 'Surface finish',
+        weld: 'Weld',
+        sumMill: 'MILL TOTAL',
+        sscSurcharges: 'SSC Processing Surcharges',
+        sscSurchargesSub: 'processing extras',
+        baseSurcharge: 'Base surcharge (length)',
+        lengthTolerance: 'Length tolerance',
+        flatness: 'Flatness',
+        surface: 'Surface',
+        maxWeight: 'Max. bundle weight',
+        marking: 'Marking',
+        edging: 'Edging',
+        yieldStrength: 'Yield strength',
+        packing: 'Packing',
+        specialLabels: 'Special labels',
+        scrap: 'Scrap',
+        sumSSC: 'SSC TOTAL',
+        summary: 'Summary',
+        summarySub: 'final pricing',
+        pglBase: 'PGL (base price)',
+        inputPrice: 'Input price PGL + Σ Mill',
+        marginPct: 'Net margin %',
+        marginNet: 'Net margin',
+        extraSurcharge: 'Additional surcharge',
+        transport: 'Transport',
+        sscProcessing: 'Σ SSC Processing',
+        finalPrice: 'FINAL PRICE',
+        quantity: 'Quantity (tons)',
+        addToList: '＋ ADD TO ORDER LIST',
+        updateItem: '💾 UPDATE ITEM',
+        sumMarginSSC: 'Sum (Margin + SSC)',
+        orderList: 'Order Position List',
+        clearAll: 'Clear all',
+        no: 'No.',
+        description: 'Description (Grade / Dimensions)',
+        type: 'Type',
+        marginTh: 'Margin',
+        unitPrice: 'Unit price',
+        tons: 'Qty (tons)',
+        totalValue: 'Total value',
+        actions: 'Actions',
+        noItems: 'No items — click "ADD TO ORDER LIST" to save calculation',
+        grandTotal: 'GRAND TOTAL',
+        totalEur: '€ total',
+        footer: '© 2025 · Steel Surcharge Calculator · All values in €/t · Data per EN 10051',
+        light: 'Light',
+        dark: 'Dark',
+        items: 'items',
+        item1: 'item',
+        items24: 'items',
+        // Toggle button labels
+        noPaper: 'No paper',
+        paperPlastic: 'Paper/plastic',
+        seaTransport: 'Sea transport',
+        paperPlasticCE: 'Paper/plastic (CE)',
+        normal: 'Normal',
+        rough: 'Rough',
+        glossy: 'Glossy',
+        semiGlossy: 'Semi-glossy',
+        standard: 'Standard',
+        shiny: 'Shiny',
+        allowed: 'Allowed',
+        notAllowed: 'Not allowed',
+        other: 'Other',
+        enStandard: 'Per EN standard',
+        perCustomer: 'Per customer',
+        improved: 'Improved',
+        none: 'None',
+        engraved: 'Engraved',
+        marker: 'Marker',
+        no: 'No',
+        yes: 'Yes',
+        plasticEnvelope: 'Plastic envelope',
+        // Tolerance labels
+        tol34en: '3/4 EN',
+        tol12: '1/2',
+        tol13: '1/3',
+        tol14: '1/4',
+        tolNormal: 'Normal',
+        tolSpecial: 'Special',
+        tol12en: '1/2 EN',
+        tol13en: '1/3 EN',
+        tol14en: '1/4 EN',
+        // Warnings
+        warnMinThickness: 'For width <strong>{width} mm</strong> minimum thickness is <strong>{minTh} mm</strong>. Entered value ({th} mm) is too small.',
+        warnMaxThickness: 'For width <strong>{width} mm</strong> maximum available thickness is <strong>{maxTh} mm</strong>. Entered value ({th} mm) is too large.',
+        warnOutOfRange: 'Combination of thickness <strong>{th} mm</strong> and width <strong>{width} mm</strong> is out of table range.',
+        warnWidthOutOfRange: 'Width <strong>{width} mm</strong> is out of table range.',
+        confirmClear: 'Are you sure you want to clear all items from the list?'
+      }
+    };
+
+    let currentLang = localStorage.getItem('steelCalcLang') || 'pl';
+
+    function t(key) {
+      return translations[currentLang][key] || translations.pl[key] || key;
+    }
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem('steelCalcLang', lang);
+      
+      // Update flag buttons
+      document.getElementById('lang-pl').classList.toggle('active', lang === 'pl');
+      document.getElementById('lang-en').classList.toggle('active', lang === 'en');
+      
+      // Update HTML lang attribute
+      document.documentElement.lang = lang;
+      
+      // Update all translatable elements
+      updateUILanguage();
+    }
+
+    function updateUILanguage() {
+      // Title and subtitle
+      document.getElementById('app-title').textContent = t('title');
+      document.getElementById('app-subtitle').textContent = t('subtitle');
+      
+      // Theme toggle
+      document.getElementById('theme-label').textContent = isDark ? t('light') : t('dark');
+      
+      // All elements with data-i18n attribute
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        el.textContent = t(key);
+      });
+      
+      // Placeholder attributes
+      document.querySelectorAll('[data-placeholder-i18n]').forEach(el => {
+        const key = el.getAttribute('data-placeholder-i18n');
+        el.placeholder = t(key);
+      });
+      
+      // Toggle button labels
+      document.querySelectorAll('[data-i18n-btn]').forEach(el => {
+        const key = el.getAttribute('data-i18n-btn');
+        el.textContent = t(key);
+      });
+      
+      // Update add button
+      const addBtn = document.getElementById('btn-add-zestawienie');
+      if (addBtn) {
+        addBtn.textContent = editingId !== null ? t('updateItem') : t('addToList');
+      }
+      
+      // Update tolerance buttons
+      updateTolThickButtons(currentType);
+      
+      // Re-render zestawienie
+      renderZestawienie();
+    }
+
+    /* ==== GRADE TABLES ==== */
+    const GRADE_TABLE_HRS = [
+      { name: "16Mo3", value: 176 },
+      { name: "1937-03", value: 20 },
+      { name: "Amstrong® 360MC Laser", value: 70 },
+      { name: "Amstrong® 420MC Laser", value: 90 },
+      { name: "Amstrong® Ultra 650MC", value: 163 },
+      { name: "Amstrong® Ultra 700MC_B", value: 165 },
+      { name: "AMSTRONG®355MC", value: 48 },
+      { name: "AMSTRONG®420MC", value: 68 },
+      { name: "AMSTRONG®460MC", value: 78 },
+      { name: "AMSTRONG®500MC", value: 83 },
+      { name: "AMSTRONG®550MC", value: 103 },
+      { name: "DD 11", value: 2 },
+      { name: "DD 12", value: 12 },
+      { name: "DD 13", value: 17 },
+      { name: "DD 14", value: 27 },
+      { name: "S235JR+AR", value: 9 },
+      { name: "S235JR+N", value: 24 },
+      { name: "S235J2+N", value: 24 },
+      { name: "S275JR+AR", value: 20 },
+      { name: "S275JR+N", value: 40 },
+      { name: "S275J2+N", value: 40 },
+      { name: "S315MC", value: 43 },
+      { name: "S355JR+AR", value: 42 },
+      { name: "S355JR+N", value: 57 },
+      { name: "S355J2+N", value: 57 },
+      { name: "S355MC", value: 48 },
+      { name: "S420MC", value: 68 },
+      { name: "S460MC", value: 78 },
+      { name: "S500MC", value: 83 },
+      { name: "S550MC", value: 103 },
+      { name: "S650MC", value: 163 },
+      { name: "S700MC", value: 165 },
+      { name: "P265GH", value: 36 },
+      { name: "P355GH", value: 86 },
+      { name: "P355NL1", value: 101 },
+    ];
+
+    const GRADE_TABLE_CR = [
+      { name: "DC01", value: 0 },
+      { name: "DC03", value: 10 },
+      { name: "DC04", value: 16 },
+      { name: "DC05", value: 40 },
+      { name: "DC06", value: 80 },
+      { name: "HC180", value: 0 },
+      { name: "HC220", value: 8 },
+      { name: "HC260LA", value: 35 },
+      { name: "HC300LA", value: 35 },
+      { name: "HC340LA", value: 50 },
+      { name: "HC380LA", value: 70 },
+      { name: "HC420LA", value: 75 },
+      { name: "CR210LA-UC", value: 35 },
+      { name: "CR270LA", value: 45 },
+      { name: "CR340LA", value: 70 },
+    ];
+
+    const GRADE_TABLE_HDG = [
+      { name: "DX51D+Z", value: 2 },
+      { name: "DX52D+Z", value: 27 },
+      { name: "DX53D+Z", value: 54 },
+      { name: "DX54D+Z", value: 92 },
+      { name: "DX56D+Z", value: 112 },
+      { name: "S220GD+Z", value: 3 },
+      { name: "S250GD+Z", value: 8 },
+      { name: "S280GD+Z", value: 18 },
+      { name: "S320GD+Z", value: 26 },
+      { name: "S350GD+Z", value: 43 },
+      { name: "S390GD+Z", value: 53 },
+      { name: "S420GD+Z", value: 63 },
+      { name: "S450GD+Z", value: 73 },
+      { name: "HX260LAD+Z", value: 33 },
+      { name: "HX300LAD+Z", value: 48 },
+      { name: "HX340LAD+Z", value: 53 },
+      { name: "HX380LAD+Z", value: 73 },
+    ];
+
+    const GRADE_TABLES = { HRS: GRADE_TABLE_HRS, CR: GRADE_TABLE_CR, HDG: GRADE_TABLE_HDG };
+
+    let activeGradeTable = GRADE_TABLE_HRS;
+    let selectedGrade = null;
+
+    /* ==== DIMENSION MATRICES ==== */
+    const DIMENSION_MATRIX_HRS = [
+      { thicknessMin: 1.50, thicknessMax: 1.59, widthMin: 600, widthMax: 799, value: 107 },
+      { thicknessMin: 1.50, thicknessMax: 1.59, widthMin: 800, widthMax: 899, value: 54 },
+      { thicknessMin: 1.50, thicknessMax: 1.59, widthMin: 900, widthMax: 1099, value: 49 },
+      { thicknessMin: 1.50, thicknessMax: 1.59, widthMin: 1100, widthMax: 1499, value: 45 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 600, widthMax: 799, value: 61 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 800, widthMax: 899, value: 34 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 900, widthMax: 1099, value: 28 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1100, widthMax: 1499, value: 24 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1500, widthMax: 1549, value: 24 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1550, widthMax: 1849, value: 28 },
+      { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1850, widthMax: 2049, value: 35 },
+      { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 600, widthMax: 799, value: 53 },
+      { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 800, widthMax: 899, value: 29 },
+      { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 900, widthMax: 1099, value: 23 },
+      { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 1100, widthMax: 1499, value: 19 },
+      { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 1500, widthMax: 1849, value: 21 },
+      { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 1850, widthMax: 2049, value: 28 },
+      { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 2050, widthMax: 9999, value: 36 },
+      { thicknessMin: 4.00, thicknessMax: 6.99, widthMin: 600, widthMax: 799, value: 53 },
+      { thicknessMin: 4.00, thicknessMax: 6.99, widthMin: 800, widthMax: 899, value: 24 },
+      { thicknessMin: 4.00, thicknessMax: 6.99, widthMin: 900, widthMax: 1099, value: 20 },
+      { thicknessMin: 4.00, thicknessMax: 6.99, widthMin: 1100, widthMax: 1499, value: 17 },
+      { thicknessMin: 4.00, thicknessMax: 6.99, widthMin: 1500, widthMax: 1849, value: 19 },
+      { thicknessMin: 4.00, thicknessMax: 6.99, widthMin: 1850, widthMax: 2049, value: 28 },
+      { thicknessMin: 4.00, thicknessMax: 6.99, widthMin: 2050, widthMax: 9999, value: 36 },
+      { thicknessMin: 7.00, thicknessMax: 9.99, widthMin: 600, widthMax: 799, value: 55 },
+      { thicknessMin: 7.00, thicknessMax: 9.99, widthMin: 800, widthMax: 899, value: 29 },
+      { thicknessMin: 7.00, thicknessMax: 9.99, widthMin: 900, widthMax: 1099, value: 25 },
+      { thicknessMin: 7.00, thicknessMax: 9.99, widthMin: 1100, widthMax: 1499, value: 21 },
+      { thicknessMin: 7.00, thicknessMax: 9.99, widthMin: 1500, widthMax: 1849, value: 21 },
+      { thicknessMin: 7.00, thicknessMax: 9.99, widthMin: 1850, widthMax: 2049, value: 28 },
+      { thicknessMin: 7.00, thicknessMax: 9.99, widthMin: 2050, widthMax: 9999, value: 38 },
+      { thicknessMin: 10.00, thicknessMax: 14.99, widthMin: 600, widthMax: 799, value: 59 },
+      { thicknessMin: 10.00, thicknessMax: 14.99, widthMin: 800, widthMax: 899, value: 34 },
+      { thicknessMin: 10.00, thicknessMax: 14.99, widthMin: 900, widthMax: 1099, value: 28 },
+      { thicknessMin: 10.00, thicknessMax: 14.99, widthMin: 1100, widthMax: 1499, value: 25 },
+      { thicknessMin: 10.00, thicknessMax: 14.99, widthMin: 1500, widthMax: 1849, value: 25 },
+      { thicknessMin: 10.00, thicknessMax: 14.99, widthMin: 1850, widthMax: 2049, value: 30 },
+      { thicknessMin: 10.00, thicknessMax: 14.99, widthMin: 2050, widthMax: 9999, value: 38 },
+      { thicknessMin: 15.00, thicknessMax: 99.00, widthMin: 600, widthMax: 799, value: 64 },
+      { thicknessMin: 15.00, thicknessMax: 99.00, widthMin: 800, widthMax: 1099, value: 50 },
+      { thicknessMin: 15.00, thicknessMax: 99.00, widthMin: 1100, widthMax: 1499, value: 40 },
+      { thicknessMin: 15.00, thicknessMax: 99.00, widthMin: 1500, widthMax: 1849, value: 35 },
+      { thicknessMin: 15.00, thicknessMax: 99.00, widthMin: 1850, widthMax: 9999, value: 45 },
+    ];
+
+    const DIMENSION_MATRIX_CR = [
+      { thicknessMin: 0.40, thicknessMax: 0.49, widthMin: 600, widthMax: 899, value: 85 },
+      { thicknessMin: 0.40, thicknessMax: 0.49, widthMin: 900, widthMax: 1299, value: 65 },
+      { thicknessMin: 0.40, thicknessMax: 0.49, widthMin: 1300, widthMax: 1699, value: 70 },
+      { thicknessMin: 0.50, thicknessMax: 0.99, widthMin: 600, widthMax: 899, value: 60 },
+      { thicknessMin: 0.50, thicknessMax: 0.99, widthMin: 900, widthMax: 1299, value: 40 },
+      { thicknessMin: 0.50, thicknessMax: 0.99, widthMin: 1300, widthMax: 1849, value: 40 },
+      { thicknessMin: 0.50, thicknessMax: 0.99, widthMin: 1850, widthMax: 9999, value: 66 },
+      { thicknessMin: 1.00, thicknessMax: 1.99, widthMin: 600, widthMax: 899, value: 35 },
+      { thicknessMin: 1.00, thicknessMax: 1.99, widthMin: 900, widthMax: 1299, value: 16 },
+      { thicknessMin: 1.00, thicknessMax: 1.99, widthMin: 1300, widthMax: 1849, value: 16 },
+      { thicknessMin: 1.00, thicknessMax: 1.99, widthMin: 1850, widthMax: 9999, value: 46 },
+      { thicknessMin: 2.00, thicknessMax: 3.00, widthMin: 600, widthMax: 899, value: 30 },
+      { thicknessMin: 2.00, thicknessMax: 3.00, widthMin: 900, widthMax: 1299, value: 11 },
+      { thicknessMin: 2.00, thicknessMax: 3.00, widthMin: 1300, widthMax: 1849, value: 11 },
+      { thicknessMin: 2.00, thicknessMax: 3.00, widthMin: 1850, widthMax: 9999, value: 56 },
+    ];
+
+    const DIMENSION_MATRIX_HDG = [
+      { thicknessMin: 0.40, thicknessMax: 0.49, widthMin: 600, widthMax: 899, value: 157 },
+      { thicknessMin: 0.40, thicknessMax: 0.49, widthMin: 900, widthMax: 1299, value: 127 },
+      { thicknessMin: 0.40, thicknessMax: 0.49, widthMin: 1300, widthMax: 1850, value: 127 },
+      { thicknessMin: 0.50, thicknessMax: 0.69, widthMin: 600, widthMax: 899, value: 128 },
+      { thicknessMin: 0.50, thicknessMax: 0.69, widthMin: 900, widthMax: 1299, value: 103 },
+      { thicknessMin: 0.50, thicknessMax: 0.69, widthMin: 1300, widthMax: 1850, value: 78 },
+      { thicknessMin: 0.70, thicknessMax: 0.99, widthMin: 600, widthMax: 899, value: 91 },
+      { thicknessMin: 0.70, thicknessMax: 0.99, widthMin: 900, widthMax: 1299, value: 71 },
+      { thicknessMin: 0.70, thicknessMax: 0.99, widthMin: 1300, widthMax: 1850, value: 51 },
+      { thicknessMin: 1.00, thicknessMax: 1.99, widthMin: 600, widthMax: 899, value: 63 },
+      { thicknessMin: 1.00, thicknessMax: 1.99, widthMin: 900, widthMax: 1299, value: 48 },
+      { thicknessMin: 1.00, thicknessMax: 1.99, widthMin: 1300, widthMax: 1850, value: 34 },
+      { thicknessMin: 2.00, thicknessMax: 3.00, widthMin: 600, widthMax: 899, value: 52 },
+      { thicknessMin: 2.00, thicknessMax: 3.00, widthMin: 900, widthMax: 1299, value: 34 },
+      { thicknessMin: 2.00, thicknessMax: 3.00, widthMin: 1300, widthMax: 1850, value: 22 },
+    ];
+
+    const MIN_THICKNESS_HRS = [
+      { widthMin: 600, widthMax: 1499, minThickness: 1.50 },
+      { widthMin: 1500, widthMax: 1549, minThickness: 1.60 },
+      { widthMin: 1550, widthMax: 2049, minThickness: 2.00 },
+      { widthMin: 2050, widthMax: 9999, minThickness: 2.50 },
+    ];
+
+    const MIN_THICKNESS_CR = [
+      { widthMin: 600, widthMax: 1699, minThickness: 0.40 },
+      { widthMin: 1700, widthMax: 1925, minThickness: 0.50 },
+      { widthMin: 1926, widthMax: 2000, minThickness: 0.60 },
+      { widthMin: 2001, widthMax: 9999, minThickness: 0.70 },
+    ];
+
+    const MIN_THICKNESS_HDG = [
+      { widthMin: 600, widthMax: 1850, minThickness: 0.40 },
+    ];
+
+    let activeDimensionMatrix = DIMENSION_MATRIX_HRS;
+    let activeMinThickness = MIN_THICKNESS_HRS;
+
+    function getDimensionSurcharge(thickness, width) {
+      for (const row of activeDimensionMatrix) {
+        if (thickness >= row.thicknessMin && thickness <= row.thicknessMax &&
+            width >= row.widthMin && width <= row.widthMax) {
+          return row.value;
+        }
+      }
+      return null;
+    }
+
+    function getMinThicknessForWidth(width) {
+      for (const rule of activeMinThickness) {
+        if (width >= rule.widthMin && width <= rule.widthMax) {
+          return rule.minThickness;
+        }
+      }
+      return null;
+    }
+
+    /* ==== COATING MATRIX (HDG) ==== */
+    const COATING_MATRIX_HDG = [
+      { thMin: 0.40, thMax: 0.49, Z100: 24, Z140: 51, Z200: 89, Z225: 109, Z275: 136, Z350: 177, Z450: null, Z600: null, Z725: null, Z800: null },
+      { thMin: 0.50, thMax: 0.59, Z100: 20, Z140: 39, Z200: 71, Z225: 88, Z275: 109, Z350: 145, Z450: null, Z600: null, Z725: null, Z800: null },
+      { thMin: 0.60, thMax: 0.79, Z100: 14, Z140: 30, Z200: 54, Z225: 66, Z275: 83, Z350: 110, Z450: 149, Z600: null, Z725: null, Z800: null },
+      { thMin: 0.80, thMax: 0.99, Z100: 11, Z140: 23, Z200: 42, Z225: 52, Z275: 65, Z350: 84, Z450: 114, Z600: 159, Z725: null, Z800: null },
+      { thMin: 1.00, thMax: 1.49, Z100: 8, Z140: 17, Z200: 33, Z225: 39, Z275: 47, Z350: 65, Z450: 86, Z600: 119, Z725: null, Z800: null },
+      { thMin: 1.50, thMax: 1.99, Z100: 5, Z140: 13, Z200: 24, Z225: 29, Z275: 36, Z350: 46, Z450: 65, Z600: 87, Z725: 114, Z800: 134 },
+      { thMin: 2.00, thMax: 2.99, Z100: 5, Z140: 9, Z200: 15, Z225: 20, Z275: 26, Z350: 33, Z450: 43, Z600: 61, Z725: 79, Z800: 90 },
+      { thMin: 3.00, thMax: 99.0, Z100: 3, Z140: 6, Z200: 10, Z225: 12, Z275: 17, Z350: 25, Z450: 32, Z600: 42, Z725: 57, Z800: 67 },
+    ];
+
+    let selectedCoating = 'Z100';
+
+    function getCoatingSurcharge(thickness, coating) {
+      for (const row of COATING_MATRIX_HDG) {
+        if (thickness >= row.thMin && thickness <= row.thMax) {
+          return row[coating] !== undefined ? row[coating] : null;
+        }
+      }
+      return null;
+    }
+
+    function setCoating(coating, btn) {
+      selectedCoating = coating;
+      document.querySelectorAll('#tg-coating .toggle-btn').forEach(b => b.classList.remove('active-toggle'));
+      btn.classList.add('active-toggle');
+      recalculate();
+    }
+
+    /* ==== LENGTH SURCHARGE (HRS) ==== */
+    const LENGTH_SURCHARGE_HRS = [
+      { thMin: 1.50, thMax: 1.99, l1: 67, l2: 56, l3: 42, l4: 47, l5: 52 },
+      { thMin: 2.00, thMax: 2.99, l1: 67, l2: 51, l3: 31, l4: 37, l5: 42 },
+      { thMin: 3.00, thMax: 9.99, l1: 67, l2: 44, l3: 31, l4: 37, l5: 42 },
+      { thMin: 10.00, thMax: 16.00, l1: 67, l2: 42, l3: 31, l4: 37, l5: 42 },
+      { thMin: 16.01, thMax: 99.00, l1: 67, l2: 51, l3: 31, l4: 37, l5: 42 },
+    ];
+
+    const BASE_SURCHARGE_CR_HDG = [
+      { thMin: 0.50, thMax: 0.59, w1: 96, w2: 90, w3: 80, w4: 65, w5: 77 },
+      { thMin: 0.60, thMax: 0.99, w1: 90, w2: 84, w3: 74, w4: 59, w5: 71 },
+      { thMin: 1.00, thMax: 1.49, w1: 83, w2: 77, w3: 67, w4: 52, w5: 64 },
+      { thMin: 1.50, thMax: 2.50, w1: 79, w2: 73, w3: 63, w4: 48, w5: 60 },
+      { thMin: 2.51, thMax: 3.00, w1: 87, w2: 81, w3: 71, w4: 56, w5: 68 },
+    ];
+
+    function getBaseSurchargeCRHDG(thickness, width) {
+      for (const row of BASE_SURCHARGE_CR_HDG) {
+        if (thickness >= row.thMin && thickness <= row.thMax) {
+          if (width < 299) return row.w1;
+          if (width >= 300 && width <= 599) return row.w2;
+          if (width >= 600 && width <= 899) return row.w3;
+          if (width >= 900 && width <= 1500) return row.w4;
+          if (width > 1500) return row.w5;
+        }
+      }
+      return null;
+    }
+
+    function getBaseLengthSurchargeHRS(thickness, length) {
+      for (const row of LENGTH_SURCHARGE_HRS) {
+        if (thickness >= row.thMin && thickness <= row.thMax) {
+          if (length >= 650 && length <= 999) return row.l1;
+          if (length >= 1000 && length <= 1999) return row.l2;
+          if (length >= 2000 && length <= 6000) return row.l3;
+          if (length >= 6001 && length <= 8999) return row.l4;
+          if (length >= 9000 && length <= 12300) return row.l5;
+        }
+      }
+      return null;
+    }
+
+    /* ==== CONSTANTS ==== */
+    const HUTA_CONSTANTS = { pglPeriod: 0 };
+    const SCRAP_CONSTANT = 10;
+    const YIELD_GRADES = ['S550MC', 'S550MC-CAT_A', 'S650MC', 'S700MC', 'S700MC-CAT_A', 'Amstrong® Ultra 650MC', 'Amstrong® Ultra 700MC_B', 'AMSTRONG®550MC'];
+
+    let currentType = 'HRS';
+    let isDark = true;
+
+    function numVal(id) {
+      return parseFloat(document.getElementById(id).value) || 0;
+    }
+
+    /* ==== TOGGLE HELPERS ==== */
+    function setToggle(groupId, inputId, value, btn) {
+      document.querySelectorAll('#' + groupId + ' .toggle-btn').forEach(b => b.classList.remove('active-toggle'));
+      btn.classList.add('active-toggle');
+      document.getElementById(inputId).value = value;
+      const badge = document.getElementById('disp-' + inputId);
+      if (badge) badge.textContent = value;
+      recalculate();
+    }
+
+    /* ==== TOLERANCE BUTTONS ==== */
+    const TOL_THICK_OPTIONS = {
+      HRS: [
+        { labelKey: 'tol34en', label: '3/4 EN', value: 0 },
+        { labelKey: 'tol12', label: '1/2', value: 5 },
+        { labelKey: 'tol13', label: '1/3', value: 15 },
+        { labelKey: 'tol14', label: '1/4', value: 25 },
+      ],
+      CR: [
+        { labelKey: 'tolNormal', label: 'Normalna', value: 0 },
+        { labelKey: 'tolSpecial', label: 'Specjalna', value: 5 },
+        { labelKey: 'tol12en', label: '1/2 EN', value: 10 },
+        { labelKey: 'tol13en', label: '1/3 EN', value: 20 },
+      ],
+      HDG: [
+        { labelKey: 'tolNormal', label: 'Normalna', value: 0 },
+        { labelKey: 'tolSpecial', label: 'Specjalna', value: 0 },
+        { labelKey: 'tol12en', label: '1/2 EN', value: 10 },
+        { labelKey: 'tol13en', label: '1/3 EN', value: 20 },
+        { labelKey: 'tol14en', label: '1/4 EN', value: 20 },
+      ],
+    };
+
+    function updateTolThickButtons(type) {
+      const group = document.getElementById('tg-huta-tolthick');
+      const hidden = document.getElementById('huta-tol-thick');
+      const badge = document.getElementById('disp-huta-tol-thick');
+      const options = TOL_THICK_OPTIONS[type] || TOL_THICK_OPTIONS['HRS'];
+
+      group.innerHTML = '';
+      options.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'toggle-btn' + (i === 0 ? ' active-toggle' : '');
+        btn.textContent = t(opt.labelKey) || opt.label;
+        btn.onclick = function() { setToggle('tg-huta-tolthick', 'huta-tol-thick', opt.value, btn); };
+        group.appendChild(btn);
+      });
+
+      hidden.value = options[0].value;
+      badge.textContent = options[0].value;
+    }
+
+    /* ==== VISIBILITY HELPERS ==== */
+    function updateCoatingVisibility(type) {
+      document.getElementById('row-coating').style.display = (type === 'HDG') ? '' : 'none';
+      document.getElementById('cr-huta-rows').style.display = (type === 'CR') ? '' : 'none';
+      document.getElementById('hdg-huta-rows').style.display = (type === 'HDG') ? '' : 'none';
+
+      const certDefault = (type === 'CR') ? 0 : 5;
+      document.getElementById('huta-cert').value = certDefault;
+      document.getElementById('disp-huta-cert').textContent = certDefault;
+      document.querySelectorAll('#tg-huta-cert .toggle-btn').forEach(b => {
+        b.classList.remove('active-toggle');
+        const v = parseFloat(b.getAttribute('onclick').match(/,([\d.]+),this/)[1]);
+        if (v === certDefault) b.classList.add('active-toggle');
+      });
+    }
+
+    function updateYieldVisibility() {
+      const row = document.getElementById('row-yield');
+      const grade = (document.getElementById('inp-grade').value || '').trim();
+      const show = (currentType === 'HRS' && YIELD_GRADES.includes(grade));
+      row.style.display = show ? '' : 'none';
+      document.getElementById('ssc-yield').value = show ? 7 : 0;
+    }
+
+    function updateBaseDoplataMode() {
+      document.getElementById('ssc-base').style.display = 'none';
+      document.getElementById('ssc-base-display').style.display = '';
+    }
+
+    /* ==== THEME TOGGLE ==== */
+    function toggleTheme() {
+      isDark = !isDark;
+      document.body.classList.toggle('light', !isDark);
+      document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙';
+      document.getElementById('theme-label').textContent = isDark ? t('light') : t('dark');
+    }
+
+    /* ==== GRADE AUTOCOMPLETE ==== */
+    (function initGradeAutocomplete() {
+      const input = document.getElementById('inp-grade');
+      const dropdown = document.getElementById('grade-dropdown');
+      let activeIdx = -1;
+
+      function renderDropdown(query) {
+        const q = query.toLowerCase().trim();
+        const matches = q.length === 0 ? activeGradeTable : activeGradeTable.filter(g => g.name.toLowerCase().includes(q));
+
+        if (matches.length === 0) { dropdown.classList.add('hidden'); return; }
+
+        dropdown.innerHTML = matches.map((g, i) =>
+          '<div class="grade-option" data-idx="' + i + '" data-name="' + g.name.replace(/"/g, '&quot;') + '" data-val="' + g.value + '">' +
+            '<span class="g-name">' + hl(g.name, q) + '</span>' +
+            '<span class="g-val">' + g.value + ' €/t</span>' +
+          '</div>'
+        ).join('');
+
+        dropdown.classList.remove('hidden');
+        activeIdx = -1;
+
+        dropdown.querySelectorAll('.grade-option').forEach(opt => {
+          opt.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            pick(this.dataset.name, +this.dataset.val);
+          });
+        });
+      }
+
+      function hl(text, q) {
+        if (!q) return text;
+        const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+        return text.replace(re, '<mark style="background:rgba(232,160,32,0.35);color:var(--text-primary);border-radius:2px;padding:0 1px">$1</mark>');
+      }
+
+      function pick(name, value) {
+        input.value = name;
+        selectedGrade = { name, value };
+        dropdown.classList.add('hidden');
+        updateYieldVisibility();
+        recalculate();
+      }
+
+      input.addEventListener('focus', function() { renderDropdown(this.value); });
+      input.addEventListener('input', function() {
+        selectedGrade = null;
+        renderDropdown(this.value);
+        recalculate();
+      });
+      input.addEventListener('blur', function() {
+        setTimeout(() => dropdown.classList.add('hidden'), 160);
+      });
+      input.addEventListener('keydown', function(e) {
+        const opts = dropdown.querySelectorAll('.grade-option');
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          activeIdx = Math.min(activeIdx + 1, opts.length - 1);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          activeIdx = Math.max(activeIdx - 1, 0);
+        } else if (e.key === 'Enter' && activeIdx >= 0) {
+          e.preventDefault();
+          const o = opts[activeIdx];
+          pick(o.dataset.name, +o.dataset.val);
+          return;
+        } else if (e.key === 'Escape') {
+          dropdown.classList.add('hidden'); return;
+        }
+        opts.forEach((o, i) => o.classList.toggle('active', i === activeIdx));
+        if (opts[activeIdx]) opts[activeIdx].scrollIntoView({ block: 'nearest' });
+      });
+
+      const def = GRADE_TABLE_HRS.find(g => g.name === 'S235JR+N') || GRADE_TABLE_HRS[0];
+      if (def) { input.value = def.name; selectedGrade = def; }
+    })();
+
+    /* ==== MAIN CALCULATION ==== */
+    function recalculate() {
+      const thickness = numVal('inp-thickness');
+      const width = numVal('inp-width');
+      const dimSurcharge = getDimensionSurcharge(thickness, width);
+      const gradeSurcharge = selectedGrade ? selectedGrade.value : 0;
+
+      // Dimension validation
+      const warning = document.getElementById('dim-warning');
+      const warningMsg = document.getElementById('dim-warning-msg');
+      const dimCell = document.getElementById('val-dim-surcharge');
+
+      if (dimSurcharge === null) {
+        const minTh = getMinThicknessForWidth(width);
+        let warnText;
+        if (minTh !== null) {
+          if (thickness < minTh) {
+            warnText = t('warnMinThickness').replace('{width}', width).replace('{minTh}', minTh.toFixed(2)).replace('{th}', thickness.toFixed(2));
+          } else {
+            let maxTh = null;
+            for (const row of activeDimensionMatrix) {
+              if (width >= row.widthMin && width <= row.widthMax) {
+                if (maxTh === null || row.thicknessMax > maxTh) maxTh = row.thicknessMax;
+              }
+            }
+            if (maxTh !== null && maxTh < 99) {
+              warnText = t('warnMaxThickness').replace('{width}', width).replace('{maxTh}', maxTh.toFixed(2)).replace('{th}', thickness.toFixed(2));
+            } else {
+              warnText = t('warnOutOfRange').replace('{th}', thickness.toFixed(2)).replace('{width}', width);
+            }
+          }
+        } else {
+          warnText = t('warnWidthOutOfRange').replace('{width}', width);
+        }
+        warningMsg.innerHTML = warnText;
+        warning.classList.add('visible');
+        dimCell.textContent = '—';
+        dimCell.style.color = 'var(--accent-sum)';
+      } else {
+        warning.classList.remove('visible');
+        dimCell.textContent = dimSurcharge;
+        dimCell.style.color = '';
+      }
+
+      const effectiveDim = dimSurcharge !== null ? dimSurcharge : 0;
+      const tolThick = parseFloat(document.getElementById('huta-tol-thick').value) || 0;
+      const cert = parseFloat(document.getElementById('huta-cert').value) || 0;
+
+      document.getElementById('val-pgl-period').textContent = HUTA_CONSTANTS.pglPeriod;
+      document.getElementById('val-grade').textContent = gradeSurcharge;
+      document.getElementById('disp-huta-tol-thick').textContent = tolThick;
+      document.getElementById('disp-huta-cert').textContent = cert;
+
+      // Coating (HDG only)
+      let coatingSurcharge = 0;
+      const coatingEl = document.getElementById('val-coating');
+      if (currentType === 'HDG') {
+        const cv = getCoatingSurcharge(thickness, selectedCoating);
+        if (cv !== null) {
+          coatingSurcharge = cv;
+          coatingEl.textContent = cv + ' €/t';
+        } else {
+          coatingEl.textContent = '— (N/A)';
+        }
+      } else {
+        coatingEl.textContent = '—';
+      }
+
+      // CR/HDG extra surcharges
+      let crExtra = 0;
+      if (currentType === 'CR') {
+        ['cr-zabezp', 'cr-opak', 'cr-powierz', 'cr-wykon', 'cr-zgrzew'].forEach(id => {
+          crExtra += parseFloat(document.getElementById(id).value) || 0;
+        });
+      }
+      if (currentType === 'HDG') {
+        ['hdg-zabezp', 'hdg-opak', 'hdg-powierz', 'hdg-wykon', 'hdg-zgrzew'].forEach(id => {
+          crExtra += parseFloat(document.getElementById(id).value) || 0;
+        });
+      }
+
+      const sumaHuta = HUTA_CONSTANTS.pglPeriod + effectiveDim + gradeSurcharge + tolThick + cert + coatingSurcharge + crExtra;
+      document.getElementById('sum-huta').textContent = sumaHuta.toFixed(2);
+
+      // Base surcharge
+      let baseVal;
+      let baseComputed = null;
+      if (currentType === 'HRS') {
+        baseComputed = getBaseLengthSurchargeHRS(thickness, numVal('inp-length'));
+      } else {
+        baseComputed = getBaseSurchargeCRHDG(thickness, width);
+      }
+      if (baseComputed !== null) {
+        baseVal = baseComputed;
+        document.getElementById('ssc-base').value = baseVal;
+        document.getElementById('ssc-base-display').textContent = baseVal;
+      } else {
+        baseVal = numVal('ssc-base');
+        document.getElementById('ssc-base-display').textContent = '—';
+      }
+
+      const sumaSSC = [
+        baseVal, numVal('ssc-len-tol'), numVal('ssc-flatness'),
+        numVal('ssc-surface'), numVal('ssc-maxweight'), numVal('ssc-marking'),
+        numVal('ssc-edging'), numVal('ssc-yield'), numVal('ssc-packing'),
+        numVal('ssc-labels'), SCRAP_CONSTANT,
+      ].reduce((a, v) => a + v, 0);
+
+      document.getElementById('val-scrap').textContent = SCRAP_CONSTANT;
+      document.getElementById('sum-ssc').textContent = sumaSSC.toFixed(2);
+
+      const pglBase = numVal('sum-pgl-input');
+      const marginPct = numVal('sum-margin-pct');
+      const extra = numVal('sum-extra');
+      const transport = numVal('sum-transport');
+
+      const cenaWsadu = pglBase + sumaHuta;
+      const marzaNetto = cenaWsadu * (marginPct / 100);
+      const cenaKoncowa = cenaWsadu + marzaNetto + extra + transport + sumaSSC;
+
+      document.getElementById('val-wsad').textContent = cenaWsadu.toFixed(2);
+      document.getElementById('val-margin').textContent = marzaNetto.toFixed(2);
+      document.getElementById('val-ssc-echo').textContent = sumaSSC.toFixed(2);
+      document.getElementById('val-final').textContent = cenaKoncowa.toFixed(2);
+      document.getElementById('val-final-echo').textContent = cenaKoncowa.toFixed(2);
+    }
+
+    /* ==== TYPE SELECTION ==== */
+    function selectType(type, btn) {
+      currentType = type;
+      document.querySelectorAll('.type-btn').forEach(b => b.className = 'type-btn');
+      const classMap = { HRS: 'active-hrs', CR: 'active-cr', HDG: 'active-hdg' };
+      btn.classList.add(classMap[type]);
+
+      activeGradeTable = GRADE_TABLES[type] || [];
+      const dimMatrices = { HRS: DIMENSION_MATRIX_HRS, CR: DIMENSION_MATRIX_CR, HDG: DIMENSION_MATRIX_HDG };
+      const minThMatrices = { HRS: MIN_THICKNESS_HRS, CR: MIN_THICKNESS_CR, HDG: MIN_THICKNESS_HDG };
+      activeDimensionMatrix = dimMatrices[type] || DIMENSION_MATRIX_HRS;
+      activeMinThickness = minThMatrices[type] || MIN_THICKNESS_HRS;
+      selectedGrade = null;
+      const inp = document.getElementById('inp-grade');
+      inp.value = '';
+      document.getElementById('grade-dropdown').classList.add('hidden');
+
+      const defaultGrades = { HRS: 'S235JR+N', CR: 'DC01', HDG: 'DX51D+Z' };
+      const defaultName = defaultGrades[type] || '';
+      const defaultEntry = activeGradeTable.find(g => g.name === defaultName) || activeGradeTable[0];
+      if (defaultEntry) {
+        inp.value = defaultEntry.name;
+        selectedGrade = defaultEntry;
+      }
+
+      if (type === 'HDG') {
+        selectedCoating = 'Z275';
+        document.querySelectorAll('#tg-coating .toggle-btn').forEach(b => {
+          b.classList.remove('active-toggle');
+          if (b.textContent.trim() === 'Z275') b.classList.add('active-toggle');
+        });
+      }
+
+      updateCoatingVisibility(type);
+      updateYieldVisibility();
+      updateTolThickButtons(type);
+      updateBaseDoplataMode();
+      recalculate();
+    }
+
+    /* ==== ZESTAWIENIE ==== */
+    let zestawienie = [];
+    let editingId = null;
+
+    function getSnapshot() {
+      return {
+        id: Date.now(),
+        type: currentType,
+        grade: document.getElementById('inp-grade').value || '—',
+        thickness: numVal('inp-thickness'),
+        width: numVal('inp-width'),
+        length: numVal('inp-length'),
+        sumaHuta: parseFloat(document.getElementById('sum-huta').textContent) || 0,
+        sumaSSC: parseFloat(document.getElementById('sum-ssc').textContent) || 0,
+        marza: parseFloat(document.getElementById('val-margin').textContent) || 0,
+        finalPrice: parseFloat(document.getElementById('val-final').textContent) || 0,
+        tons: numVal('inp-tons'),
+        pgl: numVal('sum-pgl-input'),
+      };
+    }
+
+    function restoreSnapshot(snap) {
+      document.getElementById('inp-thickness').value = snap.thickness;
+      document.getElementById('inp-width').value = snap.width;
+      document.getElementById('inp-length').value = snap.length;
+      document.getElementById('inp-grade').value = snap.grade;
+      document.getElementById('sum-pgl-input').value = snap.pgl;
+      document.getElementById('inp-tons').value = snap.tons || 1;
+
+      document.querySelectorAll('.type-btn').forEach(b => {
+        if (b.dataset.type === snap.type) selectType(snap.type, b);
+      });
+      recalculate();
+    }
+
+    function renderZestawienie() {
+      const tbody = document.getElementById('zest-tbody');
+      const emptyRow = document.getElementById('zest-empty-row');
+
+      tbody.querySelectorAll('.zr').forEach(r => r.remove());
+
+      if (zestawienie.length === 0) {
+        if (emptyRow) {
+          emptyRow.style.display = '';
+          emptyRow.querySelector('td').textContent = t('noItems');
+        }
+        document.getElementById('zest-total').textContent = '—';
+        document.getElementById('zest-count').textContent = '';
+        return;
+      }
+      if (emptyRow) emptyRow.style.display = 'none';
+
+      zestawienie.forEach((item, idx) => {
+        const totalValue = item.finalPrice * (item.tons || 1);
+        const tr = document.createElement('tr');
+        tr.className = 'zr';
+        tr.innerHTML =
+          '<td>' + (idx + 1) + '</td>' +
+          '<td><div class="z-desc-grade">' + escHtml(item.grade) + '</div>' +
+            '<div class="z-desc-dim">' + item.thickness + ' × ' + item.width + ' × ' + item.length + ' mm</div></td>' +
+          '<td><span class="z-type-badge z-type-' + item.type + '">' + item.type + '</span></td>' +
+          '<td>' + item.sumaHuta.toFixed(2) + '</td>' +
+          '<td>' + item.sumaSSC.toFixed(2) + '</td>' +
+          '<td>' + item.marza.toFixed(2) + '</td>' +
+          '<td class="z-final">' + item.finalPrice.toFixed(2) + ' €/t</td>' +
+          '<td style="color:var(--text-value);">' + (item.tons || 1).toFixed(2) + ' t</td>' +
+          '<td class="z-final">' + totalValue.toFixed(2) + ' €</td>' +
+          '<td>' +
+            '<button class="z-action-btn z-edit-btn" title="Edit" onclick="editItem(' + item.id + ')">✏️</button>' +
+            '<button class="z-action-btn z-dup-btn" title="Duplicate" onclick="dupItem(' + item.id + ')">⧉</button>' +
+            '<button class="z-action-btn z-del-btn" title="Delete" onclick="deleteItem(' + item.id + ')">🗑</button>' +
+          '</td>';
+        tbody.appendChild(tr);
+      });
+
+      const totalTons = zestawienie.reduce((s, i) => s + (i.tons || 1), 0);
+      const totalValue = zestawienie.reduce((s, i) => s + i.finalPrice * (i.tons || 1), 0);
+      document.getElementById('zest-total').textContent = totalValue.toFixed(2);
+      
+      let itemsLabel = t('items');
+      if (zestawienie.length === 1) itemsLabel = t('item1');
+      else if (zestawienie.length >= 2 && zestawienie.length <= 4) itemsLabel = t('items24');
+      
+      document.getElementById('zest-count').textContent = '(' + zestawienie.length + ' ' + itemsLabel + ' · ' + totalTons.toFixed(2) + ' t)';
+    }
+
+    function escHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function addToZestawienie() {
+      const snap = getSnapshot();
+      snap.totalValue = snap.finalPrice * snap.tons;
+      const btn = document.getElementById('btn-add-zestawienie');
+
+      if (editingId !== null) {
+        const idx = zestawienie.findIndex(i => i.id === editingId);
+        if (idx !== -1) {
+          snap.id = editingId;
+          zestawienie[idx] = snap;
+        }
+        editingId = null;
+        btn.textContent = t('addToList');
+      } else {
+        zestawienie.push(snap);
+      }
+
+      renderZestawienie();
+      document.getElementById('zestawienie-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function editItem(id) {
+      const item = zestawienie.find(i => i.id === id);
+      if (!item) return;
+
+      editingId = id;
+      restoreSnapshot(item);
+      document.getElementById('btn-add-zestawienie').textContent = t('updateItem');
+      document.querySelector('.type-selector').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function dupItem(id) {
+      const item = zestawienie.find(i => i.id === id);
+      if (!item) return;
+      const copy = Object.assign({}, item, { id: Date.now() });
+      const idx = zestawienie.findIndex(i => i.id === id);
+      zestawienie.splice(idx + 1, 0, copy);
+      renderZestawienie();
+    }
+
+    function deleteItem(id) {
+      zestawienie = zestawienie.filter(i => i.id !== id);
+      if (editingId === id) {
+        editingId = null;
+        document.getElementById('btn-add-zestawienie').textContent = t('addToList');
+      }
+      renderZestawienie();
+    }
+
+    function clearZestawienie() {
+      if (zestawienie.length === 0) return;
+      if (!confirm(t('confirmClear'))) return;
+      zestawienie = [];
+      editingId = null;
+      document.getElementById('btn-add-zestawienie').textContent = t('addToList');
+      renderZestawienie();
+    }
+
+    /* ==== EVENT LISTENERS ==== */
+    document.querySelectorAll('input:not(#inp-grade), select').forEach(el => {
+      el.addEventListener('input', recalculate);
+    });
+
+    /* ==== INITIALIZATION ==== */
+    function init() {
+      // Load saved language
+      setLanguage(currentLang);
+      
+      // Initialize UI
+      updateTolThickButtons('HRS');
+      updateBaseDoplataMode();
+      recalculate();
+      renderZestawienie();
+    }
+
+    init();
+  </script>
+
+</body>
+</html>

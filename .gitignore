@@ -1,0 +1,20 @@
+# Local Postgres runtime state — not source code
+/pgdata/
+/pgrun/
+
+# Runtime-generated files from local use (offer PDFs, uploads)
+/Downloads/
+/Uploads/
+
+# Secrets — see .env.example in each app folder instead
+.env
+.env.local
+.env*.local
+
+# Internal app-builder platform metadata, not part of the codebase
+.abacus.donotdelete
+
+# Node / Next.js build artifacts
+node_modules/
+.next/
+*.tsbuildinfo
