@@ -1,42 +1,67 @@
-export const dynamic = 'force-dynamic';
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server';
+import pool from '@/lib/db';
+import { requireRole } from '@/lib/rbac';
 
+const OFFER_COLUMNS = `o.id, o.offer_name, o.offer_data, o.status, o.user_id,
+  o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at, o.rejection_reason, o.sent_at,
+  u.full_name AS owner_name, u.email AS owner_email`;
+
+// GET offers widoczne dla bieżącego użytkownika:
+//   junior  -> tylko własne
+//   senior  -> własne + wszystkie cudze w pending_review (do recenzji)
+//   admin   -> tylko własne (admin nie tworzy ofert; przegląd całości jest w /api/admin/offers)
+// Zwraca też rolę bieżącego użytkownika, żeby front nie musiał osobno pytać /api/auth/me.
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    const offers = await prisma.offer.findMany({
-      where: { userId: user.id },
-      orderBy: { updatedAt: 'desc' },
-    });
-    return NextResponse.json(offers);
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? 'Server error' }, { status: 500 });
+    const auth = await requireRole(['junior', 'senior', 'admin']);
+    if ('error' in auth) return auth.error;
+    const { session } = auth;
+
+    const where =
+      session.role === 'senior'
+        ? `o.user_id = $1 OR o.status = 'pending_review'`
+        : `o.user_id = $1`;
+
+    const result = await pool.query(
+      `SELECT ${OFFER_COLUMNS}
+       FROM offers o
+       LEFT JOIN users u ON u.id = o.user_id
+       WHERE ${where}
+       ORDER BY o.created_at DESC`,
+      [session.userId]
+    );
+
+    return NextResponse.json({ offers: result.rows, role: session.role, userId: session.userId });
+  } catch (error) {
+    console.error('Error fetching offers:', error);
+    return NextResponse.json({ error: 'Failed to fetch offers' }, { status: 500 });
   }
 }
 
-export async function POST(req: Request) {
+// POST - Create new offer (junior i senior; admin nie tworzy ofert).
+// Nowa oferta startuje w statusie 'draft' (DEFAULT w bazie).
+export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireRole(['junior', 'senior', 'admin']);
+    if ('error' in auth) return auth.error;
+    const { session } = auth;
+
+    const { offer_name, offer_data } = await request.json();
+
+    if (!offer_name || !offer_data) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    const body = await req?.json?.();
-    const { title, data } = body ?? {};
-    const offer = await prisma.offer.create({
-      data: { name: title ?? 'Untitled', data: data ?? {} as any, userId: user.id },
-    });
-    return NextResponse.json(offer);
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? 'Server error' }, { status: 500 });
+
+    const result = await pool.query(
+      `INSERT INTO offers (user_id, offer_name, offer_data)
+       VALUES ($1, $2, $3)
+       RETURNING id, offer_name, offer_data, status, created_at, updated_at`,
+      [session.userId, offer_name, JSON.stringify(offer_data)]
+    );
+
+    return NextResponse.json({ offer: result.rows[0] }, { status: 201 });
+  } catch (error) {
+    console.error('Error creating offer:', error);
+    return NextResponse.json({ error: 'Failed to create offer' }, { status: 500 });
   }
 }

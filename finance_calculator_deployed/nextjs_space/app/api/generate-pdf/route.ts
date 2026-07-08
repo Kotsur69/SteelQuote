@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth-options';
+import { getSession } from '@/lib/auth';
 import fs from 'fs';
 import path from 'path';
 
@@ -210,8 +209,8 @@ function buildHtml(
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const session = await getSession();
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -221,7 +220,7 @@ export async function POST(request: Request) {
     }
 
     const client: ClientInfo = clientInfo || { firstName: '', lastName: '', company: '', address: '', nip: '', phone: '', email: '' };
-    const userName = session.user.name || session.user.email || '';
+    const userName = session.email || '';
     const date = offerDate || new Date().toLocaleDateString('pl-PL');
 
     const html_content = buildHtml(items, client, offerName || '', date, userName);

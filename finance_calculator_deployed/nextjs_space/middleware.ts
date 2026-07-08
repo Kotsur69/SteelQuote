@@ -1,9 +1,74 @@
-import { withAuth } from 'next-auth/middleware';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { jwtVerify } from 'jose';
 
-export default withAuth({
-  pages: { signIn: '/login' },
-});
+export async function middleware(request: NextRequest) {
+  const token = request.cookies.get('auth-token')?.value;
+  const { pathname } = request.nextUrl;
+
+  // Panel seniora — tylko rola 'senior'.
+  if (pathname.startsWith('/senior')) {
+    if (!token) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    try {
+      const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'default-secret');
+      const { payload } = await jwtVerify(token, secret);
+      if (payload.role !== 'senior') {
+        return NextResponse.redirect(new URL('/calculator', request.url));
+      }
+      return NextResponse.next();
+    } catch {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+
+  // Panel admina — tylko rola 'admin'.
+  if (pathname.startsWith('/admin')) {
+    if (!token) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    try {
+      const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'default-secret');
+      const { payload } = await jwtVerify(token, secret);
+      if (payload.role !== 'admin') {
+        return NextResponse.redirect(new URL('/calculator', request.url));
+      }
+      return NextResponse.next();
+    } catch {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+
+  // Protected routes
+  if (pathname.startsWith('/calculator') || pathname.startsWith('/offers')) {
+    if (!token) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+
+    try {
+      const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'default-secret');
+      await jwtVerify(token, secret);
+      return NextResponse.next();
+    } catch {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+
+  // Redirect logged in users from login page to calculator
+  if (pathname === '/' && token) {
+    try {
+      const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'default-secret');
+      await jwtVerify(token, secret);
+      return NextResponse.redirect(new URL('/calculator', request.url));
+    } catch {
+      // Token invalid, continue to login page
+    }
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: ['/', '/offers/:path*'],
+  matcher: ['/', '/calculator/:path*', '/offers/:path*', '/senior/:path*', '/admin/:path*'],
 };

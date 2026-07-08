@@ -5,6 +5,7 @@
 # Runtime-generated files from local use (offer PDFs, uploads)
 /Downloads/
 /Uploads/
+/oferta_*.pdf
 
 # Secrets — see .env.example in each app folder instead
 .env
@@ -18,3 +19,6 @@
 node_modules/
 .next/
 *.tsbuildinfo
+
+# Internal working notes — not for the public repo
+STAN_PROJEKTU.md

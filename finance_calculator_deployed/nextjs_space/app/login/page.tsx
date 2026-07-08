@@ -1,5 +1,9 @@
-import LoginClient from './login-client';
+'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
-  return <LoginClient />;
+  const router = useRouter();
+  useEffect(() => { router.replace('/'); }, [router]);
+  return null;
 }
