@@ -6,6 +6,7 @@ import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import Navigation from '@/components/Navigation';
 import { ClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
+import { exportOfferToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
 
 interface OfferData {
@@ -202,6 +203,16 @@ export default function OffersPage() {
       setMessage({ type: 'error', text: t.offers.saveFailed });
     } finally {
       setActionLoading(null);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  const handleExportExcel = (offer: Offer) => {
+    try {
+      exportOfferToExcel(offer.offer_name, offer.offer_data.zestawienie);
+    } catch (error) {
+      console.error('Excel export error:', error);
+      setMessage({ type: 'error', text: language === 'pl' ? 'Błąd eksportu Excela' : 'Excel export error' });
       setTimeout(() => setMessage(null), 3000);
     }
   };
@@ -535,6 +546,14 @@ export default function OffersPage() {
                   
                   {/* Action buttons */}
                   <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+                    <button
+                      onClick={() => handleExportExcel(offer)}
+                      disabled={!offer.offer_data.zestawienie || offer.offer_data.zestawienie.length === 0}
+                      className="px-3 py-1.5 text-xs font-medium rounded border border-[#1f8f4e] text-[#1f8f4e] bg-[rgba(31,143,78,0.08)] hover:bg-[rgba(31,143,78,0.15)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={t.excel?.exportExcel || 'Export Excel'}
+                    >
+                      📊 Excel
+                    </button>
                     <button
                       onClick={() => handleExportPDF(offer)}
                       disabled={!offer.offer_data.zestawienie || offer.offer_data.zestawienie.length === 0}

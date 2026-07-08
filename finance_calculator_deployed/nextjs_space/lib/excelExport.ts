@@ -206,3 +206,10 @@ export function exportZestawienieToExcel(items: ExcelExportItem[], offerName?: s
   const stamp = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `${safe}_${stamp}.xlsx`);
 }
+
+// Wygodny wrapper dla list ofert (Moje Oferty / Senior / Admin): przyjmuje
+// zestawienie zapisane w bazie (luźny kształt) i eksportuje je do .xlsx.
+export function exportOfferToExcel(offerName: string, zestawienie: unknown): void {
+  const items = (Array.isArray(zestawienie) ? zestawienie : []) as ExcelExportItem[];
+  exportZestawienieToExcel(items, offerName);
+}

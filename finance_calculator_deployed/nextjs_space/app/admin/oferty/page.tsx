@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 import { ClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
+import { exportOfferToExcel } from '@/lib/excelExport';
 
 type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
 
@@ -90,6 +91,15 @@ function AdminOffersContent() {
 
   const offerTotal = (o: AdminOffer) =>
     (o.offer_data.zestawienie || []).reduce((sum, it) => sum + it.totalValue, 0);
+
+  const handleExportExcel = (o: AdminOffer) => {
+    try {
+      exportOfferToExcel(o.offer_name, o.offer_data.zestawienie);
+    } catch (e) {
+      console.error('Excel export error', e);
+      flash('error', 'Błąd eksportu Excela');
+    }
+  };
 
   const handleExportPDF = async (o: AdminOffer) => {
     const empty: ClientInfo = { firstName: '', lastName: '', company: '', address: '', nip: '', phone: '', email: '' };
@@ -196,7 +206,14 @@ function AdminOffersContent() {
                     <td className="px-4 py-3 text-right font-mono text-[var(--accent-hrs)]">
                       {offerTotal(o).toFixed(2)} €
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <button
+                        onClick={() => handleExportExcel(o)}
+                        disabled={!o.offer_data.zestawienie || o.offer_data.zestawienie.length === 0}
+                        className="px-3 py-1.5 text-xs font-medium rounded border border-[#1f8f4e] text-[#1f8f4e] bg-[rgba(31,143,78,0.08)] hover:bg-[rgba(31,143,78,0.15)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed mr-1.5"
+                      >
+                        📊 Excel
+                      </button>
                       <button
                         onClick={() => handleExportPDF(o)}
                         disabled={!o.offer_data.zestawienie || o.offer_data.zestawienie.length === 0}

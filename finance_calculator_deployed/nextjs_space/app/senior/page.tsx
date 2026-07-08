@@ -6,6 +6,7 @@ import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import Navigation from '@/components/Navigation';
 import { ClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
+import { exportOfferToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
 
 type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
@@ -156,6 +157,15 @@ export default function SeniorPage() {
 
   const handleEdit = (offerId: number) => {
     router.push(`/calculator?edit=${offerId}`);
+  };
+
+  const handleExportExcel = (offer: Offer) => {
+    try {
+      exportOfferToExcel(offer.offer_name, offer.offer_data.zestawienie);
+    } catch (error) {
+      console.error('Excel export error:', error);
+      showMessage('error', 'Błąd eksportu Excela');
+    }
   };
 
   const handleExportPDF = async (offer: Offer) => {
@@ -406,6 +416,14 @@ export default function SeniorPage() {
 
                   {/* Action buttons */}
                   <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+                    {/* Excel */}
+                    <button
+                      onClick={() => handleExportExcel(offer)}
+                      disabled={!offer.offer_data.zestawienie || offer.offer_data.zestawienie.length === 0}
+                      className="px-3 py-1.5 text-xs font-medium rounded border border-[#1f8f4e] text-[#1f8f4e] bg-[rgba(31,143,78,0.08)] hover:bg-[rgba(31,143,78,0.15)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      📊 Excel
+                    </button>
                     {/* PDF */}
                     <button
                       onClick={() => handleExportPDF(offer)}
