@@ -2,12 +2,10 @@
 // Odwrotność importu: bierze pozycje zestawienia (z kalkulatora) i produkuje
 // wiersze o tych samych 37 kolumnach, co eksport z obecnego systemu.
 //
-// UWAGA — kody do potwierdzenia:
-// Część kodów odtworzono z JEDNEGO przykładu (HRS / arkusz / spec standardowa).
-// Kody oznaczone „ZGADYWANE" popraw tutaj, gdy dostaniesz pełną listę z systemu:
-//   - GROUP_BY_TYPE dla CR i HDG (znamy tylko HRS = 'HRBL')
-//   - SHAPE_COIL (kod kręgu; znamy tylko arkusz = 'SH')
-//   - kody Płaskości (L/C) i ich tolerancje dla laser/klient
+// UWAGA — kody do zmapowania później:
+// „Grupa materiałowa" emitowana jest jako surowy typ (HRS/CR/HDG) — BEZ zgadywania.
+// Podmień na prawdziwe kody systemu (dla HRS w przykładzie było 'HRBL'), gdy je dostaniemy.
+// „Kształt" kręgu (SHAPE_COIL) to placeholder — arkusz znamy z przykładu ('SH').
 // Kolumny metadanych systemu (KTS ID, Spółka GPAO, Klient, Referencja składu,
 // Kategoria, …) zostają PUSTE — nasza aplikacja ich nie przechowuje.
 
@@ -16,14 +14,15 @@ import type { SteelType } from './calculatorData';
 
 // ─── Mapy: wartość w aplikacji → kod w formacie KTS/GPAO ───
 
+// Bez zgadywania — surowy typ. Do zmapowania na kody systemu później (HRS→'HRBL' itd.).
 const GROUP_BY_TYPE: Record<SteelType, string> = {
-  HRS: 'HRBL', // z przykładu
-  CR: 'CRBL',  // ZGADYWANE — do potwierdzenia
-  HDG: 'HDG',  // ZGADYWANE — do potwierdzenia
+  HRS: 'HRS',
+  CR: 'CR',
+  HDG: 'HDG',
 };
 
-const SHAPE_SHEET = 'SH'; // arkusz (z przykładu)
-const SHAPE_COIL = 'CL';  // krąg — ZGADYWANE
+const SHAPE_SHEET = 'SH';   // arkusz (z przykładu)
+const SHAPE_COIL = 'COIL';  // placeholder — realny kod kręgu do ustalenia
 
 // Certyfikat (dopłata cert) → tekst atestu.
 const ATEST_BY_CERT: Record<number, string> = {
