@@ -307,6 +307,11 @@ export interface Translations {
     companyInfo: string;
   };
 
+  // Eksport/import Excel (format KTS/GPAO)
+  excel: {
+    exportExcel: string;
+  };
+
   // Role handlowców
   roles: {
     junior: string;
@@ -686,6 +691,9 @@ export const pl: Translations = {
     bestRegards: 'Z poważaniem,',
     companyInfo: 'SSC Distribution Solutions Poland Sp. z o.o.',
   },
+  excel: {
+    exportExcel: 'Eksportuj Excel',
+  },
 
   roles: {
     junior: 'Młodszy handlowiec',
@@ -1061,6 +1069,9 @@ export const en: Translations = {
     minQuantity: 'Minimum quantity: 5 tons per item',
     bestRegards: 'Best regards,',
     companyInfo: 'SSC Distribution Solutions Poland Sp. z o.o.',
+  },
+  excel: {
+    exportExcel: 'Export Excel',
   },
 
   roles: {

@@ -24,6 +24,7 @@ import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import { formatWarning } from '@/lib/translations';
 import { ClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
+import { exportZestawienieToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
 
 // Pełny zestaw wejść (przełączników dopłat) dla pojedynczej pozycji zestawienia.
@@ -676,7 +677,25 @@ export default function Calculator() {
       setTimeout(() => setSaveMessage(null), 3000);
     }
   };
-  
+
+  // Eksport zestawienia do pliku Excel (format KTS/GPAO) — patrz lib/excelExport.ts
+  const handleExportExcel = () => {
+    if (zestawienie.length === 0) {
+      setSaveMessage({ type: 'error', text: language === 'pl' ? 'Dodaj pozycje do zestawienia' : 'Add items to the list first' });
+      setTimeout(() => setSaveMessage(null), 3000);
+      return;
+    }
+    try {
+      exportZestawienieToExcel(zestawienie, currentOfferName || saveOfferName || '');
+      setSaveMessage({ type: 'success', text: language === 'pl' ? 'Excel wygenerowany!' : 'Excel generated!' });
+    } catch (error) {
+      console.error('Excel export error:', error);
+      setSaveMessage({ type: 'error', text: language === 'pl' ? 'Błąd eksportu Excela' : 'Excel export error' });
+    } finally {
+      setTimeout(() => setSaveMessage(null), 3000);
+    }
+  };
+
   // Load offer when edit param is present
   useEffect(() => {
     const editId = searchParams.get('edit');
@@ -1675,6 +1694,13 @@ export default function Calculator() {
               {zestawienie.length > 0 && `(${zestawienie.length} ${language === 'pl' ? (zestawienie.length === 1 ? 'pozycja' : zestawienie.length < 5 ? 'pozycje' : 'pozycji') : (zestawienie.length === 1 ? 'item' : 'items')} · ${zestTons.toFixed(2)} ${t.common.tons})`}
             </span>
             <div className="ml-auto flex gap-2">
+              <button
+                onClick={handleExportExcel}
+                disabled={zestawienie.length === 0}
+                className="bg-transparent border border-[#1f8f4e] rounded px-3 py-1 text-[10px] font-mono text-[#1f8f4e] hover:bg-[rgba(31,143,78,0.1)] transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                📊 {t.excel?.exportExcel || 'Eksportuj Excel'}
+              </button>
               <button
                 onClick={handleExportPDF}
                 disabled={pdfLoading || zestawienie.length === 0}
