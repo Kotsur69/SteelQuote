@@ -9,16 +9,23 @@ interface NavigationProps {
   isDark: boolean;
 }
 
+interface NavUser {
+  email: string;
+  fullName: string | null;
+  role: string;
+}
+
 export default function Navigation({ isDark }: NavigationProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
-  const [role, setRole] = useState<string | null>(null);
+  const [user, setUser] = useState<NavUser | null>(null);
+  const role = user?.role ?? null;
 
   useEffect(() => {
     fetch('/api/auth/me')
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setRole(data?.user?.role ?? null))
-      .catch(() => setRole(null));
+      .then((data) => setUser(data?.user ?? null))
+      .catch(() => setUser(null));
   }, []);
 
   const tabs = [
@@ -53,6 +60,20 @@ export default function Navigation({ isDark }: NavigationProps) {
             <span>{tab.label}</span>
           </Link>
         );
-      })}    </nav>
+      })}
+      {/* Zalogowany użytkownik — e-mail (i imię, jeśli jest) po prawej stronie paska. */}
+      {user && (
+        <div
+          className="ml-auto flex items-center gap-2 px-3 font-mono text-xs text-[var(--text-secondary)]"
+          title={user.role}
+        >
+          <span className="text-sm">👤</span>
+          <span className="hidden sm:inline">
+            {user.fullName ? `${user.fullName} · ` : ''}{user.email}
+          </span>
+          <span className="sm:hidden">{user.email}</span>
+        </div>
+      )}
+    </nav>
   );
 }

@@ -125,6 +125,7 @@ export interface Translations {
     coilMode: string;
     coilModeShort: string;
     sheetMode: string;
+    sheetWeight: string;
   };
   
   // Mill surcharges (Huta)
@@ -523,6 +524,7 @@ export const pl: Translations = {
     coilMode: 'KRĄG',
     coilModeShort: 'Krąg (bez cięcia)',
     sheetMode: 'Arkusz',
+    sheetWeight: 'Waga arkusza',
   },
   
   huta: {
@@ -898,6 +900,7 @@ export const en: Translations = {
     coilMode: 'COIL',
     coilModeShort: 'Coil (no cutting)',
     sheetMode: 'Sheet',
+    sheetWeight: 'Sheet weight',
   },
   
   huta: {

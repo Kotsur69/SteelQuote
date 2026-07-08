@@ -28,7 +28,7 @@ interface ZestItem {
 
 export interface ServerPdfInput {
   offerName: string;
-  offerId?: number;
+  offerId?: number | null;
   clientInfo: ClientInfoLike;
   zestawienie: ZestItem[];
   createdAt?: string;

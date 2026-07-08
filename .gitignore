@@ -20,5 +20,8 @@ node_modules/
 .next/
 *.tsbuildinfo
 
+# MS Office temp/lock files (Word/Excel open-document markers)
+~$*
+
 # Internal working notes — not for the public repo
 STAN_PROJEKTU.md

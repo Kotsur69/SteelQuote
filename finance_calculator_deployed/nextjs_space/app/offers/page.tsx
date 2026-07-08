@@ -78,7 +78,7 @@ interface Offer {
 }
 
 export default function OffersPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const [isDark, setIsDark] = useDarkMode();
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -87,6 +87,8 @@ export default function OffersPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [role, setRole] = useState<'junior' | 'senior' | 'admin' | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  // Która oferta ma rozwinięty podgląd pozycji (z cenami). null = wszystkie zwinięte.
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchOffers();
@@ -447,34 +449,87 @@ export default function OffersPage() {
                       <span>
                         📅 {t.offers.createdAt}: {formatDate(offer.created_at)}
                       </span>
-                      <span>
-                        📦 {getOfferItemCount(offer)} {t.offers.items}
-                      </span>
+                      {/* Klik na liczbę pozycji rozwija/zwija pełną listę z cenami. */}
+                      {getOfferItemCount(offer) > 0 ? (
+                        <button
+                          onClick={() => setExpandedId(expandedId === offer.id ? null : offer.id)}
+                          className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
+                          title={language === 'pl' ? 'Pokaż/ukryj pozycje' : 'Show/hide items'}
+                        >
+                          📦 {getOfferItemCount(offer)} {t.offers.items}
+                          <span className="text-[8px]">{expandedId === offer.id ? '▲' : '▼'}</span>
+                        </button>
+                      ) : (
+                        <span>📦 {getOfferItemCount(offer)} {t.offers.items}</span>
+                      )}
                       <span className="font-mono text-[var(--accent-hrs)]">
                         💰 {calculateOfferTotal(offer).toFixed(2)} €
                       </span>
                     </div>
-                    {/* Show items preview */}
+                    {/* Podgląd pozycji: zwinięty = chipsy (pierwsze 3), rozwinięty = pełna tabela z cenami */}
                     {offer.offer_data.zestawienie && offer.offer_data.zestawienie.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {offer.offer_data.zestawienie.slice(0, 3).map((item, idx) => (
-                          <span 
-                            key={idx}
-                            className={`px-2 py-1 rounded text-[10px] font-mono border ${
-                              item.type === 'HRS' ? 'border-[var(--accent-hrs)] text-[var(--accent-hrs)] bg-[rgba(232,160,32,0.08)]' :
-                              item.type === 'CR' ? 'border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)]' :
-                              'border-[var(--accent-hdg)] text-[var(--accent-hdg)] bg-[rgba(46,204,113,0.08)]'
-                            }`}
-                          >
-                            {item.type} {item.thickness}×{item.width}×{item.length} {item.grade}
-                          </span>
-                        ))}
-                        {offer.offer_data.zestawienie.length > 3 && (
-                          <span className="px-2 py-1 rounded text-[10px] font-mono text-[var(--text-muted)]">
-                            +{offer.offer_data.zestawienie.length - 3} more
-                          </span>
-                        )}
-                      </div>
+                      expandedId === offer.id ? (
+                        <div className="mt-3 overflow-x-auto rounded border border-[var(--border)]">
+                          <table className="w-full border-collapse text-[11px] font-mono">
+                            <thead>
+                              <tr className="bg-[var(--bg-panel)] text-[var(--text-secondary)] uppercase tracking-wider">
+                                <th className="px-2.5 py-1.5 text-right">{language === 'pl' ? 'Lp.' : 'No.'}</th>
+                                <th className="px-2.5 py-1.5 text-left">{t.zestawienie.grade} / {t.zestawienie.dimensions}</th>
+                                <th className="px-2.5 py-1.5 text-center">{t.zestawienie.type}</th>
+                                <th className="px-2.5 py-1.5 text-right">{t.zestawienie.price}</th>
+                                <th className="px-2.5 py-1.5 text-right">{t.zestawienie.tons}</th>
+                                <th className="px-2.5 py-1.5 text-right">{t.zestawienie.value}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {offer.offer_data.zestawienie.map((item, idx) => (
+                                <tr key={idx} className="border-t border-[var(--border)]">
+                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-muted)]">{idx + 1}</td>
+                                  <td className="px-2.5 py-1.5 text-left">
+                                    <span className="text-[var(--text-primary)] font-semibold">{item.grade}</span>
+                                    <span className="text-[var(--text-secondary)] ml-1.5">
+                                      {item.thickness}×{item.width}{item.length ? `×${item.length}` : ''} mm
+                                    </span>
+                                  </td>
+                                  <td className="px-2.5 py-1.5 text-center">
+                                    <span className={
+                                      item.type === 'HRS' ? 'text-[var(--accent-hrs)]' :
+                                      item.type === 'CR' ? 'text-[var(--accent-cr)]' :
+                                      'text-[var(--accent-hdg)]'
+                                    }>{item.type}</span>
+                                  </td>
+                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{item.finalPrice.toFixed(2)} {t.common.currency}</td>
+                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{item.tons.toFixed(2)}</td>
+                                  <td className="px-2.5 py-1.5 text-right text-[var(--accent-hrs)] font-semibold">{item.totalValue.toFixed(2)} €</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {offer.offer_data.zestawienie.slice(0, 3).map((item, idx) => (
+                            <span
+                              key={idx}
+                              className={`px-2 py-1 rounded text-[10px] font-mono border ${
+                                item.type === 'HRS' ? 'border-[var(--accent-hrs)] text-[var(--accent-hrs)] bg-[rgba(232,160,32,0.08)]' :
+                                item.type === 'CR' ? 'border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)]' :
+                                'border-[var(--accent-hdg)] text-[var(--accent-hdg)] bg-[rgba(46,204,113,0.08)]'
+                              }`}
+                            >
+                              {item.type} {item.thickness}×{item.width}×{item.length} {item.grade}
+                            </span>
+                          ))}
+                          {offer.offer_data.zestawienie.length > 3 && (
+                            <button
+                              onClick={() => setExpandedId(offer.id)}
+                              className="px-2 py-1 rounded text-[10px] font-mono text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                            >
+                              +{offer.offer_data.zestawienie.length - 3} {language === 'pl' ? 'więcej' : 'more'}
+                            </button>
+                          )}
+                        </div>
+                      )
                     )}
                   </div>
                   

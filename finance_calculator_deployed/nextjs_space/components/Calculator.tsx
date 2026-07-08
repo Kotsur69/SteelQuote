@@ -26,6 +26,42 @@ import { ClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
 import { useDarkMode } from '@/lib/useDarkMode';
 
+// Pełny zestaw wejść (przełączników dopłat) dla pojedynczej pozycji zestawienia.
+// Bez tego edycja pozycji nie potrafi odtworzyć jej ceny — patrz editItem().
+interface ItemInputs {
+  selectedGrade: Grade | null;
+  tolThick: number;
+  tolThickIdx: number;
+  cert: number;
+  selectedCoating: string;
+  crZabezp: number;
+  crOpak: number;
+  crOpakIdx: number;
+  crPowierz: number;
+  crWykon: number;
+  crWykonIdx: number;
+  crZgrzew: number;
+  hdgZabezp: number;
+  hdgZabezpIdx: number;
+  hdgOpak: number;
+  hdgOpakIdx: number;
+  hdgPowierz: number;
+  hdgWykon: number;
+  hdgZgrzew: number;
+  sscLenTol: number;
+  sscFlatness: number;
+  sscSurface: number;
+  sscMaxWeight: number;
+  sscMarking: number;
+  sscEdging: number;
+  sscPacking: number;
+  sscPackingIdx: number;
+  sscLabels: number;
+  marginPct: number;
+  extra: number;
+  transport: number;
+}
+
 interface ZestawienieItem {
   id: number;
   type: SteelType;
@@ -42,6 +78,9 @@ interface ZestawienieItem {
   pgl: number;
   isCoil?: boolean;
   coating?: string;
+  // Snapshot wszystkich przełączników dopłat, żeby edycja pozycji odtworzyła
+  // dokładnie jej konfigurację (opcjonalny — stare zapisane oferty go nie mają).
+  inputs?: ItemInputs;
 }
 
 export default function Calculator() {
@@ -455,6 +494,17 @@ export default function Calculator() {
       pgl: pglBase,
       isCoil: isCoilMode,
       coating: currentType === 'HDG' ? selectedCoating : undefined,
+      inputs: {
+        selectedGrade,
+        tolThick, tolThickIdx,
+        cert,
+        selectedCoating,
+        crZabezp, crOpak, crOpakIdx, crPowierz, crWykon, crWykonIdx, crZgrzew,
+        hdgZabezp, hdgZabezpIdx, hdgOpak, hdgOpakIdx, hdgPowierz, hdgWykon, hdgZgrzew,
+        sscLenTol, sscFlatness, sscSurface, sscMaxWeight, sscMarking, sscEdging,
+        sscPacking, sscPackingIdx, sscLabels,
+        marginPct, extra, transport,
+      },
     };
     
     if (editingId !== null) {
@@ -469,9 +519,11 @@ export default function Calculator() {
   const editItem = (id: number) => {
     const item = zestawienie.find(i => i.id === id);
     if (!item) return;
-    
+
     setEditingId(id);
-    selectType(item.type);
+    // Ustawiamy typ BEZPOŚREDNIO — NIE przez selectType(), bo ono resetuje wszystkie
+    // przełączniki dopłat do domyślnych dla danego typu (i zepsułoby odtworzenie ceny).
+    setCurrentType(item.type);
     setThickness(item.thickness);
     setWidth(item.width);
     setLength(item.length);
@@ -479,6 +531,30 @@ export default function Calculator() {
     setPglBase(item.pgl);
     setTons(item.tons);
     setIsCoilMode(item.isCoil || false);
+
+    const inp = item.inputs;
+    if (inp) {
+      // Odtwarzamy pełną konfigurację dopłat zapisaną przy dodaniu pozycji.
+      setSelectedGrade(inp.selectedGrade);
+      setTolThick(inp.tolThick); setTolThickIdx(inp.tolThickIdx);
+      setCert(inp.cert);
+      setSelectedCoating(inp.selectedCoating);
+      setCrZabezp(inp.crZabezp); setCrOpak(inp.crOpak); setCrOpakIdx(inp.crOpakIdx);
+      setCrPowierz(inp.crPowierz); setCrWykon(inp.crWykon); setCrWykonIdx(inp.crWykonIdx);
+      setCrZgrzew(inp.crZgrzew);
+      setHdgZabezp(inp.hdgZabezp); setHdgZabezpIdx(inp.hdgZabezpIdx);
+      setHdgOpak(inp.hdgOpak); setHdgOpakIdx(inp.hdgOpakIdx);
+      setHdgPowierz(inp.hdgPowierz); setHdgWykon(inp.hdgWykon); setHdgZgrzew(inp.hdgZgrzew);
+      setSscLenTol(inp.sscLenTol); setSscFlatness(inp.sscFlatness); setSscSurface(inp.sscSurface);
+      setSscMaxWeight(inp.sscMaxWeight); setSscMarking(inp.sscMarking); setSscEdging(inp.sscEdging);
+      setSscPacking(inp.sscPacking); setSscPackingIdx(inp.sscPackingIdx); setSscLabels(inp.sscLabels);
+      setMarginPct(inp.marginPct); setExtra(inp.extra); setTransport(inp.transport);
+    } else {
+      // Stara pozycja bez snapshotu (oferta zapisana przed tą poprawką): najlepszy wysiłek —
+      // odtwarzamy przynajmniej obiekt gatunku po nazwie, żeby dopłata gatunkowa się zgadzała.
+      const g = GRADE_TABLES[item.type].find(x => x.name === item.grade) || null;
+      setSelectedGrade(g);
+    }
   };
   
   // Duplicate item
@@ -1129,6 +1205,22 @@ export default function Calculator() {
         </div>
       </div>
 
+      {/* Sheet Weight */}
+      {!isCoilMode && thickness > 0 && width > 0 && length > 0 && (
+        <div className="flex items-center gap-2 mb-4 px-4 py-2 bg-[var(--bg-input)] border border-[var(--border)] rounded-md">
+          <span className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-muted)]">
+            {t.inputs.sheetWeight}
+          </span>
+          <span className="font-mono text-[13px] font-bold text-[var(--accent)]">
+            {((thickness * width * length * 7.85) / 1_000_000_000).toFixed(4)}
+          </span>
+          <span className="text-[10px] text-[var(--text-muted)]">t</span>
+          <span className="text-[10px] text-[var(--text-muted)] ml-1">
+            ({((thickness * width * length * 7.85) / 1_000_000).toFixed(2)} kg)
+          </span>
+        </div>
+      )}
+
       {/* Dimension Warning */}
       {warningText && (
         <div className={`flex items-center gap-2.5 mb-4 px-4 py-2.5 rounded-md border-l-[3px] border-[var(--accent-sum)] text-xs font-mono animate-[fadeIn_0.2s_ease]
@@ -1234,7 +1326,11 @@ export default function Calculator() {
                   ))}
                 </div>
                 <span className="font-mono text-xs font-semibold text-[var(--text-value)] text-right ml-2 whitespace-nowrap flex-shrink-0">
-                  {coatingSurcharge !== null ? `${coatingSurcharge} ${t.common.currency}` : t.huta.unavailable}
+                  {coatingSurcharge !== null ? (
+                    <>
+                      {coatingSurcharge} <span className="font-normal text-[10px] text-[var(--text-muted)]">{t.common.currency}</span>
+                    </>
+                  ) : t.huta.unavailable}
                 </span>
               </div>
             )}
