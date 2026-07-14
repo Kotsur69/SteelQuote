@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
+import { escapeLikePattern } from '@/lib/search';
 
 const VALID_STATUSES = ['draft', 'pending_review', 'approved', 'rejected', 'sent'];
 
@@ -9,6 +10,7 @@ const VALID_STATUSES = ['draft', 'pending_review', 'approved', 'rejected', 'sent
 export async function GET(request: NextRequest) {
   const auth = await requireRole(['admin']);
   if ('error' in auth) return auth.error;
+  const { session } = auth;
 
   try {
     const sp = request.nextUrl.searchParams;
@@ -16,6 +18,7 @@ export async function GET(request: NextRequest) {
     const userId = sp.get('user_id');
     const dateFrom = sp.get('date_from');
     const dateTo = sp.get('date_to');
+    const reviewedByMe = sp.get('reviewed_by_me') === '1';
 
     const conditions: string[] = [];
     const values: unknown[] = [];
@@ -29,6 +32,10 @@ export async function GET(request: NextRequest) {
       conditions.push(`o.user_id = $${i++}`);
       values.push(parseInt(userId));
     }
+    if (reviewedByMe) {
+      conditions.push(`o.reviewed_by = $${i++}`);
+      values.push(session.userId);
+    }
     if (dateFrom) {
       conditions.push(`o.created_at >= $${i++}`);
       values.push(dateFrom);
@@ -39,10 +46,18 @@ export async function GET(request: NextRequest) {
       values.push(dateTo);
     }
 
+    // Szukanie po nazwie własnej, nazwie zastępczej ("offer_30") i surowym ID — patrz /api/offers.
+    const q = (sp.get('q') || '').trim();
+    if (q) {
+      conditions.push(`(o.display_name ILIKE '%' || $${i} || '%' OR o.id::text = $${i})`);
+      values.push(escapeLikePattern(q));
+      i++;
+    }
+
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const result = await pool.query(
-      `SELECT o.id, o.offer_name, o.offer_data, o.status, o.user_id,
+      `SELECT o.id, o.offer_name, o.display_name, o.offer_data, o.status, o.user_id,
               o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at,
               o.rejection_reason, o.sent_at,
               u.full_name AS owner_name, u.email AS owner_email,

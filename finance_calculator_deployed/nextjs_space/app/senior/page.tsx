@@ -8,13 +8,23 @@ import { ClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
+import { useOfferSearch } from '@/lib/useOfferSearch';
+import OfferSearchInput from '@/components/OfferSearchInput';
+import {
+  formatOfferMoney,
+  offerTotalUnit,
+  offerCurrency,
+  offerRate,
+  type Currency,
+} from '@/lib/currency';
 
 type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
-type FilterTab = 'pending' | 'reviewed' | 'all';
+type FilterTab = 'pending' | 'awaitingSend' | 'reviewed' | 'all';
 
 interface Offer {
   id: number;
-  offer_name: string;
+  offer_name: string | null;
+  display_name: string;
   offer_data: {
     currentType?: string;
     zestawienie?: Array<{
@@ -33,6 +43,9 @@ interface Offer {
       pgl: number;
     }>;
     clientInfo?: ClientInfo;
+    // Waluta wybrana przez handlowca + kurs z chwili zapisu. Starsze oferty ich nie mają -> EUR.
+    displayCurrency?: Currency;
+    eurPlnRate?: number;
   };
   status: OfferStatus;
   user_id: number | null;
@@ -63,9 +76,14 @@ export default function SeniorPage() {
   const [rejectError, setRejectError] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Szukanie po nazwie własnej, nazwie zastępczej ("offer_30") albo numerze oferty.
+  // Filtruje baza (?q=) — ta sama fraza działa tak samo jak w /offers i /admin/oferty.
+  const { search, setSearch, debouncedSearch, beginRequest } = useOfferSearch();
+
   useEffect(() => {
-    fetchOffers();
-  }, []);
+    fetchOffers(debouncedSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   useEffect(() => {
     if (rejectModalOfferId !== null && textareaRef.current) {
@@ -73,11 +91,15 @@ export default function SeniorPage() {
     }
   }, [rejectModalOfferId]);
 
-  const fetchOffers = async () => {
+  const fetchOffers = async (q = '') => {
+    // Odpowiedź na starszą frazę nie może nadpisać nowszej — patrz useOfferSearch.
+    const isCurrent = beginRequest();
     try {
-      const res = await fetch('/api/senior/offers');
+      const res = await fetch(q ? `/api/senior/offers?q=${encodeURIComponent(q)}` : '/api/senior/offers');
+      if (!isCurrent()) return;
       if (res.ok) {
         const data = await res.json();
+        if (!isCurrent()) return;
         setOffers(data.offers);
         setRole(data.role);
       } else if (res.status === 403) {
@@ -86,7 +108,7 @@ export default function SeniorPage() {
     } catch (error) {
       console.error('Error fetching senior offers:', error);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   };
 
@@ -102,7 +124,7 @@ export default function SeniorPage() {
       const res = await fetch(`/api/offers/${offerId}/approve`, { method: 'POST' });
       if (res.ok) {
         showMessage('success', t.senior.offerApproved);
-        fetchOffers();
+        fetchOffers(search);
       } else {
         const data = await res.json().catch(() => ({}));
         showMessage('error', data.error || t.workflow.actionFailed);
@@ -143,7 +165,7 @@ export default function SeniorPage() {
       if (res.ok) {
         showMessage('success', t.senior.offerRejected);
         closeRejectModal();
-        fetchOffers();
+        fetchOffers(search);
       } else {
         const data = await res.json().catch(() => ({}));
         showMessage('error', data.error || t.workflow.actionFailed);
@@ -159,9 +181,27 @@ export default function SeniorPage() {
     router.push(`/calculator?edit=${offerId}`);
   };
 
+  const handleSend = async (offerId: number) => {
+    setActionLoading(offerId);
+    try {
+      const res = await fetch(`/api/offers/${offerId}/send`, { method: 'POST' });
+      if (res.ok) {
+        showMessage('success', t.workflow.sent);
+        fetchOffers(search);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showMessage('error', data.error || t.workflow.actionFailed);
+      }
+    } catch {
+      showMessage('error', t.workflow.actionFailed);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleExportExcel = (offer: Offer) => {
     try {
-      exportOfferToExcel(offer.offer_name, offer.offer_data.zestawienie);
+      exportOfferToExcel(offer.display_name, offer.offer_data.zestawienie);
     } catch (error) {
       console.error('Excel export error:', error);
       showMessage('error', 'Błąd eksportu Excela');
@@ -175,11 +215,14 @@ export default function SeniorPage() {
     showMessage('success', 'Generuję PDF...');
     try {
       await downloadServerPdf({
-        offerName: offer.offer_name,
+        offerName: offer.display_name,
         offerId: offer.id,
         clientInfo: offer.offer_data.clientInfo || emptyClientInfo,
         zestawienie: offer.offer_data.zestawienie || [],
         createdAt: offer.created_at,
+        // Waluta i kurs z SAMEJ oferty - starszy widzi i wysyła dokładnie to, co wycenił handlowiec.
+        currency: offerCurrency(offer.offer_data),
+        eurPlnRate: offerRate(offer.offer_data),
       });
     } catch (error) {
       console.error('PDF generation error:', error);
@@ -217,11 +260,13 @@ export default function SeniorPage() {
   // Filter offers by tab
   const filteredOffers = offers.filter((o) => {
     if (activeTab === 'pending') return o.status === 'pending_review';
+    if (activeTab === 'awaitingSend') return o.status === 'approved';
     if (activeTab === 'reviewed') return o.status === 'approved' || o.status === 'rejected';
     return true;
   });
 
   const pendingCount = offers.filter((o) => o.status === 'pending_review').length;
+  const awaitingSendCount = offers.filter((o) => o.status === 'approved').length;
 
   const cssVars = isDark
     ? {
@@ -294,13 +339,15 @@ export default function SeniorPage() {
 
       {/* Filter Tabs */}
       <div className="flex gap-2 mb-5">
-        {(['pending', 'reviewed', 'all'] as FilterTab[]).map((tab) => {
+        {(['pending', 'awaitingSend', 'reviewed', 'all'] as FilterTab[]).map((tab) => {
           const label =
             tab === 'pending'
               ? `${t.senior.pendingOnly} (${pendingCount})`
-              : tab === 'reviewed'
-                ? t.senior.reviewedByMe
-                : t.senior.allOffers;
+              : tab === 'awaitingSend'
+                ? `${t.senior.awaitingSend} (${awaitingSendCount})`
+                : tab === 'reviewed'
+                  ? t.senior.reviewedByMe
+                  : t.senior.allOffers;
           return (
             <button
               key={tab}
@@ -319,18 +366,30 @@ export default function SeniorPage() {
 
       {/* Offers List */}
       <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)] flex-wrap">
           <span className="w-2 h-2 rounded-full bg-[var(--accent-hrs)]" />
           <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">
             {t.senior.pendingOffers}
           </h2>
-          <span className="text-[10px] text-[var(--text-secondary)] font-mono ml-auto">
+          <OfferSearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder={t.offers.searchPlaceholder}
+            clearLabel={t.common.cancel}
+            className="ml-auto"
+          />
+          <span className="text-[10px] text-[var(--text-secondary)] font-mono">
             {filteredOffers.length} {t.offers.items}
           </span>
         </div>
 
         {loading ? (
           <div className="p-8 text-center text-[var(--text-secondary)]">{t.common.loading}</div>
+        ) : filteredOffers.length === 0 && search ? (
+          // Pusto Z POWODU frazy — inaczej senior pomyśli, że kolejka do recenzji zniknęła.
+          <div className="p-8 text-center">
+            <p className="text-[var(--text-secondary)] text-sm">{t.offers.searchNoResults}</p>
+          </div>
         ) : filteredOffers.length === 0 ? (
           <div className="p-8 text-center">
             <p className="text-[var(--text-secondary)] text-sm">{t.senior.noOffersPending}</p>
@@ -349,7 +408,7 @@ export default function SeniorPage() {
                     {/* Offer name + status badge */}
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <h3 className="font-medium text-[var(--text-primary)] truncate">
-                        {offer.offer_name}
+                        {offer.display_name}
                       </h3>
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border ${statusBadgeClass(
@@ -359,6 +418,13 @@ export default function SeniorPage() {
                         {t.offerStatus[offer.status]}
                       </span>
                     </div>
+
+                    {/* Stały numer oferty pod nazwą — dyskretny, pokazywany ZAWSZE (także gdy
+                        oferta nie ma nazwy własnej), żeby numer stał w każdym wierszu w tym
+                        samym miejscu. */}
+                    <p className="mt-0.5 text-[10px] font-mono text-[var(--text-secondary)] opacity-60">
+                      offer_{offer.id}
+                    </p>
 
                     {/* Author */}
                     <p className="mt-1 text-[11px] text-[var(--text-secondary)] font-mono">
@@ -384,7 +450,7 @@ export default function SeniorPage() {
                       <span>📅 {t.offers.createdAt}: {formatDate(offer.created_at)}</span>
                       <span>📦 {getOfferItemCount(offer)} {t.offers.items}</span>
                       <span className="font-mono text-[var(--accent-hrs)]">
-                        💰 {calculateOfferTotal(offer).toFixed(2)} €
+                        💰 {formatOfferMoney(calculateOfferTotal(offer), offer.offer_data)} {offerTotalUnit(offer.offer_data)}
                       </span>
                     </div>
 
@@ -464,6 +530,17 @@ export default function SeniorPage() {
                         ✖️ {t.workflow.reject}
                       </button>
                     )}
+
+                    {/* Wyślij do klienta — dowolna oferta approved (własna lub zrecenzowana cudza) */}
+                    {offer.status === 'approved' && (
+                      <button
+                        onClick={() => handleSend(offer.id)}
+                        disabled={actionLoading === offer.id}
+                        className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-white bg-[var(--accent-cr)] hover:opacity-90 transition-opacity disabled:opacity-50"
+                      >
+                        📨 {t.workflow.sendToClient}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -483,7 +560,7 @@ export default function SeniorPage() {
               {t.senior.rejectModalTitle}
             </h3>
             <p className="text-xs text-[var(--text-secondary)] mb-4">
-              {offers.find((o) => o.id === rejectModalOfferId)?.offer_name}
+              {offers.find((o) => o.id === rejectModalOfferId)?.display_name}
             </p>
 
             <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">

@@ -1,23 +1,43 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 import { ClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
 import { exportOfferToExcel } from '@/lib/excelExport';
+import { useOfferSearch } from '@/lib/useOfferSearch';
+import OfferSearchInput from '@/components/OfferSearchInput';
+import {
+  formatOfferMoney,
+  offerTotalUnit,
+  offerCurrency,
+  offerRate,
+  type Currency,
+} from '@/lib/currency';
 
 type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
 
 interface AdminOffer {
   id: number;
-  offer_name: string;
-  offer_data: { zestawienie?: Array<{ totalValue: number }>; clientInfo?: ClientInfo };
+  offer_name: string | null;
+  display_name: string;
+  // displayCurrency/eurPlnRate: waluta handlowca i kurs zamrożony przy zapisie oferty.
+  // Starsze oferty ich nie mają -> EUR.
+  offer_data: {
+    zestawienie?: Array<{ totalValue: number }>;
+    clientInfo?: ClientInfo;
+    displayCurrency?: Currency;
+    eurPlnRate?: number;
+  };
   status: OfferStatus;
   user_id: number | null;
   owner_name: string | null;
   owner_email: string | null;
+  reviewer_name?: string | null;
+  reviewed_at?: string | null;
+  rejection_reason?: string | null;
   created_at: string;
 }
 
@@ -37,11 +57,13 @@ function statusBadgeClass(status: OfferStatus): string {
 
 function AdminOffersContent() {
   const { t } = useLanguage();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [offers, setOffers] = useState<AdminOffer[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [filters, setFilters] = useState({
@@ -49,7 +71,38 @@ function AdminOffersContent() {
     user_id: searchParams.get('user_id') || '',
     date_from: '',
     date_to: '',
+    reviewed_by_me: false,
   });
+
+  type QuickTab = 'pendingReview' | 'awaitingSend' | 'reviewedByMe' | 'all';
+  const activeQuickTab: QuickTab =
+    filters.reviewed_by_me
+      ? 'reviewedByMe'
+      : filters.status === 'pending_review'
+        ? 'pendingReview'
+        : filters.status === 'approved'
+          ? 'awaitingSend'
+          : 'all';
+
+  const selectQuickTab = (tab: QuickTab) => {
+    setFilters({
+      status: tab === 'pendingReview' ? 'pending_review' : tab === 'awaitingSend' ? 'approved' : '',
+      user_id: '',
+      date_from: '',
+      date_to: '',
+      reviewed_by_me: tab === 'reviewedByMe',
+    });
+  };
+
+  // Reject modal state (mirrors senior panel).
+  const [rejectModalOfferId, setRejectModalOfferId] = useState<number | null>(null);
+  const [rejectComment, setRejectComment] = useState('');
+  const [rejectError, setRejectError] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Szukanie po nazwie własnej, nazwie zastępczej ("offer_30") albo numerze oferty.
+  // Filtruje baza (?q=) — ta sama fraza działa tak samo jak w /offers i /senior.
+  const { search, setSearch, debouncedSearch, beginRequest } = useOfferSearch();
 
   const flash = (type: 'success' | 'error', text: string) => {
     setMessage({ type, text });
@@ -58,21 +111,28 @@ function AdminOffersContent() {
 
   const fetchOffers = async () => {
     setLoading(true);
+    // Odpowiedź na starszą frazę nie może nadpisać nowszej — patrz useOfferSearch.
+    const isCurrent = beginRequest();
     try {
       const qs = new URLSearchParams();
       if (filters.status) qs.set('status', filters.status);
       if (filters.user_id) qs.set('user_id', filters.user_id);
       if (filters.date_from) qs.set('date_from', filters.date_from);
       if (filters.date_to) qs.set('date_to', filters.date_to);
+      if (filters.reviewed_by_me) qs.set('reviewed_by_me', '1');
+      // Szukanie łączy się z filtrami przez AND — fraza zawęża to, co już wybrano.
+      if (debouncedSearch) qs.set('q', debouncedSearch);
       const res = await fetch(`/api/admin/offers?${qs.toString()}`);
+      if (!isCurrent()) return;
       if (res.ok) {
         const data = await res.json();
+        if (!isCurrent()) return;
         setOffers(data.offers);
       } else {
         flash('error', t.admin.loadFailed);
       }
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   };
 
@@ -83,8 +143,14 @@ function AdminOffersContent() {
       .then((d) => setUsers(d.users || []));
   }, []);
 
-  // Refetch przy zmianie filtrów.
-  useEffect(() => { fetchOffers(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filters]);
+  // Refetch przy zmianie filtrów albo frazy szukania.
+  useEffect(() => { fetchOffers(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filters, debouncedSearch]);
+
+  useEffect(() => {
+    if (rejectModalOfferId !== null && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [rejectModalOfferId]);
 
   const formatDate = (s: string) =>
     new Date(s).toLocaleDateString('pl-PL', { year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -92,9 +158,91 @@ function AdminOffersContent() {
   const offerTotal = (o: AdminOffer) =>
     (o.offer_data.zestawienie || []).reduce((sum, it) => sum + it.totalValue, 0);
 
+  const handleEdit = (offerId: number) => {
+    router.push(`/calculator?edit=${offerId}`);
+  };
+
+  const handleApprove = async (offerId: number) => {
+    if (!confirm(t.workflow.confirmApprove)) return;
+    setActionLoading(offerId);
+    try {
+      const res = await fetch(`/api/offers/${offerId}/approve`, { method: 'POST' });
+      if (res.ok) {
+        flash('success', t.senior.offerApproved);
+        fetchOffers();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        flash('error', data.error || t.workflow.actionFailed);
+      }
+    } catch {
+      flash('error', t.workflow.actionFailed);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const openRejectModal = (offerId: number) => {
+    setRejectModalOfferId(offerId);
+    setRejectComment('');
+    setRejectError('');
+  };
+
+  const closeRejectModal = () => {
+    setRejectModalOfferId(null);
+    setRejectComment('');
+    setRejectError('');
+  };
+
+  const handleRejectSubmit = async () => {
+    if (!rejectComment.trim()) {
+      setRejectError(t.senior.rejectCommentRequired);
+      return;
+    }
+    if (rejectModalOfferId === null) return;
+
+    setActionLoading(rejectModalOfferId);
+    try {
+      const res = await fetch(`/api/offers/${rejectModalOfferId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: rejectComment.trim() }),
+      });
+      if (res.ok) {
+        flash('success', t.senior.offerRejected);
+        closeRejectModal();
+        fetchOffers();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        flash('error', data.error || t.workflow.actionFailed);
+      }
+    } catch {
+      flash('error', t.workflow.actionFailed);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSend = async (offerId: number) => {
+    setActionLoading(offerId);
+    try {
+      const res = await fetch(`/api/offers/${offerId}/send`, { method: 'POST' });
+      if (res.ok) {
+        flash('success', t.workflow.sent);
+        fetchOffers();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        flash('error', data.error || t.workflow.actionFailed);
+      }
+    } catch {
+      flash('error', t.workflow.actionFailed);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleExportExcel = (o: AdminOffer) => {
     try {
-      exportOfferToExcel(o.offer_name, o.offer_data.zestawienie);
+      exportOfferToExcel(o.display_name, o.offer_data.zestawienie);
     } catch (e) {
       console.error('Excel export error', e);
       flash('error', 'Błąd eksportu Excela');
@@ -106,11 +254,14 @@ function AdminOffersContent() {
     flash('success', 'Generuję PDF...');
     try {
       await downloadServerPdf({
-        offerName: o.offer_name,
+        offerName: o.display_name,
         offerId: o.id,
         clientInfo: o.offer_data.clientInfo || empty,
         zestawienie: (o.offer_data.zestawienie as never) || [],
         createdAt: o.created_at,
+        // Waluta i kurs z SAMEJ oferty, nie z bieżących ustawień.
+        currency: offerCurrency(o.offer_data),
+        eurPlnRate: offerRate(o.offer_data),
       });
     } catch (e) {
       console.error('PDF error', e);
@@ -132,6 +283,28 @@ function AdminOffersContent() {
           {message.text}
         </div>
       )}
+
+      {/* Szybkie zakładki */}
+      <div className="flex gap-2 mb-5 flex-wrap">
+        {([
+          { tab: 'pendingReview' as const, label: t.senior.pendingOnly },
+          { tab: 'awaitingSend' as const, label: t.senior.awaitingSend },
+          { tab: 'reviewedByMe' as const, label: t.senior.reviewedByMe },
+          { tab: 'all' as const, label: t.senior.allOffers },
+        ]).map(({ tab, label }) => (
+          <button
+            key={tab}
+            onClick={() => selectQuickTab(tab)}
+            className={`px-4 py-2 rounded-lg text-xs font-medium border transition-all ${
+              activeQuickTab === tab
+                ? 'bg-[rgba(59,142,245,0.12)] border-[#3b8ef5] text-[#3b8ef5]'
+                : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {/* Filtry */}
       <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md p-4 mb-6">
@@ -156,7 +329,7 @@ function AdminOffersContent() {
             aria-label={t.admin.dateTo} title={t.admin.dateTo} />
         </div>
         <button
-          onClick={() => setFilters({ status: '', user_id: '', date_from: '', date_to: '' })}
+          onClick={() => selectQuickTab('all')}
           className="mt-3 px-3 py-1.5 text-xs font-medium rounded border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] transition-colors"
         >
           {t.admin.clearFilters}
@@ -165,16 +338,26 @@ function AdminOffersContent() {
 
       {/* Lista */}
       <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)] flex-wrap">
           <span className="w-2 h-2 rounded-full bg-[var(--accent-cr)]" />
           <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">
             {t.admin.navOffers}
           </h2>
-          <span className="text-[10px] text-[var(--text-secondary)] font-mono ml-auto">{offers.length}</span>
+          <OfferSearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder={t.offers.searchPlaceholder}
+            clearLabel={t.common.cancel}
+            className="ml-auto"
+          />
+          <span className="text-[10px] text-[var(--text-secondary)] font-mono">{offers.length}</span>
         </div>
 
         {loading ? (
           <div className="p-8 text-center text-[var(--text-secondary)]">{t.common.loading}</div>
+        ) : offers.length === 0 && search ? (
+          // Pusto Z POWODU frazy, nie z powodu filtrów — inaczej admin szuka błędu tam, gdzie go nie ma.
+          <div className="p-8 text-center text-[var(--text-secondary)] text-sm">{t.offers.searchNoResults}</div>
         ) : offers.length === 0 ? (
           <div className="p-8 text-center text-[var(--text-secondary)] text-sm">{t.admin.noOffersFound}</div>
         ) : (
@@ -193,7 +376,14 @@ function AdminOffersContent() {
               <tbody className="divide-y divide-[var(--border)]">
                 {offers.map((o) => (
                   <tr key={o.id}>
-                    <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{o.offer_name}</td>
+                    <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
+                      {o.display_name}
+                      {/* Stały numer oferty pod nazwą — dyskretny, pokazywany ZAWSZE, żeby stał
+                          w każdym wierszu tabeli w tym samym miejscu. */}
+                      <span className="block mt-0.5 text-[10px] font-mono font-normal text-[var(--text-secondary)] opacity-60">
+                        offer_{o.id}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-[11px] text-[var(--text-secondary)] font-mono">
                       {o.owner_name || o.owner_email || t.admin.deletedUser}
                     </td>
@@ -201,10 +391,15 @@ function AdminOffersContent() {
                       <span className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider border ${statusBadgeClass(o.status)}`}>
                         {t.offerStatus[o.status]}
                       </span>
+                      {o.status === 'rejected' && o.rejection_reason && (
+                        <p className="mt-1 text-[10px] text-[var(--accent-sum)] max-w-[220px]">
+                          ✖ {o.rejection_reason}
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-[var(--text-secondary)] font-mono text-xs">{formatDate(o.created_at)}</td>
                     <td className="px-4 py-3 text-right font-mono text-[var(--accent-hrs)]">
-                      {offerTotal(o).toFixed(2)} €
+                      {formatOfferMoney(offerTotal(o), o.offer_data)} {offerTotalUnit(o.offer_data)}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <button
@@ -221,6 +416,44 @@ function AdminOffersContent() {
                       >
                         📄 PDF
                       </button>
+                      {/* Edycja: admin poprawia ofertę w KAŻDYM statusie, nie tylko w pending_review.
+                          Wyjątek: 'sent' — to, co poszło do klienta, zostaje nietknięte. */}
+                      {o.status !== 'sent' && (
+                        <button
+                          onClick={() => handleEdit(o.id)}
+                          className="ml-1.5 px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)] hover:bg-[rgba(59,142,245,0.15)] transition-colors"
+                        >
+                          ✏️ {t.senior.editInCalculator}
+                        </button>
+                      )}
+                      {o.status === 'pending_review' && (
+                        <>
+                          <button
+                            onClick={() => handleApprove(o.id)}
+                            disabled={actionLoading === o.id}
+                            className="ml-1.5 px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-hdg)] text-[var(--accent-hdg)] bg-[rgba(46,204,113,0.08)] hover:bg-[rgba(46,204,113,0.15)] transition-colors disabled:opacity-50"
+                          >
+                            ✔️ {t.workflow.approve}
+                          </button>
+                          <button
+                            onClick={() => openRejectModal(o.id)}
+                            disabled={actionLoading === o.id}
+                            className="ml-1.5 px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-sum)] text-[var(--accent-sum)] bg-[rgba(245,71,90,0.08)] hover:bg-[rgba(245,71,90,0.15)] transition-colors disabled:opacity-50"
+                          >
+                            ✖️ {t.workflow.reject}
+                          </button>
+                        </>
+                      )}
+                      {/* Wyślij do klienta — dowolna oferta approved, admin nie musi być właścicielem */}
+                      {o.status === 'approved' && (
+                        <button
+                          onClick={() => handleSend(o.id)}
+                          disabled={actionLoading === o.id}
+                          className="ml-1.5 px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-white bg-[var(--accent-cr)] hover:opacity-90 transition-opacity disabled:opacity-50"
+                        >
+                          📨 {t.workflow.sendToClient}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -229,6 +462,62 @@ function AdminOffersContent() {
           </div>
         )}
       </div>
+
+      {/* Reject Modal */}
+      {rejectModalOfferId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div
+            className="w-full max-w-md rounded-lg border shadow-2xl p-6"
+            style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}
+          >
+            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">
+              {t.senior.rejectModalTitle}
+            </h3>
+            <p className="text-xs text-[var(--text-secondary)] mb-4">
+              {offers.find((o) => o.id === rejectModalOfferId)?.display_name}
+            </p>
+
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+              {t.senior.rejectCommentLabel}
+            </label>
+            <textarea
+              ref={textareaRef}
+              value={rejectComment}
+              onChange={(e) => {
+                setRejectComment(e.target.value);
+                setRejectError('');
+              }}
+              placeholder={t.senior.rejectCommentPlaceholder}
+              rows={4}
+              className="w-full rounded-md border px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1"
+              style={{
+                background: 'var(--bg-input)',
+                borderColor: rejectError ? 'var(--accent-sum)' : 'var(--border)',
+                color: 'var(--text-primary)',
+              }}
+            />
+            {rejectError && (
+              <p className="text-[11px] text-[var(--accent-sum)] mt-1">{rejectError}</p>
+            )}
+
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={closeRejectModal}
+                className="px-4 py-2 text-xs font-medium rounded border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                {t.common.cancel}
+              </button>
+              <button
+                onClick={handleRejectSubmit}
+                disabled={actionLoading !== null}
+                className="px-4 py-2 text-xs font-medium rounded border border-[var(--accent-sum)] text-white bg-[var(--accent-sum)] hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {t.senior.confirmReject}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

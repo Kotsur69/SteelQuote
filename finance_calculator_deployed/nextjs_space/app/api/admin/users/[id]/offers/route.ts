@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const userId = parseInt(id);
 
     const result = await pool.query(
-      `SELECT id, offer_name, offer_data, status, created_at, updated_at,
+      `SELECT id, offer_name, display_name, offer_data, status, created_at, updated_at,
               reviewed_at, rejection_reason, sent_at
        FROM offers
        WHERE user_id = $1

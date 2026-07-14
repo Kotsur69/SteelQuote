@@ -18,17 +18,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const offerId = parseInt(id);
 
-    const canReviewOthers = session.role === 'senior' || session.role === 'admin';
+    // Admin otwiera KAŻDĄ ofertę, niezależnie od statusu (nadzór nad całością).
+    // Senior tylko cudzą oczekującą na recenzję. Właściciel zawsze swoją.
+    const isAdmin = session.role === 'admin';
+    const isSenior = session.role === 'senior';
     const result = await pool.query(
-      `SELECT o.id, o.offer_name, o.offer_data, o.status, o.user_id,
+      `SELECT o.id, o.offer_name, o.display_name, o.offer_data, o.status, o.user_id,
               o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at,
               o.rejection_reason, o.sent_at,
               u.full_name AS owner_name, u.email AS owner_email
        FROM offers o
        LEFT JOIN users u ON u.id = o.user_id
        WHERE o.id = $1
-         AND (o.user_id = $2 OR ($3 AND o.status = 'pending_review'))`,
-      [offerId, session.userId, canReviewOthers]
+         AND (o.user_id = $2 OR $3 OR ($4 AND o.status = 'pending_review'))`,
+      [offerId, session.userId, isAdmin, isSenior]
     );
 
     if (result.rows.length === 0) {
@@ -56,19 +59,26 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const offerId = parseInt(id);
     const { offer_name, offer_data } = await request.json();
 
-    if (!offer_name || !offer_data) {
+    // Nazwa opcjonalna - wyczyszczenie jej przywraca nazwę zastępczą "offer_<ID>"
+    // (display_name to kolumna generowana, przelicza się sama przy UPDATE).
+    if (!offer_data) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Senior może edytować cudze oferty w pending_review
+    const name = typeof offer_name === 'string' && offer_name.trim() ? offer_name.trim() : null;
+
+    // Admin edytuje KAŻDĄ ofertę w dowolnym statusie. Senior tylko cudzą w pending_review
+    // (poprawka przed zatwierdzeniem). Oferta 'sent' zostaje read-only dla WSZYSTKICH,
+    // łącznie z adminem — to, co poszło do klienta, musi zostać w historii bez zmian.
+    const isAdmin = session.role === 'admin';
     const isSenior = session.role === 'senior';
     const result = await pool.query(
       `UPDATE offers
        SET offer_name = $1, offer_data = $2, updated_at = CURRENT_TIMESTAMP
        WHERE id = $3 AND status <> 'sent'
-         AND (user_id = $4 OR ($5 AND status = 'pending_review'))
-       RETURNING id, offer_name, offer_data, status, created_at, updated_at`,
-      [offer_name, JSON.stringify(offer_data), offerId, session.userId, isSenior]
+         AND (user_id = $4 OR $5 OR ($6 AND status = 'pending_review'))
+       RETURNING id, offer_name, display_name, offer_data, status, created_at, updated_at`,
+      [name, JSON.stringify(offer_data), offerId, session.userId, isAdmin, isSenior]
     );
 
     if (result.rows.length === 0) {

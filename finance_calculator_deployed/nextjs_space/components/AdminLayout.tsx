@@ -56,6 +56,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin/handlowcy', label: t.admin.navSalespeople, icon: '👥' },
     { href: '/admin/klienci', label: t.admin.navClients, icon: '🏢' },
     { href: '/admin/oferty', label: t.admin.navOffers, icon: '📋' },
+    { href: '/admin/ustawienia', label: t.admin.navSettings, icon: '⚙️' },
   ];
 
   return (

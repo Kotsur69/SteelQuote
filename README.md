@@ -29,10 +29,22 @@ through a server-side Abacus.ai-hosted rendering endpoint
 - Three roles — junior / senior / admin — with an offer approval workflow
   (draft → pending review → approved/rejected → sent) and an admin panel for
   managing accounts, clients, and all offers
+- Admin/senior can approve, reject, or edit offers awaiting review directly
+  from their panels, and send approved offers to the client; quick-filter
+  tabs (awaiting review / awaiting send / reviewed by me / all)
 - Calculator page for HRS / CR / HDG pricing with live totals
+- EUR/PLN currency switch (all roles) — EUR is the single source of truth
+  internally, PLN is a display/input layer; an offer freezes the exchange
+  rate it was saved with, so changing the rate later never rewrites a saved,
+  pending, or sent offer's price. Admin settings panel to configure the base
+  exchange rate, base PGL, and base transport cost
 - Offers: create, list, duplicate, delete, edit — stored per-user in
-  Postgres, with client info attached
-- PDF export of an offer
+  Postgres, with client info attached; optional offer name with an automatic
+  `offer_<id>` fallback shown consistently across all offer lists; search by
+  name, fallback name, or raw ID; sortable "My Offers" list (date/name/value/status)
+- PDF export of an offer, plus Excel (`.xlsx`) export in KTS/GPAO column
+  format for both the calculator summary and individual offers
+- Four languages: PL / EN / CS / DE
 
 **Setup:**
 
@@ -46,6 +58,8 @@ psql "$DATABASE_URL" -f migrations/003_add_client_info_to_offers.sql
 psql "$DATABASE_URL" -f migrations/004_add_user_roles.sql
 psql "$DATABASE_URL" -f migrations/005_add_offer_workflow.sql
 psql "$DATABASE_URL" -f migrations/006_create_clients_table.sql
+psql "$DATABASE_URL" -f migrations/007_create_settings_table.sql
+psql "$DATABASE_URL" -f migrations/008_offer_display_name.sql
 npm run dev
 ```
 

@@ -28,7 +28,7 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
   // Load language preference from localStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY) as Language | null;
-    if (stored && (stored === 'pl' || stored === 'en')) {
+    if (stored && (stored === 'pl' || stored === 'en' || stored === 'cs' || stored === 'de')) {
       setLanguageState(stored);
     }
   }, []);
@@ -95,6 +95,40 @@ function UKFlag() {
   );
 }
 
+function CzechFlag() {
+  return (
+    <svg width="20" height="14" viewBox="0 0 60 40" style={{ borderRadius: '2px' }}>
+      <rect width="60" height="20" fill="#ffffff" />
+      <rect y="20" width="60" height="20" fill="#d7141a" />
+      <path d="M0,0 L30,20 L0,40 Z" fill="#11457e" />
+    </svg>
+  );
+}
+
+function GermanFlag() {
+  return (
+    <svg width="20" height="14" viewBox="0 0 32 24" style={{ borderRadius: '2px' }}>
+      <rect width="32" height="8" fill="#000000" />
+      <rect y="8" width="32" height="8" fill="#dd0000" />
+      <rect y="16" width="32" height="8" fill="#ffce00" />
+    </svg>
+  );
+}
+
+const LANG_FLAGS: Record<Language, React.ReactNode> = {
+  pl: <PolishFlag />,
+  en: <UKFlag />,
+  cs: <CzechFlag />,
+  de: <GermanFlag />,
+};
+
+const LANG_LABELS: Record<Language, string> = {
+  pl: 'Polski',
+  en: 'English',
+  cs: 'Čeština',
+  de: 'Deutsch',
+};
+
 export function LanguageFlag({ lang, currentLang, onClick, className = '' }: LanguageFlagProps) {
   const isActive = lang === currentLang;
 
@@ -106,10 +140,10 @@ export function LanguageFlag({ lang, currentLang, onClick, className = '' }: Lan
           ? 'border-[#3b8ef5] bg-[rgba(59,142,245,0.15)] scale-110'
           : 'border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-hi)] hover:scale-105 opacity-70 hover:opacity-100'
         } ${className}`}
-      title={lang === 'pl' ? 'Polski' : 'English'}
-      aria-label={lang === 'pl' ? 'Switch to Polish' : 'Switch to English'}
+      title={LANG_LABELS[lang]}
+      aria-label={`Switch to ${LANG_LABELS[lang]}`}
     >
-      {lang === 'pl' ? <PolishFlag /> : <UKFlag />}
+      {LANG_FLAGS[lang]}
     </button>
   );
 }
@@ -124,16 +158,14 @@ export function LanguageSelector({ className = '' }: LanguageSelectorProps) {
 
   return (
     <div className={`flex items-center gap-1 ${className}`}>
-      <LanguageFlag
-        lang="pl"
-        currentLang={language}
-        onClick={() => setLanguage('pl')}
-      />
-      <LanguageFlag
-        lang="en"
-        currentLang={language}
-        onClick={() => setLanguage('en')}
-      />
+      {(['pl', 'en', 'cs', 'de'] as Language[]).map((lang) => (
+        <LanguageFlag
+          key={lang}
+          lang={lang}
+          currentLang={language}
+          onClick={() => setLanguage(lang)}
+        />
+      ))}
     </div>
   );
 }

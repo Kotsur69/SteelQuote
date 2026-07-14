@@ -1,6 +1,8 @@
 // Klient: generowanie oferty PDF przez serwerowy endpoint /api/generate-pdf
 // (bogaty render HTML -> PDF przez usluge Abacusa). Zastepuje klientowy jsPDF.
 
+import type { Currency } from '@/lib/currency';
+
 interface ClientInfoLike {
   firstName: string;
   lastName: string;
@@ -32,6 +34,10 @@ export interface ServerPdfInput {
   clientInfo: ClientInfoLike;
   zestawienie: ZestItem[];
   createdAt?: string;
+  // Waluta oferty i kurs ZAMROZONY przy jej zapisie. Kwoty w zestawieniu sa zawsze w EUR;
+  // przeliczenie robi serwer, tym kursem, a nie biezacym z ustawien.
+  currency?: Currency;
+  eurPlnRate?: number;
 }
 
 // Mapuje pozycje zestawienia na ksztalt oczekiwany przez /api/generate-pdf,
@@ -68,6 +74,8 @@ export async function downloadServerPdf(input: ServerPdfInput): Promise<void> {
       clientInfo: input.clientInfo,
       offerName: input.offerName,
       offerDate,
+      currency: input.currency,
+      eurPlnRate: input.eurPlnRate,
     }),
   });
 

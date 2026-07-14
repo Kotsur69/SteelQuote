@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import Navigation from '@/components/Navigation';
@@ -8,6 +8,16 @@ import { ClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
+import { useOfferSearch } from '@/lib/useOfferSearch';
+import OfferSearchInput from '@/components/OfferSearchInput';
+import {
+  formatOfferMoney,
+  offerTotalUnit,
+  offerCurrency,
+  offerRate,
+  currencySymbol,
+  type Currency,
+} from '@/lib/currency';
 
 interface OfferData {
   currentType: string;
@@ -59,13 +69,20 @@ interface OfferData {
   sscPacking?: number;
   sscLabels?: number;
   tons?: number;
+  // Waluta wybrana przez handlowca + kurs z chwili zapisu. Kwoty w zestawieniu zostają
+  // w EUR; te dwa pola mówią, jak je POKAZAĆ. Starsze oferty ich nie mają -> EUR.
+  displayCurrency?: Currency;
+  eurPlnRate?: number;
 }
 
 type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
 
 interface Offer {
   id: number;
-  offer_name: string;
+  offer_name: string | null;
+  // Nazwa własna handlowca albo "offer_<ID>", gdy nie podał żadnej. Liczy ją baza
+  // (kolumna generowana), więc front nigdy nie dostaje tu pustej wartości.
+  display_name: string;
   offer_data: OfferData;
   status: OfferStatus;
   user_id: number | null;
@@ -90,16 +107,27 @@ export default function OffersPage() {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   // Która oferta ma rozwinięty podgląd pozycji (z cenami). null = wszystkie zwinięte.
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  // Sortowanie listy ofert.
+  const [sortKey, setSortKey] = useState<'date' | 'name' | 'value' | 'status'>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  // Szukanie po nazwie (własnej lub zastępczej) albo po numerze oferty. Filtruje baza (?q=),
+  // nie front — dzięki temu ta sama fraza działa tak samo z każdego panelu.
+  const { search, setSearch, debouncedSearch, beginRequest } = useOfferSearch();
 
   useEffect(() => {
-    fetchOffers();
-  }, []);
+    fetchOffers(debouncedSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
-  const fetchOffers = async () => {
+  const fetchOffers = async (q = '') => {
+    // Odpowiedź na starszą frazę nie może nadpisać nowszej — patrz useOfferSearch.
+    const isCurrent = beginRequest();
     try {
-      const res = await fetch('/api/offers');
+      const res = await fetch(q ? `/api/offers?q=${encodeURIComponent(q)}` : '/api/offers');
+      if (!isCurrent()) return;
       if (res.ok) {
         const data = await res.json();
+        if (!isCurrent()) return;
         setOffers(data.offers);
         setRole(data.role ?? null);
         setCurrentUserId(data.userId ?? null);
@@ -107,7 +135,7 @@ export default function OffersPage() {
     } catch (error) {
       console.error('Error fetching offers:', error);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   };
 
@@ -127,7 +155,7 @@ export default function OffersPage() {
       });
       if (res.ok) {
         setMessage({ type: 'success', text: successText });
-        fetchOffers();
+        fetchOffers(search);
       } else {
         const data = await res.json().catch(() => ({}));
         setMessage({ type: 'error', text: data.error || t.workflow.actionFailed });
@@ -173,7 +201,7 @@ export default function OffersPage() {
       const res = await fetch(`/api/offers/${offerId}/duplicate`, { method: 'POST' });
       if (res.ok) {
         setMessage({ type: 'success', text: t.offers.duplicated });
-        fetchOffers();
+        fetchOffers(search);
       } else {
         setMessage({ type: 'error', text: t.offers.saveFailed });
       }
@@ -209,7 +237,7 @@ export default function OffersPage() {
 
   const handleExportExcel = (offer: Offer) => {
     try {
-      exportOfferToExcel(offer.offer_name, offer.offer_data.zestawienie);
+      exportOfferToExcel(offer.display_name, offer.offer_data.zestawienie);
     } catch (error) {
       console.error('Excel export error:', error);
       setMessage({ type: 'error', text: language === 'pl' ? 'Błąd eksportu Excela' : 'Excel export error' });
@@ -231,11 +259,15 @@ export default function OffersPage() {
     setMessage({ type: 'success', text: 'Generuję PDF...' });
     try {
       await downloadServerPdf({
-        offerName: offer.offer_name,
+        offerName: offer.display_name,
         offerId: offer.id,
         clientInfo: offer.offer_data.clientInfo || emptyClientInfo,
         zestawienie: offer.offer_data.zestawienie || [],
         createdAt: offer.created_at,
+        // Waluta i kurs z SAMEJ oferty - PDF ma wyjść taki, jaki widział handlowiec,
+        // niezależnie od tego, co admin ustawił później.
+        currency: offerCurrency(offer.offer_data),
+        eurPlnRate: offerRate(offer.offer_data),
       });
       setMessage({ type: 'success', text: 'PDF wygenerowany!' });
     } catch (error) {
@@ -268,6 +300,41 @@ export default function OffersPage() {
     return offer.offer_data.zestawienie?.length || 0;
   };
 
+  // Kolejność statusów wg obiegu oferty — dla sortowania po statusie.
+  const STATUS_ORDER: Record<OfferStatus, number> = {
+    draft: 0,
+    pending_review: 1,
+    approved: 2,
+    rejected: 3,
+    sent: 4,
+  };
+
+  // Posortowana kopia listy — nie mutujemy stanu `offers`.
+  const sortedOffers = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...offers].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case 'name':
+          cmp = a.display_name.localeCompare(b.display_name, undefined, { sensitivity: 'base' });
+          break;
+        case 'value':
+          cmp = calculateOfferTotal(a) - calculateOfferTotal(b);
+          break;
+        case 'status':
+          cmp = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+          break;
+        case 'date':
+        default:
+          cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+      }
+      // Rozstrzyganie remisów po dacie utworzenia (stabilne, sensowne).
+      if (cmp === 0) cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      return cmp * dir;
+    });
+  }, [offers, sortKey, sortDir]);
+
   // Kolor badge'a statusu — spójny z akcentami tej strony (CSS custom properties).
   const statusBadgeClass = (status: OfferStatus): string => {
     switch (status) {
@@ -289,19 +356,23 @@ export default function OffersPage() {
   const perms = (offer: Offer) => {
     const isOwner = currentUserId !== null && offer.user_id === currentUserId;
     const s = offer.status;
-    const isSalesRole = role === 'junior' || role === 'senior';
+    // Admin robi na WŁASNYCH ofertach dokładnie to, co senior — wcześniej wypadał z tej
+    // listy i po zapisaniu własnej oferty nie widział ani jednego przycisku.
+    // Oferta 'sent' zostaje read-only dla wszystkich (historia wysłana do klienta).
+    const canManageOwn = role === 'junior' || role === 'senior' || role === 'admin';
+    const isReviewer = role === 'senior' || role === 'admin';
     return {
       isOwner,
-      canEdit: isOwner && isSalesRole && s !== 'sent',
-      canDelete: isOwner && isSalesRole && s !== 'sent',
-      canDuplicate: isOwner && isSalesRole,
+      canEdit: isOwner && canManageOwn && s !== 'sent',
+      canDelete: isOwner && canManageOwn && s !== 'sent',
+      canDuplicate: isOwner && canManageOwn,
       canSubmit: isOwner && role === 'junior' && (s === 'draft' || s === 'rejected'),
       canSend:
         isOwner &&
-        ((role === 'senior' && (s === 'draft' || s === 'approved')) ||
+        ((isReviewer && (s === 'draft' || s === 'approved')) ||
           (role === 'junior' && s === 'approved')),
-      // Senior recenzuje cudze oferty oczekujące na weryfikację.
-      canReview: role === 'senior' && !isOwner && s === 'pending_review',
+      // Senior i admin recenzują cudze oferty oczekujące na weryfikację.
+      canReview: isReviewer && !isOwner && s === 'pending_review',
     };
   };
 
@@ -397,12 +468,47 @@ export default function OffersPage() {
 
       {/* Offers Content */}
       <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)] flex-wrap">
           <span className="w-2 h-2 rounded-full bg-[var(--accent-cr)]" />
           <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">
             {t.offers.title}
           </h2>
-          <span className="text-[10px] text-[var(--text-secondary)] font-mono ml-auto">
+          {/* Szukanie — celowo POZA warunkiem offers.length > 1: gdy fraza nic nie znajdzie,
+              lista jest pusta, a pole musi zostać, żeby dało się ją poprawić lub wyczyścić. */}
+          <OfferSearchInput
+            value={search}
+            onChange={setSearch}
+            placeholder={t.offers.searchPlaceholder}
+            clearLabel={t.common.cancel}
+            className="ml-auto"
+          />
+          {/* Sortowanie */}
+          {offers.length > 1 && (
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] text-[var(--text-secondary)] font-mono uppercase tracking-wider">
+                {t.sort.label}
+              </label>
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as typeof sortKey)}
+                className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--text-primary)] hover:border-[var(--border-hi)] focus:border-[var(--accent-cr)] focus:outline-none transition-colors cursor-pointer"
+              >
+                <option value="date">{t.sort.date}</option>
+                <option value="name">{t.sort.name}</option>
+                <option value="value">{t.sort.value}</option>
+                <option value="status">{t.sort.status}</option>
+              </select>
+              <button
+                onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] transition-colors"
+                title={sortDir === 'asc' ? t.sort.ascending : t.sort.descending}
+                aria-label={sortDir === 'asc' ? t.sort.ascending : t.sort.descending}
+              >
+                {sortDir === 'asc' ? '▲' : '▼'}
+              </button>
+            </div>
+          )}
+          <span className={`text-[10px] text-[var(--text-secondary)] font-mono ${offers.length > 1 ? '' : 'ml-auto'}`}>
             {offers.length} {t.offers.items}
           </span>
         </div>
@@ -410,6 +516,12 @@ export default function OffersPage() {
         {loading ? (
           <div className="p-8 text-center text-[var(--text-secondary)]">
             {t.common.loading}
+          </div>
+        ) : offers.length === 0 && search ? (
+          // Pusto Z POWODU frazy - nie proponujemy zakladania oferty, tylko mowimy,
+          // ze nic nie pasuje. Inaczej handlowiec mysli, ze zgubil swoje oferty.
+          <div className="p-8 text-center">
+            <p className="text-[var(--text-secondary)] text-sm">{t.offers.searchNoResults}</p>
           </div>
         ) : offers.length === 0 ? (
           <div className="p-8 text-center">
@@ -423,7 +535,7 @@ export default function OffersPage() {
           </div>
         ) : (
           <div className="divide-y divide-[var(--border)]">
-            {offers.map((offer) => {
+            {sortedOffers.map((offer) => {
               const p = perms(offer);
               return (
               <div
@@ -436,7 +548,7 @@ export default function OffersPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <h3 className="font-medium text-[var(--text-primary)] truncate">
-                        {offer.offer_name}
+                        {offer.display_name}
                       </h3>
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border ${statusBadgeClass(offer.status)}`}
@@ -444,6 +556,12 @@ export default function OffersPage() {
                         {t.offerStatus[offer.status]}
                       </span>
                     </div>
+                    {/* Stały numer oferty pod nazwą — dyskretny, nazwa zostaje najważniejsza.
+                        Pokazujemy ZAWSZE, także gdy oferta nie ma nazwy własnej i tytułem jest
+                        już "offer_19" — numer ma być w tym samym miejscu w KAŻDYM wierszu. */}
+                    <p className="mt-0.5 text-[10px] font-mono text-[var(--text-secondary)] opacity-60">
+                      offer_{offer.id}
+                    </p>
                     {/* Właściciel oferty — istotne dla seniora recenzującego cudze oferty */}
                     {!perms(offer).isOwner && (
                       <p className="mt-1 text-[11px] text-[var(--text-secondary)] font-mono">
@@ -474,7 +592,7 @@ export default function OffersPage() {
                         <span>📦 {getOfferItemCount(offer)} {t.offers.items}</span>
                       )}
                       <span className="font-mono text-[var(--accent-hrs)]">
-                        💰 {calculateOfferTotal(offer).toFixed(2)} €
+                        💰 {formatOfferMoney(calculateOfferTotal(offer), offer.offer_data)} {offerTotalUnit(offer.offer_data)}
                       </span>
                     </div>
                     {/* Podgląd pozycji: zwinięty = chipsy (pierwsze 3), rozwinięty = pełna tabela z cenami */}
@@ -509,9 +627,9 @@ export default function OffersPage() {
                                       'text-[var(--accent-hdg)]'
                                     }>{item.type}</span>
                                   </td>
-                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{item.finalPrice.toFixed(2)} {t.common.currency}</td>
+                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{formatOfferMoney(item.finalPrice, offer.offer_data)} {currencySymbol(offerCurrency(offer.offer_data))}</td>
                                   <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{item.tons.toFixed(2)}</td>
-                                  <td className="px-2.5 py-1.5 text-right text-[var(--accent-hrs)] font-semibold">{item.totalValue.toFixed(2)} €</td>
+                                  <td className="px-2.5 py-1.5 text-right text-[var(--accent-hrs)] font-semibold">{formatOfferMoney(item.totalValue, offer.offer_data)} {offerTotalUnit(offer.offer_data)}</td>
                                 </tr>
                               ))}
                             </tbody>

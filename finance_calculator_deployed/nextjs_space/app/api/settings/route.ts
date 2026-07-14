@@ -1,0 +1,127 @@
+import { NextRequest, NextResponse } from 'next/server';
+import pool from '@/lib/db';
+import { requireRole } from '@/lib/rbac';
+import { DEFAULT_SETTINGS, type AppSettings } from '@/lib/currency';
+
+// Wiersz z bazy -> kształt dla klienta. NUMERIC wraca z pg jako string, więc parsujemy.
+function rowToSettings(row: {
+  eur_pln_rate: string | number;
+  pgl_base: string | number;
+  transport_base: string | number;
+}): AppSettings {
+  return {
+    eurPlnRate: Number(row.eur_pln_rate),
+    pglBase: Number(row.pgl_base),
+    transportBase: Number(row.transport_base),
+  };
+}
+
+// GET - Globalne ustawienia. Dostępne dla KAŻDEJ zalogowanej roli: junior i senior
+// potrzebują kursu, żeby w ogóle wyświetlić cenę w PLN, a PGL/transport są ich
+// domyślnymi wartościami startowymi. Zapis jest osobno chroniony (PATCH = tylko admin).
+//
+// Te wartości dotyczą WYŁĄCZNIE nowej kalkulacji. Zapisana oferta trzyma własne kopie
+// pglBase/transport oraz własny zamrożony kurs w offer_data.
+export async function GET() {
+  const auth = await requireRole(['junior', 'senior', 'admin']);
+  if ('error' in auth) return auth.error;
+
+  try {
+    const result = await pool.query(
+      'SELECT eur_pln_rate, pgl_base, transport_base FROM app_settings WHERE id = 1'
+    );
+    // Brak wiersza = migracja 007 nie została puszczona. Nie wywracamy kalkulatora —
+    // oddajemy wartości domyślne (identyczne z seedem migracji).
+    if (result.rows.length === 0) {
+      return NextResponse.json({ settings: DEFAULT_SETTINGS });
+    }
+    return NextResponse.json({ settings: rowToSettings(result.rows[0]) });
+  } catch (error) {
+    // 42P01 = undefined_table. Zdarza się, gdy kod jest wdrożony, a migracja 007 jeszcze
+    // nie puszczona. Kalkulator ma wtedy działać na wartościach domyślnych, a nie sypać
+    // 500 przy każdym wejściu — PATCH i tak zwróci czytelny błąd o brakującej migracji.
+    if ((error as { code?: string })?.code === '42P01') {
+      console.warn('Tabela app_settings nie istnieje — uruchom migrations/007_create_settings_table.sql. Używam wartości domyślnych.');
+      return NextResponse.json({ settings: DEFAULT_SETTINGS });
+    }
+    console.error('Error fetching settings:', error);
+    return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
+  }
+}
+
+// Walidacja pojedynczego pola. Zwraca liczbę albo komunikat błędu.
+function parseNumber(
+  value: unknown,
+  label: string,
+  { min, max }: { min: number; max: number }
+): { value: number } | { error: string } {
+  const n = typeof value === 'string' ? parseFloat(value.replace(',', '.')) : value;
+  if (typeof n !== 'number' || !Number.isFinite(n)) {
+    return { error: `${label}: podaj liczbę` };
+  }
+  if (n < min || n > max) {
+    return { error: `${label}: wartość musi być w zakresie ${min}-${max}` };
+  }
+  return { value: n };
+}
+
+// PATCH - Zmiana ustawień. Tylko admin.
+// Body: { eurPlnRate?, pglBase?, transportBase? } - wysyłamy tylko to, co się zmienia.
+//
+// Walidacja jest tu krytyczna: literówka w kursie (43 zamiast 4,3) zawyżyłaby KAŻDĄ
+// nową wycenę w PLN dziesięciokrotnie. Baza ma te same CHECK-i jako druga linia obrony.
+export async function PATCH(request: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if ('error' in auth) return auth.error;
+  const { session } = auth;
+
+  try {
+    const body = await request.json();
+
+    const spec = [
+      { key: 'eurPlnRate', column: 'eur_pln_rate', label: 'Kurs EUR/PLN', min: 0.0001, max: 100 },
+      { key: 'pglBase', column: 'pgl_base', label: 'PGL bazowe', min: 0, max: 100000 },
+      { key: 'transportBase', column: 'transport_base', label: 'Transport bazowy', min: 0, max: 100000 },
+    ] as const;
+
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    let i = 1;
+
+    for (const field of spec) {
+      if (body[field.key] === undefined) continue;
+      const parsed = parseNumber(body[field.key], field.label, { min: field.min, max: field.max });
+      if ('error' in parsed) {
+        return NextResponse.json({ error: parsed.error }, { status: 400 });
+      }
+      sets.push(`${field.column} = $${i++}`);
+      values.push(parsed.value);
+    }
+
+    if (sets.length === 0) {
+      return NextResponse.json({ error: 'Brak pól do zmiany' }, { status: 400 });
+    }
+
+    sets.push(`updated_by = $${i++}`);
+    values.push(session.userId);
+    sets.push('updated_at = CURRENT_TIMESTAMP');
+
+    const result = await pool.query(
+      `UPDATE app_settings SET ${sets.join(', ')} WHERE id = 1
+       RETURNING eur_pln_rate, pgl_base, transport_base`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Brak wiersza ustawień - uruchom migrację 007_create_settings_table.sql' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ settings: rowToSettings(result.rows[0]) });
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
+  }
+}

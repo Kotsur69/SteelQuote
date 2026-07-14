@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
+import { isCurrency, sanitizeRate, DEFAULT_CURRENCY, type Currency } from '@/lib/currency';
 import fs from 'fs';
 import path from 'path';
 
@@ -45,11 +46,22 @@ function buildHtml(
   client: ClientInfo,
   offerName: string,
   offerDate: string,
-  userName: string
+  userName: string,
+  currency: Currency,
+  eurPlnRate: number
 ): string {
   const logo = getLogoBase64();
+
+  // Kwoty w pozycjach są zawsze w EUR (tak liczy kalkulator). Do PDF przeliczamy je
+  // kursem PRZYSŁANYM W ŻĄDANIU — to kurs zamrożony w ofercie, nie bieżący z bazy.
+  // Dzięki temu PDF wygenerowany po zmianie kursu przez admina pokazuje te same kwoty,
+  // które klient widział przy wysyłce oferty.
+  const isPln = currency === 'PLN';
+  const fx = isPln ? eurPlnRate : 1;
+  const unit = isPln ? 'zł' : '€';
+
   const totalTons = items.reduce((s, i) => s + i.quantity, 0);
-  const totalValue = items.reduce((s, i) => s + i.pricePerTon * i.quantity, 0);
+  const totalValue = items.reduce((s, i) => s + i.pricePerTon * i.quantity, 0) * fx;
 
   const rows = items.map((item, idx) => {
     const dims = `${item.thickness} × ${item.width}${!item.isCoil ? ` × ${item.length}` : ''}`;
@@ -66,8 +78,8 @@ function buildHtml(
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.width.toFixed(0)}</td>
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.isCoil ? '-' : item.length.toFixed(0)}</td>
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.quantity.toFixed(2)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;font-weight:600;">${item.pricePerTon.toFixed(2)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;">${(item.pricePerTon * item.quantity).toFixed(2)}</td>
+        <td style="text-align:right;font-family:'Courier New',monospace;font-weight:600;">${(item.pricePerTon * fx).toFixed(2)}</td>
+        <td style="text-align:right;font-family:'Courier New',monospace;">${(item.pricePerTon * item.quantity * fx).toFixed(2)}</td>
         <td style="font-size:10px;color:#64748b;"></td>
       </tr>`;
   }).join('');
@@ -147,7 +159,7 @@ function buildHtml(
       <div class="info-block-title">Podsumowanie</div>
       <div class="info-row"><span class="lbl">Pozycji:</span><span class="val">${items.length}</span></div>
       <div class="info-row"><span class="lbl">Łącznie t:</span><span class="val">${totalTons.toFixed(2)} t</span></div>
-      <div class="info-row"><span class="lbl">Wartość:</span><span class="val" style="color:#059669;font-size:12px;">${totalValue.toFixed(2)} €</span></div>
+      <div class="info-row"><span class="lbl">Wartość:</span><span class="val" style="color:#059669;font-size:12px;">${totalValue.toFixed(2)} ${unit}</span></div>
       <div class="info-row"><span class="lbl">Typy:</span><span class="val">${[...new Set(items.map(i => i.steelType))].join(', ')}</span></div>
     </div>
   </div>
@@ -162,8 +174,8 @@ function buildHtml(
         <th style="text-align:right;width:65px;">Szer. mm</th>
         <th style="text-align:right;width:65px;">Dł. mm</th>
         <th style="text-align:right;width:60px;">Ilość t</th>
-        <th style="text-align:right;width:75px;">Cena €/t</th>
-        <th style="text-align:right;width:85px;">Wartość €</th>
+        <th style="text-align:right;width:75px;">Cena ${unit}/t</th>
+        <th style="text-align:right;width:85px;">Wartość ${unit}</th>
         <th style="width:90px;">Uwagi</th>
       </tr>
     </thead>
@@ -175,7 +187,7 @@ function buildHtml(
         <td colspan="6" style="text-align:right;text-transform:uppercase;letter-spacing:1px;font-size:10px;">RAZEM:</td>
         <td style="text-align:right;">${totalTons.toFixed(2)} t</td>
         <td style="text-align:right;"></td>
-        <td style="text-align:right;"><span class="badge-total">${totalValue.toFixed(2)} €</span></td>
+        <td style="text-align:right;"><span class="badge-total">${totalValue.toFixed(2)} ${unit}</span></td>
         <td></td>
       </tr>
     </tfoot>
@@ -183,7 +195,8 @@ function buildHtml(
 
   <div class="footer">
     <ul class="footer-notes">
-      <li>Ceny w EUR/t, bez podatku VAT.</li>
+      <li>Ceny w ${isPln ? 'PLN' : 'EUR'}/t, bez podatku VAT.</li>
+      ${isPln ? `<li>Kurs przeliczeniowy: 1 EUR = ${eurPlnRate.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')} PLN (kurs z dnia wyceny).</li>` : ''}
       <li>Faktura wystawiana na podstawie wagi brutto.</li>
       <li>Ważność oferty: 48h od daty wystawienia.</li>
       <li>Warunki płatności: wg ustaleń indywidualnych.</li>
@@ -214,7 +227,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { items, clientInfo, offerName, offerDate } = await request.json();
+    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate } = await request.json();
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'No items provided' }, { status: 400 });
     }
@@ -223,7 +236,13 @@ export async function POST(request: Request) {
     const userName = session.email || '';
     const date = offerDate || new Date().toLocaleDateString('pl-PL');
 
-    const html_content = buildHtml(items, client, offerName || '', date, userName);
+    // Waluta i kurs przychodzą z klienta (kurs zamrożony w ofercie). Sanityzujemy je,
+    // bo zepsuty kurs w payloadzie zawyżyłby wszystkie kwoty w PDF wysłanym do klienta.
+    // Brak pól = stare wywołanie => EUR, czyli zachowanie sprzed tej zmiany.
+    const pdfCurrency: Currency = isCurrency(currency) ? currency : DEFAULT_CURRENCY;
+    const pdfRate = sanitizeRate(eurPlnRate);
+
+    const html_content = buildHtml(items, client, offerName || '', date, userName, pdfCurrency, pdfRate);
 
     // Step 1: Create PDF request
     const createResponse = await fetch('https://apps.abacus.ai/api/createConvertHtmlToPdfRequest', {

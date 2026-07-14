@@ -2,12 +2,13 @@
 // Currently supports: Polish (pl), English (en)
 // Easily extensible - just add new language objects following the same structure
 
-export type Language = 'pl' | 'en';
+export type Language = 'pl' | 'en' | 'cs' | 'de';
 
 export interface Translations {
   // Common
   common: {
     currency: string;
+    currencyLabel: string;
     tons: string;
     logout: string;
     cancel: string;
@@ -31,6 +32,17 @@ export interface Translations {
     panelSenior: string;
   };
 
+  // Sorting (offer lists)
+  sort: {
+    label: string;
+    date: string;
+    name: string;
+    value: string;
+    status: string;
+    ascending: string;
+    descending: string;
+  };
+
   // Senior panel
   senior: {
     panelTitle: string;
@@ -49,6 +61,7 @@ export interface Translations {
     allOffers: string;
     pendingOnly: string;
     reviewedByMe: string;
+    awaitingSend: string;
   };
 
   // Offers management
@@ -60,6 +73,9 @@ export interface Translations {
     saveOfferPrompt: string;
     offerName: string;
     offerNamePlaceholder: string;
+    offerNameOptionalHint: string;
+    searchPlaceholder: string;
+    searchNoResults: string;
     saving: string;
     saved: string;
     saveFailed: string;
@@ -357,6 +373,21 @@ export interface Translations {
     navSalespeople: string;
     navClients: string;
     navOffers: string;
+    navSettings: string;
+    settings: {
+      title: string;
+      subtitle: string;
+      eurPlnRate: string;
+      eurPlnRateHint: string;
+      pglBase: string;
+      pglBaseHint: string;
+      transportBase: string;
+      transportBaseHint: string;
+      save: string;
+      saved: string;
+      saveFailed: string;
+      frozenRateNotice: string;
+    };
     totalOffers: string;
     activeSalespeople: string;
     offersByStatus: string;
@@ -419,6 +450,7 @@ export interface Translations {
 export const pl: Translations = {
   common: {
     currency: '€/t',
+    currencyLabel: 'Waluta',
     tons: 't',
     logout: 'Wyloguj',
     cancel: 'Anuluj',
@@ -431,7 +463,7 @@ export const pl: Translations = {
     yes: 'Tak',
     no: 'Nie',
     loading: 'Ładowanie...',
-    version: 'v1.0',
+    version: 'v1.3',
   },
 
   navigation: {
@@ -439,6 +471,16 @@ export const pl: Translations = {
     myOffers: 'Moje Oferty',
     panelAdmin: 'Panel Admina',
     panelSenior: 'Panel Seniora',
+  },
+
+  sort: {
+    label: 'Sortuj wg',
+    date: 'Data',
+    name: 'Nazwa',
+    value: 'Wartość',
+    status: 'Status',
+    ascending: 'Rosnąco',
+    descending: 'Malejąco',
   },
 
   senior: {
@@ -456,8 +498,9 @@ export const pl: Translations = {
     offerApproved: 'Oferta została zatwierdzona.',
     offerRejected: 'Oferta została odrzucona.',
     allOffers: 'Wszystkie',
-    pendingOnly: 'Oczekujące',
+    pendingOnly: 'Oczekujące na weryfikację',
     reviewedByMe: 'Zweryfikowane przeze mnie',
+    awaitingSend: 'Oczekujące na wysłanie',
   },
 
   offers: {
@@ -468,6 +511,9 @@ export const pl: Translations = {
     saveOfferPrompt: 'Podaj nazwę oferty',
     offerName: 'Nazwa oferty',
     offerNamePlaceholder: 'np. Oferta dla klienta ABC',
+    offerNameOptionalHint: 'Możesz zostawić puste — oferta dostanie nazwę „offer_[numer]”.',
+    searchPlaceholder: 'Szukaj po nazwie lub numerze oferty...',
+    searchNoResults: 'Brak ofert pasujących do wyszukiwania.',
     saving: 'Zapisywanie...',
     saved: 'Oferta zapisana pomyślnie!',
     saveFailed: 'Nie udało się zapisać oferty',
@@ -736,6 +782,22 @@ export const pl: Translations = {
     navSalespeople: 'Handlowcy',
     navClients: 'Klienci',
     navOffers: 'Oferty',
+    navSettings: 'Ustawienia',
+    settings: {
+      title: 'Konfiguracja',
+      subtitle: 'wartości bazowe i kurs walutowy',
+      eurPlnRate: 'Kurs EUR → PLN',
+      eurPlnRateHint: 'Ile złotych kosztuje 1 euro (np. 4,30).',
+      pglBase: 'PGL bazowe',
+      pglBaseHint: 'Wartość startowa PGL w nowej kalkulacji. Handlowiec może ją nadpisać.',
+      transportBase: 'Transport bazowy',
+      transportBaseHint: 'Wartość startowa transportu w nowej kalkulacji. Handlowiec może ją nadpisać.',
+      save: 'Zapisz ustawienia',
+      saved: 'Ustawienia zapisane.',
+      saveFailed: 'Nie udało się zapisać ustawień.',
+      frozenRateNotice:
+        'Zmiany dotyczą wyłącznie NOWYCH kalkulacji. Oferty zapisane, oczekujące na akceptację seniora i wysłane zachowują swój kurs oraz swoje PGL z dnia wyceny.',
+    },
     totalOffers: 'Oferty łącznie',
     activeSalespeople: 'Aktywni handlowcy',
     offersByStatus: 'Oferty wg statusu',
@@ -798,6 +860,7 @@ export const pl: Translations = {
 export const en: Translations = {
   common: {
     currency: '€/t',
+    currencyLabel: 'Currency',
     tons: 't',
     logout: 'Logout',
     cancel: 'Cancel',
@@ -810,7 +873,7 @@ export const en: Translations = {
     yes: 'Yes',
     no: 'No',
     loading: 'Loading...',
-    version: 'v1.0',
+    version: 'v1.3',
   },
 
   navigation: {
@@ -818,6 +881,16 @@ export const en: Translations = {
     myOffers: 'My Offers',
     panelAdmin: 'Admin Panel',
     panelSenior: 'Senior Panel',
+  },
+
+  sort: {
+    label: 'Sort by',
+    date: 'Date',
+    name: 'Name',
+    value: 'Value',
+    status: 'Status',
+    ascending: 'Ascending',
+    descending: 'Descending',
   },
 
   senior: {
@@ -835,8 +908,9 @@ export const en: Translations = {
     offerApproved: 'Offer has been approved.',
     offerRejected: 'Offer has been rejected.',
     allOffers: 'All',
-    pendingOnly: 'Pending',
+    pendingOnly: 'Awaiting review',
     reviewedByMe: 'Reviewed by me',
+    awaitingSend: 'Awaiting send',
   },
 
   offers: {
@@ -847,6 +921,9 @@ export const en: Translations = {
     saveOfferPrompt: 'Enter offer name',
     offerName: 'Offer name',
     offerNamePlaceholder: 'e.g., Offer for client ABC',
+    offerNameOptionalHint: 'You can leave this empty — the offer will be named "offer_[number]".',
+    searchPlaceholder: 'Search by offer name or number...',
+    searchNoResults: 'No offers match your search.',
     saving: 'Saving...',
     saved: 'Offer saved successfully!',
     saveFailed: 'Failed to save offer',
@@ -1115,6 +1192,22 @@ export const en: Translations = {
     navSalespeople: 'Salespeople',
     navClients: 'Clients',
     navOffers: 'Offers',
+    navSettings: 'Settings',
+    settings: {
+      title: 'Configuration',
+      subtitle: 'base values and exchange rate',
+      eurPlnRate: 'EUR → PLN rate',
+      eurPlnRateHint: 'How many zloty one euro costs (e.g. 4.30).',
+      pglBase: 'Base PGL',
+      pglBaseHint: 'Starting PGL value for a new calculation. Salespeople can override it.',
+      transportBase: 'Base transport',
+      transportBaseHint: 'Starting transport value for a new calculation. Salespeople can override it.',
+      save: 'Save settings',
+      saved: 'Settings saved.',
+      saveFailed: 'Failed to save settings.',
+      frozenRateNotice:
+        'Changes apply to NEW calculations only. Saved offers, offers awaiting senior approval and sent offers keep the rate and PGL from the day they were priced.',
+    },
     totalOffers: 'Total offers',
     activeSalespeople: 'Active salespeople',
     offersByStatus: 'Offers by status',
@@ -1173,10 +1266,830 @@ export const en: Translations = {
   },
 };
 
+export const cs: Translations = {
+  common: {
+    currency: '€/t',
+    currencyLabel: 'Měna',
+    tons: 't',
+    logout: 'Odhlásit se',
+    cancel: 'Zrušit',
+    save: 'Uložit',
+    delete: 'Smazat',
+    edit: 'Upravit',
+    duplicate: 'Duplikovat',
+    add: 'Přidat',
+    clear: 'Vymazat',
+    yes: 'Ano',
+    no: 'Ne',
+    loading: 'Načítání...',
+    version: 'v1.3',
+  },
+
+  navigation: {
+    calculator: 'Kalkulačka',
+    myOffers: 'Moje nabídky',
+    panelAdmin: 'Panel administrátora',
+    panelSenior: 'Panel seniora',
+  },
+
+  sort: {
+    label: 'Řadit podle',
+    date: 'Datum',
+    name: 'Název',
+    value: 'Hodnota',
+    status: 'Stav',
+    ascending: 'Vzestupně',
+    descending: 'Sestupně',
+  },
+
+  senior: {
+    panelTitle: 'Panel staršího obchodníka',
+    subtitle: 'kontrola nabídek',
+    pendingOffers: 'Nabídky čekající na kontrolu',
+    noOffersPending: 'Žádné nabídky nečekají na kontrolu.',
+    author: 'Autor',
+    editInCalculator: 'Upravit v kalkulačce',
+    rejectModalTitle: 'Zamítnout nabídku?',
+    rejectCommentLabel: 'Komentář (povinný)',
+    rejectCommentPlaceholder: 'Uveďte důvod zamítnutí nabídky…',
+    rejectCommentRequired: 'Při zamítnutí nabídky je komentář povinný.',
+    confirmReject: 'Zamítnout nabídku',
+    offerApproved: 'Nabídka byla schválena.',
+    offerRejected: 'Nabídka byla zamítnuta.',
+    allOffers: 'Všechny',
+    pendingOnly: 'Čekající na kontrolu',
+    reviewedByMe: 'Zkontrolováno mnou',
+    awaitingSend: 'Čekající na odeslání',
+  },
+
+  offers: {
+    title: 'Moje nabídky',
+    subtitle: 'správa nabídek',
+    empty: 'Zatím nemáte žádné uložené nabídky. Vytvořte svou první nabídku v kalkulačce.',
+    saveOffer: 'Uložit nabídku',
+    saveOfferPrompt: 'Zadejte název nabídky',
+    offerName: 'Název nabídky',
+    offerNamePlaceholder: 'např. Nabídka pro klienta ABC',
+    offerNameOptionalHint: 'Můžete nechat prázdné — nabídka dostane název „offer_[číslo]“.',
+    searchPlaceholder: 'Hledat podle názvu nebo čísla nabídky...',
+    searchNoResults: 'Žádné nabídky neodpovídají hledání.',
+    saving: 'Ukládání...',
+    saved: 'Nabídka byla úspěšně uložena!',
+    saveFailed: 'Nabídku se nepodařilo uložit',
+    editOffer: 'Upravit nabídku',
+    copyOffer: 'Kopírovat nabídku',
+    deleteOffer: 'Smazat nabídku',
+    confirmDelete: 'Opravdu chcete tuto nabídku smazat?',
+    loadOffer: 'Načíst nabídku',
+    loadingOffer: 'Načítání nabídky...',
+    offerLoaded: 'Nabídka byla úspěšně načtena!',
+    loadFailed: 'Nabídku se nepodařilo načíst',
+    createdAt: 'Vytvořeno',
+    updatedAt: 'Aktualizováno',
+    items: 'položek',
+    totalValue: 'Celková hodnota',
+    actions: 'Akce',
+    noItems: 'Žádné položky',
+    duplicated: 'Nabídka byla úspěšně duplikována!',
+    deleted: 'Nabídka byla úspěšně smazána!',
+    updated: 'Nabídka byla úspěšně aktualizována!',
+  },
+
+  login: {
+    title: 'Kalkulačka příplatků',
+    subtitle: 'nástroj pro výpočet příplatků za ocel',
+    email: 'E-mail',
+    emailPlaceholder: 'vas@email.com',
+    password: 'Heslo',
+    passwordPlaceholder: '••••••••',
+    loginButton: 'PŘIHLÁSIT SE',
+    loggingIn: 'PŘIHLAŠOVÁNÍ...',
+    loginError: 'Chyba přihlášení',
+    connectionError: 'Chyba připojení k serveru',
+    copyright: '© 2025 · Kalkulačka příplatků za ocel',
+  },
+
+  header: {
+    title: 'Kalkulačka příplatků za ocel',
+    subtitle: 'nástroj pro výpočet příplatků za ocel',
+    light: 'Světlý',
+    dark: 'Tmavý',
+  },
+
+  steelTypes: {
+    HRS: 'HRS',
+    CR: 'CR',
+    HDG: 'HDG',
+    HRS_full: 'Za tepla válcovaná ocel',
+    CR_full: 'Za studena válcovaná ocel',
+    HDG_full: 'Žárově pozinkovaná ocel',
+  },
+
+  inputs: {
+    thickness: 'Tloušťka (mm)',
+    width: 'Šířka (mm)',
+    length: 'Délka (mm)',
+    grade: 'Jakost',
+    searchGrade: 'Hledat jakost...',
+    coilMode: 'SVITEK',
+    coilModeShort: 'Svitek (bez dělení)',
+    sheetMode: 'Tabule',
+    sheetWeight: 'Hmotnost tabule',
+  },
+
+  huta: {
+    title: 'Hutní příplatky',
+    subtitle: 'hutní příplatky',
+    pglPeriod: 'Platnost PGL',
+    thicknessWidth: 'Tloušťka / šířka',
+    grade: 'Jakost',
+    thicknessTolerance: 'Tolerance tloušťky',
+    certificate: 'Certifikát',
+    coating: 'Povlak',
+    protection: 'Ochrana',
+    packaging: 'Balení',
+    surface: 'Povrch',
+    surfaceFinish: 'Úprava povrchu',
+    weld: 'Svar',
+    sum: 'CELKEM huť',
+    unavailable: '— (nedostupné)',
+  },
+
+  ssc: {
+    title: 'Zpracovatelské příplatky SSC',
+    subtitle: 'zpracovatelské příplatky',
+    baseSurcharge: 'Základní příplatek (délka)',
+    lengthTolerance: 'Tolerance délky',
+    flatness: 'Rovinnost',
+    surface: 'Povrch',
+    maxPackWeight: 'Max. hmotnost balíku',
+    marking: 'Značení',
+    edging: 'Ostřihání hran',
+    yieldStrength: 'Mez kluzu (YS)',
+    packaging: 'Typ balení',
+    packagingDesc: {
+      S01: 'Dřevěné hranoly',
+      S03: 'Hranoly + ochranné žlábky',
+      S12: 'Hranoly + papír nahoře a dole',
+      S13: 'Hranoly + papír nahoře a dole + ochranné žlábky',
+      SB2: 'Paleta + papír nahoře a dole',
+      SB3: 'Paleta + papír nahoře a dole + ochranné žlábky',
+    },
+    labels: 'Etikety',
+    scrap: 'Odpad',
+    sum: 'CELKEM SSC',
+  },
+
+  summary: {
+    title: 'Souhrn',
+    subtitle: 'konečná cena',
+    pglBase: 'Základ PGL',
+    millSurcharges: 'Hutní příplatky',
+    inputPrice: 'Vstupní cena',
+    margin: 'Marže',
+    extra: 'Příplatek',
+    transport: 'Doprava',
+    sscSurcharges: 'Příplatky SSC',
+    finalPrice: 'Konečná cena',
+    quantity: 'Množství (tuny)',
+    totalValue: 'Celková hodnota',
+    addToList: 'Přidat do seznamu',
+    updateItem: 'Aktualizovat položku',
+    cancelEdit: 'Zrušit úpravu',
+  },
+
+  zestawienie: {
+    title: 'Souhrnný seznam',
+    subtitle: 'souhrnný seznam',
+    empty: 'V seznamu nejsou žádné položky. Přidejte svůj první výpočet tlačítkem „Přidat do seznamu".',
+    type: 'Typ',
+    grade: 'Jakost',
+    dimensions: 'Rozměry',
+    mill: 'Huť',
+    ssc: 'SSC',
+    margin: 'Marže',
+    price: 'Cena',
+    tons: 'Tuny',
+    value: 'Hodnota',
+    actions: 'Akce',
+    total: 'CELKEM',
+    clearAll: 'Vymazat vše',
+    confirmClear: 'Opravdu chcete smazat všechny položky ze seznamu?',
+  },
+
+  toggles: {
+    normal: 'Normální',
+    lessThan5mm: '<5mm',
+    enStandard: 'Norma EN',
+    laser13: 'Laser 1/3',
+    customerSpec: 'Spec. zákazníka',
+    improved: 'Zlepšený',
+    none: 'Žádné',
+    engraved: 'Gravírované',
+    marker: 'Fix',
+    mill: 'Válcovaná hrana',
+    trimmed: 'Ostřihané',
+    noPaper: 'Bez papíru',
+    paperPlastic: 'Papír/plast',
+    seaTransport: 'Námořní přeprava',
+    paperPlasticCE: 'Papír/plast (CE)',
+    normalFinish: 'Normální',
+    rough: 'Hrubý',
+    glossy: 'Lesklý',
+    semiGlossy: 'Pololesklý',
+    standard: 'Standardní',
+    bright: 'Světlý',
+    allowed: 'Povoleno',
+    notAllowed: 'Nepovoleno',
+    other: 'Jiné',
+    surfaceA: 'A',
+    surfaceB: 'B',
+    surfaceMA: 'MA',
+    surfaceMB: 'MB',
+    surfaceMC: 'MC',
+  },
+
+  warnings: {
+    minThickness: 'Pro šířku <strong>{width} mm</strong> je minimální tloušťka <strong>{minTh} mm</strong>. Zadaná hodnota ({thickness} mm) je příliš malá.',
+    maxThickness: 'Pro šířku <strong>{width} mm</strong> je maximální dostupná tloušťka <strong>{maxTh} mm</strong>. Zadaná hodnota ({thickness} mm) je příliš velká.',
+    outOfRange: 'Kombinace tloušťky <strong>{thickness} mm</strong> a šířky <strong>{width} mm</strong> je mimo rozsah tabulky.',
+    widthOutOfRange: 'Šířka <strong>{width} mm</strong> je mimo rozsah tabulky.',
+  },
+
+  client: {
+    title: 'Informace o klientovi',
+    subtitle: 'údaje o klientovi',
+    firstName: 'Jméno',
+    lastName: 'Příjmení',
+    company: 'Firma',
+    address: 'Adresa',
+    nip: 'DIČ (NIP)',
+    phone: 'Telefon',
+    email: 'E-mail',
+    collapse: 'Sbalit',
+    expand: 'Rozbalit',
+  },
+
+  pdf: {
+    exportPdf: 'Exportovat do PDF',
+    generating: 'Generování...',
+    offerNo: 'NABÍDKA Č.',
+    date: 'DATUM',
+    from: 'OD',
+    to: 'PRO',
+    reference: 'REF.',
+    quotation: 'Cenová nabídka oceli pro',
+    tableNo: 'Č.',
+    tableGrade: 'Jakost',
+    tableThickness: 'Tloušťka',
+    tableWidth: 'Šířka',
+    tableLength: 'Délka',
+    tableQuantity: 'Množ. [T]',
+    tablePrice: 'Cena EUR/T',
+    tableComments: 'Poznámky',
+    total: 'CELKEM',
+    terms: 'Podmínky nabídky',
+    validity: 'Platnost nabídky: 48 h',
+    payment: 'Platební podmínky: 30 dní od data prodeje',
+    delivery: 'Dodací lhůta: po potvrzení dostupnosti materiálu',
+    minQuantity: 'Minimální množství: 5 tun na položku',
+    bestRegards: 'S pozdravem,',
+    companyInfo: 'SSC Distribution Solutions Poland Sp. z o.o.',
+  },
+  excel: {
+    exportExcel: 'Exportovat Excel',
+  },
+
+  roles: {
+    junior: 'Mladší obchodník',
+    senior: 'Starší obchodník',
+    admin: 'Administrátor',
+  },
+
+  offerStatus: {
+    draft: 'Koncept',
+    pending_review: 'Čeká na kontrolu',
+    approved: 'Schváleno',
+    rejected: 'Zamítnuto',
+    sent: 'Odesláno',
+  },
+
+  workflow: {
+    submitForReview: 'Odeslat ke kontrole',
+    sendToClient: 'Odeslat klientovi',
+    approve: 'Schválit',
+    reject: 'Zamítnout',
+    rejectReasonLabel: 'Důvod zamítnutí',
+    rejectReasonPlaceholder: 'Uveďte důvod zamítnutí nabídky...',
+    rejectReasonRequired: 'Důvod zamítnutí je povinný',
+    confirmApprove: 'Schválit tuto nabídku?',
+    rejectionReason: 'Důvod zamítnutí',
+    reviewedBy: 'Zkontroloval',
+    awaitingReview: 'Čeká na kontrolu',
+    submitted: 'Odesláno ke kontrole',
+    approved: 'Nabídka schválena',
+    rejected: 'Nabídka zamítnuta',
+    sent: 'Nabídka odeslána klientovi',
+    actionFailed: 'Operace se nezdařila',
+    readOnlySent: 'Nabídka odeslána — pouze ke čtení',
+  },
+
+  admin: {
+    panelTitle: 'Panel administrátora',
+    subtitle: 'správa systému',
+    navDashboard: 'Přehled',
+    navSalespeople: 'Obchodníci',
+    navClients: 'Klienti',
+    navOffers: 'Nabídky',
+    navSettings: 'Nastavení',
+    settings: {
+      title: 'Konfigurace',
+      subtitle: 'základní hodnoty a měnový kurz',
+      eurPlnRate: 'Kurz EUR → PLN',
+      eurPlnRateHint: 'Kolik zlotých stojí 1 euro (např. 4,30).',
+      pglBase: 'Základní PGL',
+      pglBaseHint: 'Výchozí hodnota PGL pro novou kalkulaci. Obchodník ji může přepsat.',
+      transportBase: 'Základní doprava',
+      transportBaseHint: 'Výchozí hodnota dopravy pro novou kalkulaci. Obchodník ji může přepsat.',
+      save: 'Uložit nastavení',
+      saved: 'Nastavení uloženo.',
+      saveFailed: 'Nastavení se nepodařilo uložit.',
+      frozenRateNotice:
+        'Změny se týkají pouze NOVÝCH kalkulací. Uložené nabídky, nabídky čekající na schválení a odeslané nabídky si ponechávají kurz a PGL ze dne ocenění.',
+    },
+    totalOffers: 'Celkem nabídek',
+    activeSalespeople: 'Aktivní obchodníci',
+    offersByStatus: 'Nabídky podle stavu',
+    addSalesperson: 'Přidat obchodníka',
+    email: 'E-mail',
+    password: 'Heslo',
+    passwordKeepEmpty: 'Ponechte prázdné pro zachování',
+    fullName: 'Celé jméno',
+    role: 'Role',
+    status: 'Stav',
+    active: 'Aktivní',
+    inactive: 'Neaktivní',
+    activate: 'Aktivovat',
+    deactivate: 'Deaktivovat',
+    save: 'Uložit',
+    cancel: 'Zrušit',
+    viewOffers: 'Zobrazit nabídky',
+    confirmDeactivate: 'Deaktivovat tento účet? Obchodník se nebude moci přihlásit, ale jeho nabídky budou zachovány.',
+    userCreated: 'Účet vytvořen',
+    userUpdated: 'Účet aktualizován',
+    userDeactivated: 'Účet deaktivován',
+    emailExists: 'Účet s tímto e-mailem již existuje',
+    passwordTooShort: 'Heslo musí mít alespoň 6 znaků',
+    addClient: 'Přidat klienta',
+    editClient: 'Upravit klienta',
+    firstName: 'Jméno',
+    lastName: 'Příjmení',
+    company: 'Firma',
+    nip: 'DIČ',
+    address: 'Adresa',
+    phone: 'Telefon',
+    clientEmailLabel: 'E-mail',
+    offersCount: 'Nabídky',
+    confirmDeleteClient: 'Smazat tohoto klienta? Související nabídky si ponechají svá data, ale ztratí vazbu na databázi klientů.',
+    clientCreated: 'Klient přidán',
+    clientUpdated: 'Klient aktualizován',
+    clientDeleted: 'Klient smazán',
+    noClients: 'V databázi nejsou žádní klienti',
+    clientRequiredField: 'Uveďte alespoň firmu nebo příjmení',
+    filterStatus: 'Stav',
+    filterSalesperson: 'Obchodník',
+    dateFrom: 'Datum od',
+    dateTo: 'Datum do',
+    allStatuses: 'Všechny stavy',
+    allSalespeople: 'Všichni obchodníci',
+    clearFilters: 'Vymazat filtry',
+    owner: 'Obchodník',
+    reviewer: 'Zkontroloval',
+    noOffersFound: 'Žádné nabídky neodpovídají kritériím',
+    loadFailed: 'Data se nepodařilo načíst',
+    saveFailed: 'Uložení se nezdařilo',
+    back: 'Zpět',
+    actions: 'Akce',
+    createdAt: 'Vytvořeno',
+    deletedUser: '— obchodník smazán —',
+  },
+};
+
+export const de: Translations = {
+  common: {
+    currency: '€/t',
+    currencyLabel: 'Währung',
+    tons: 't',
+    logout: 'Abmelden',
+    cancel: 'Abbrechen',
+    save: 'Speichern',
+    delete: 'Löschen',
+    edit: 'Bearbeiten',
+    duplicate: 'Duplizieren',
+    add: 'Hinzufügen',
+    clear: 'Leeren',
+    yes: 'Ja',
+    no: 'Nein',
+    loading: 'Wird geladen...',
+    version: 'v1.3',
+  },
+
+  navigation: {
+    calculator: 'Rechner',
+    myOffers: 'Meine Angebote',
+    panelAdmin: 'Admin-Bereich',
+    panelSenior: 'Senior-Bereich',
+  },
+
+  sort: {
+    label: 'Sortieren nach',
+    date: 'Datum',
+    name: 'Name',
+    value: 'Wert',
+    status: 'Status',
+    ascending: 'Aufsteigend',
+    descending: 'Absteigend',
+  },
+
+  senior: {
+    panelTitle: 'Bereich Senior-Vertriebsmitarbeiter',
+    subtitle: 'Angebotsprüfung',
+    pendingOffers: 'Angebote zur Prüfung',
+    noOffersPending: 'Keine Angebote zur Prüfung vorhanden.',
+    author: 'Ersteller',
+    editInCalculator: 'Im Rechner bearbeiten',
+    rejectModalTitle: 'Angebot ablehnen?',
+    rejectCommentLabel: 'Kommentar (erforderlich)',
+    rejectCommentPlaceholder: 'Geben Sie einen Grund für die Ablehnung an…',
+    rejectCommentRequired: 'Bei der Ablehnung eines Angebots ist ein Kommentar erforderlich.',
+    confirmReject: 'Angebot ablehnen',
+    offerApproved: 'Das Angebot wurde genehmigt.',
+    offerRejected: 'Das Angebot wurde abgelehnt.',
+    allOffers: 'Alle',
+    pendingOnly: 'Ausstehende Prüfung',
+    reviewedByMe: 'Von mir geprüft',
+    awaitingSend: 'Wartend auf Versand',
+  },
+
+  offers: {
+    title: 'Meine Angebote',
+    subtitle: 'Angebotsverwaltung',
+    empty: 'Sie haben noch keine gespeicherten Angebote. Erstellen Sie Ihr erstes Angebot im Rechner.',
+    saveOffer: 'Angebot speichern',
+    saveOfferPrompt: 'Angebotsnamen eingeben',
+    offerName: 'Angebotsname',
+    offerNamePlaceholder: 'z. B. Angebot für Kunde ABC',
+    offerNameOptionalHint: 'Kann leer bleiben — das Angebot erhält den Namen „offer_[Nummer]“.',
+    searchPlaceholder: 'Suche nach Angebotsname oder -nummer...',
+    searchNoResults: 'Keine Angebote entsprechen der Suche.',
+    saving: 'Wird gespeichert...',
+    saved: 'Angebot erfolgreich gespeichert!',
+    saveFailed: 'Angebot konnte nicht gespeichert werden',
+    editOffer: 'Angebot bearbeiten',
+    copyOffer: 'Angebot kopieren',
+    deleteOffer: 'Angebot löschen',
+    confirmDelete: 'Möchten Sie dieses Angebot wirklich löschen?',
+    loadOffer: 'Angebot laden',
+    loadingOffer: 'Angebot wird geladen...',
+    offerLoaded: 'Angebot erfolgreich geladen!',
+    loadFailed: 'Angebot konnte nicht geladen werden',
+    createdAt: 'Erstellt',
+    updatedAt: 'Aktualisiert',
+    items: 'Positionen',
+    totalValue: 'Gesamtwert',
+    actions: 'Aktionen',
+    noItems: 'Keine Positionen',
+    duplicated: 'Angebot erfolgreich dupliziert!',
+    deleted: 'Angebot erfolgreich gelöscht!',
+    updated: 'Angebot erfolgreich aktualisiert!',
+  },
+
+  login: {
+    title: 'Zuschlagsrechner',
+    subtitle: 'Werkzeug zur Berechnung von Stahlzuschlägen',
+    email: 'E-Mail',
+    emailPlaceholder: 'ihre@email.com',
+    password: 'Passwort',
+    passwordPlaceholder: '••••••••',
+    loginButton: 'ANMELDEN',
+    loggingIn: 'ANMELDUNG...',
+    loginError: 'Anmeldefehler',
+    connectionError: 'Fehler bei der Serververbindung',
+    copyright: '© 2025 · Stahlzuschlagsrechner',
+  },
+
+  header: {
+    title: 'Stahlzuschlagsrechner',
+    subtitle: 'Werkzeug zur Berechnung von Stahlzuschlägen',
+    light: 'Hell',
+    dark: 'Dunkel',
+  },
+
+  steelTypes: {
+    HRS: 'HRS',
+    CR: 'CR',
+    HDG: 'HDG',
+    HRS_full: 'Warmgewalzter Stahl',
+    CR_full: 'Kaltgewalzter Stahl',
+    HDG_full: 'Feuerverzinkter Stahl',
+  },
+
+  inputs: {
+    thickness: 'Dicke (mm)',
+    width: 'Breite (mm)',
+    length: 'Länge (mm)',
+    grade: 'Güte',
+    searchGrade: 'Güte suchen...',
+    coilMode: 'COIL',
+    coilModeShort: 'Coil (kein Schnitt)',
+    sheetMode: 'Tafel',
+    sheetWeight: 'Tafelgewicht',
+  },
+
+  huta: {
+    title: 'Hüttenzuschläge',
+    subtitle: 'Hüttenzuschläge',
+    pglPeriod: 'PGL-Gültigkeitszeitraum',
+    thicknessWidth: 'Dicke / Breite',
+    grade: 'Güte',
+    thicknessTolerance: 'Dickentoleranz',
+    certificate: 'Zertifikat',
+    coating: 'Beschichtung',
+    protection: 'Schutz',
+    packaging: 'Verpackung',
+    surface: 'Oberfläche',
+    surfaceFinish: 'Oberflächenausführung',
+    weld: 'Schweißnaht',
+    sum: 'GESAMT Hütte',
+    unavailable: '— (nicht verfügbar)',
+  },
+
+  ssc: {
+    title: 'SSC-Bearbeitungszuschläge',
+    subtitle: 'Bearbeitungszuschläge',
+    baseSurcharge: 'Grundzuschlag (Länge)',
+    lengthTolerance: 'Längentoleranz',
+    flatness: 'Ebenheit',
+    surface: 'Oberfläche',
+    maxPackWeight: 'Max. Packungsgewicht',
+    marking: 'Kennzeichnung',
+    edging: 'Besäumen',
+    yieldStrength: 'Streckgrenze (YS)',
+    packaging: 'Verpackungsart',
+    packagingDesc: {
+      S01: 'Holzkanthölzer',
+      S03: 'Kanthölzer + Schutzrinnen',
+      S12: 'Kanthölzer + Papier oben und unten',
+      S13: 'Kanthölzer + Papier oben und unten + Schutzrinnen',
+      SB2: 'Palette + Papier oben und unten',
+      SB3: 'Palette + Papier oben und unten + Schutzrinnen',
+    },
+    labels: 'Etiketten',
+    scrap: 'Schrott',
+    sum: 'GESAMT SSC',
+  },
+
+  summary: {
+    title: 'Zusammenfassung',
+    subtitle: 'Endpreis',
+    pglBase: 'PGL-Basis',
+    millSurcharges: 'Hüttenzuschläge',
+    inputPrice: 'Einsatzpreis',
+    margin: 'Marge',
+    extra: 'Zuschlag',
+    transport: 'Transport',
+    sscSurcharges: 'SSC-Zuschläge',
+    finalPrice: 'Endpreis',
+    quantity: 'Menge (Tonnen)',
+    totalValue: 'Gesamtwert',
+    addToList: 'Zur Liste hinzufügen',
+    updateItem: 'Position aktualisieren',
+    cancelEdit: 'Bearbeitung abbrechen',
+  },
+
+  zestawienie: {
+    title: 'Übersichtsliste',
+    subtitle: 'Übersichtsliste',
+    empty: 'Keine Positionen in der Liste. Fügen Sie Ihre erste Berechnung mit der Schaltfläche „Zur Liste hinzufügen" hinzu.',
+    type: 'Typ',
+    grade: 'Güte',
+    dimensions: 'Abmessungen',
+    mill: 'Hütte',
+    ssc: 'SSC',
+    margin: 'Marge',
+    price: 'Preis',
+    tons: 'Tonnen',
+    value: 'Wert',
+    actions: 'Aktionen',
+    total: 'GESAMT',
+    clearAll: 'Alles löschen',
+    confirmClear: 'Möchten Sie wirklich alle Positionen aus der Liste löschen?',
+  },
+
+  toggles: {
+    normal: 'Normal',
+    lessThan5mm: '<5mm',
+    enStandard: 'EN-Norm',
+    laser13: 'Laser 1/3',
+    customerSpec: 'Kundenspez.',
+    improved: 'Verbessert',
+    none: 'Keine',
+    engraved: 'Graviert',
+    marker: 'Marker',
+    mill: 'Walzkante',
+    trimmed: 'Besäumt',
+    noPaper: 'Kein Papier',
+    paperPlastic: 'Papier/Kunststoff',
+    seaTransport: 'Seetransport',
+    paperPlasticCE: 'Papier/Kunststoff (CE)',
+    normalFinish: 'Normal',
+    rough: 'Rau',
+    glossy: 'Glänzend',
+    semiGlossy: 'Halbglänzend',
+    standard: 'Standard',
+    bright: 'Blank',
+    allowed: 'Zulässig',
+    notAllowed: 'Nicht zulässig',
+    other: 'Andere',
+    surfaceA: 'A',
+    surfaceB: 'B',
+    surfaceMA: 'MA',
+    surfaceMB: 'MB',
+    surfaceMC: 'MC',
+  },
+
+  warnings: {
+    minThickness: 'Für die Breite <strong>{width} mm</strong> beträgt die Mindestdicke <strong>{minTh} mm</strong>. Der eingegebene Wert ({thickness} mm) ist zu klein.',
+    maxThickness: 'Für die Breite <strong>{width} mm</strong> beträgt die maximal verfügbare Dicke <strong>{maxTh} mm</strong>. Der eingegebene Wert ({thickness} mm) ist zu groß.',
+    outOfRange: 'Die Kombination aus Dicke <strong>{thickness} mm</strong> und Breite <strong>{width} mm</strong> liegt außerhalb des Tabellenbereichs.',
+    widthOutOfRange: 'Die Breite <strong>{width} mm</strong> liegt außerhalb des Tabellenbereichs.',
+  },
+
+  client: {
+    title: 'Kundeninformationen',
+    subtitle: 'Kundendaten',
+    firstName: 'Vorname',
+    lastName: 'Nachname',
+    company: 'Firma',
+    address: 'Adresse',
+    nip: 'USt-IdNr. (NIP)',
+    phone: 'Telefon',
+    email: 'E-Mail',
+    collapse: 'Einklappen',
+    expand: 'Ausklappen',
+  },
+
+  pdf: {
+    exportPdf: 'Als PDF exportieren',
+    generating: 'Wird generiert...',
+    offerNo: 'ANGEBOT NR.',
+    date: 'DATUM',
+    from: 'VON',
+    to: 'AN',
+    reference: 'REF.',
+    quotation: 'Stahlangebot für',
+    tableNo: 'Nr.',
+    tableGrade: 'Güte',
+    tableThickness: 'Dicke',
+    tableWidth: 'Breite',
+    tableLength: 'Länge',
+    tableQuantity: 'Menge [T]',
+    tablePrice: 'Preis EUR/T',
+    tableComments: 'Anmerkungen',
+    total: 'GESAMT',
+    terms: 'Angebotsbedingungen',
+    validity: 'Angebot gültig: 48 Std.',
+    payment: 'Zahlungsbedingungen: 30 Tage ab Verkaufsdatum',
+    delivery: 'Lieferzeit: nach Bestätigung der Materialverfügbarkeit',
+    minQuantity: 'Mindestmenge: 5 Tonnen pro Position',
+    bestRegards: 'Mit freundlichen Grüßen,',
+    companyInfo: 'SSC Distribution Solutions Poland Sp. z o.o.',
+  },
+  excel: {
+    exportExcel: 'Excel exportieren',
+  },
+
+  roles: {
+    junior: 'Junior-Vertriebsmitarbeiter',
+    senior: 'Senior-Vertriebsmitarbeiter',
+    admin: 'Administrator',
+  },
+
+  offerStatus: {
+    draft: 'Entwurf',
+    pending_review: 'Prüfung ausstehend',
+    approved: 'Genehmigt',
+    rejected: 'Abgelehnt',
+    sent: 'Gesendet',
+  },
+
+  workflow: {
+    submitForReview: 'Zur Prüfung einreichen',
+    sendToClient: 'An Kunden senden',
+    approve: 'Genehmigen',
+    reject: 'Ablehnen',
+    rejectReasonLabel: 'Ablehnungsgrund',
+    rejectReasonPlaceholder: 'Geben Sie einen Grund für die Ablehnung an...',
+    rejectReasonRequired: 'Ablehnungsgrund ist erforderlich',
+    confirmApprove: 'Dieses Angebot genehmigen?',
+    rejectionReason: 'Ablehnungsgrund',
+    reviewedBy: 'Geprüft von',
+    awaitingReview: 'Prüfung ausstehend',
+    submitted: 'Zur Prüfung eingereicht',
+    approved: 'Angebot genehmigt',
+    rejected: 'Angebot abgelehnt',
+    sent: 'Angebot an Kunden gesendet',
+    actionFailed: 'Vorgang fehlgeschlagen',
+    readOnlySent: 'Angebot gesendet — schreibgeschützt',
+  },
+
+  admin: {
+    panelTitle: 'Admin-Bereich',
+    subtitle: 'Systemverwaltung',
+    navDashboard: 'Übersicht',
+    navSalespeople: 'Vertriebsmitarbeiter',
+    navClients: 'Kunden',
+    navOffers: 'Angebote',
+    navSettings: 'Einstellungen',
+    settings: {
+      title: 'Konfiguration',
+      subtitle: 'Basiswerte und Wechselkurs',
+      eurPlnRate: 'Kurs EUR → PLN',
+      eurPlnRateHint: 'Wie viele Zloty ein Euro kostet (z. B. 4,30).',
+      pglBase: 'Basis-PGL',
+      pglBaseHint: 'Startwert für PGL in einer neuen Kalkulation. Vertrieb kann ihn überschreiben.',
+      transportBase: 'Basis-Transport',
+      transportBaseHint: 'Startwert für Transport in einer neuen Kalkulation. Vertrieb kann ihn überschreiben.',
+      save: 'Einstellungen speichern',
+      saved: 'Einstellungen gespeichert.',
+      saveFailed: 'Einstellungen konnten nicht gespeichert werden.',
+      frozenRateNotice:
+        'Änderungen gelten nur für NEUE Kalkulationen. Gespeicherte, zur Freigabe anstehende und versendete Angebote behalten Kurs und PGL vom Tag der Kalkulation.',
+    },
+    totalOffers: 'Angebote gesamt',
+    activeSalespeople: 'Aktive Vertriebsmitarbeiter',
+    offersByStatus: 'Angebote nach Status',
+    addSalesperson: 'Vertriebsmitarbeiter hinzufügen',
+    email: 'E-Mail',
+    password: 'Passwort',
+    passwordKeepEmpty: 'Leer lassen, um unverändert zu behalten',
+    fullName: 'Vollständiger Name',
+    role: 'Rolle',
+    status: 'Status',
+    active: 'Aktiv',
+    inactive: 'Inaktiv',
+    activate: 'Aktivieren',
+    deactivate: 'Deaktivieren',
+    save: 'Speichern',
+    cancel: 'Abbrechen',
+    viewOffers: 'Angebote anzeigen',
+    confirmDeactivate: 'Dieses Konto deaktivieren? Der Vertriebsmitarbeiter kann sich nicht mehr anmelden, seine Angebote bleiben jedoch erhalten.',
+    userCreated: 'Konto erstellt',
+    userUpdated: 'Konto aktualisiert',
+    userDeactivated: 'Konto deaktiviert',
+    emailExists: 'Ein Konto mit dieser E-Mail existiert bereits',
+    passwordTooShort: 'Das Passwort muss mindestens 6 Zeichen lang sein',
+    addClient: 'Kunde hinzufügen',
+    editClient: 'Kunde bearbeiten',
+    firstName: 'Vorname',
+    lastName: 'Nachname',
+    company: 'Firma',
+    nip: 'USt-IdNr.',
+    address: 'Adresse',
+    phone: 'Telefon',
+    clientEmailLabel: 'E-Mail',
+    offersCount: 'Angebote',
+    confirmDeleteClient: 'Diesen Kunden löschen? Zugehörige Angebote behalten ihre Daten, verlieren aber die Verknüpfung zur Kundendatenbank.',
+    clientCreated: 'Kunde hinzugefügt',
+    clientUpdated: 'Kunde aktualisiert',
+    clientDeleted: 'Kunde gelöscht',
+    noClients: 'Keine Kunden in der Datenbank',
+    clientRequiredField: 'Geben Sie mindestens eine Firma oder einen Nachnamen an',
+    filterStatus: 'Status',
+    filterSalesperson: 'Vertriebsmitarbeiter',
+    dateFrom: 'Datum von',
+    dateTo: 'Datum bis',
+    allStatuses: 'Alle Status',
+    allSalespeople: 'Alle Vertriebsmitarbeiter',
+    clearFilters: 'Filter zurücksetzen',
+    owner: 'Vertriebsmitarbeiter',
+    reviewer: 'Geprüft von',
+    noOffersFound: 'Keine Angebote entsprechen den Kriterien',
+    loadFailed: 'Daten konnten nicht geladen werden',
+    saveFailed: 'Speichern fehlgeschlagen',
+    back: 'Zurück',
+    actions: 'Aktionen',
+    createdAt: 'Erstellt',
+    deletedUser: '— Vertriebsmitarbeiter gelöscht —',
+  },
+};
+
 // All translations map
 export const translations: Record<Language, Translations> = {
   pl,
   en,
+  cs,
+  de,
 };
 
 // Helper function to format warning messages with variables

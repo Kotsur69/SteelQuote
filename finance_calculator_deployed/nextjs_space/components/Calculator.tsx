@@ -21,6 +21,7 @@ import {
   Grade,
 } from '@/lib/calculatorData';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
+import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
 import { formatWarning } from '@/lib/translations';
 import { ClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
@@ -87,7 +88,39 @@ interface ZestawienieItem {
 export default function Calculator() {
   // Language
   const { t, language } = useLanguage();
-  
+
+  // Waluta wyświetlania. EUR pozostaje jedynym źródłem prawdy — stan poniżej trzyma
+  // wyłącznie €/t, a PLN jest nakładką na wyświetlanie (toDisplay) i na wejście (fromDisplay).
+  const {
+    currency,
+    setCurrency,
+    rate,
+    settings,
+    settingsLoaded,
+    setRateOverride,
+    toDisplay,
+    fromDisplay,
+    symbol,
+  } = useCurrency();
+
+  // Kwota do wyświetlenia. W EUR zwracamy surową wartość, żeby widok był identyczny
+  // jak dotąd (dopłaty są całkowite). W PLN pokazujemy grosze.
+  const money = useCallback(
+    (eur: number) => (currency === 'EUR' ? String(eur) : toDisplay(eur).toFixed(2)),
+    [currency, toDisplay]
+  );
+  // Kwoty, które i dziś mają dwa miejsca po przecinku (sumy, ceny).
+  const money2 = useCallback((eur: number) => toDisplay(eur).toFixed(2), [toDisplay]);
+  // Sama waluta, bez "/t" — dla wartości pozycji i sumy zestawienia, które są kwotą
+  // całkowitą (cena × tony), a nie ceną jednostkową.
+  const currencyUnit = currency === 'PLN' ? 'zł' : '€';
+  // Wartość dla pola <input type="number">. Zaokrąglamy do groszy, żeby nie pokazać
+  // 2773.5000000000005 po przemnożeniu przez kurs.
+  const moneyInput = useCallback(
+    (eur: number) => (currency === 'EUR' ? eur : Math.round(toDisplay(eur) * 100) / 100),
+    [currency, toDisplay]
+  );
+
   // Steel type
   const [currentType, setCurrentType] = useState<SteelType>('HRS');
   
@@ -152,7 +185,12 @@ export default function Calculator() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [currentOfferId, setCurrentOfferId] = useState<number | null>(null);
+  // Dwie osobne nazwy, bo znaczą co innego:
+  //   currentOfferName    = display_name z bazy (nazwa własna ALBO "offer_<ID>") — tylko do pokazania.
+  //   currentOfferRawName = to, co handlowiec naprawdę wpisał ('' = nie wpisał nic).
+  // Odsyłanie display_name z powrotem do API zamroziłoby "offer_14" jako nazwę własną.
   const [currentOfferName, setCurrentOfferName] = useState<string>('');
+  const [currentOfferRawName, setCurrentOfferRawName] = useState<string>('');
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveOfferName, setSaveOfferName] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
@@ -603,6 +641,12 @@ export default function Calculator() {
     pglBase, marginPct, extra, transport, tons,
     zestawienie,
     clientInfo,
+    // Waluta i kurs ZAMRAŻANE wraz z ofertą. `rate` to kurs zamrożony przy wczytaniu
+    // oferty (jeśli miała), a dla nowej oferty — kurs bieżący z ustawień. Dzięki temu
+    // późniejsza zmiana kursu przez admina nie przelicza ofert zapisanych, czekających
+    // na akceptację seniora ani wysłanych.
+    displayCurrency: currency,
+    eurPlnRate: rate,
   });
   
   // Restore calculator state from offer data
@@ -649,6 +693,19 @@ export default function Calculator() {
     if (data.tons !== undefined) setTons(data.tons);
     if (data.zestawienie !== undefined) setZestawienie(data.zestawienie);
     if (data.clientInfo !== undefined) setClientInfo(data.clientInfo);
+
+    // Kurs zamrożony w ofercie ma pierwszeństwo nad bieżącym z ustawień — oferta wyceniona
+    // po 4,30 zostaje po 4,30, choćby admin ustawił dziś 4,45.
+    // Oferty zapisane przed tą zmianą nie mają eurPlnRate. Były liczone wyłącznie w EUR,
+    // więc ich wartości w euro są nienaruszone; podgląd w PLN policzy się po kursie bieżącym.
+    if (typeof data.eurPlnRate === 'number') {
+      setRateOverride(data.eurPlnRate);
+    } else {
+      setRateOverride(null);
+    }
+    if (data.displayCurrency === 'EUR' || data.displayCurrency === 'PLN') {
+      setCurrency(data.displayCurrency);
+    }
   };
   
   // PDF export handler
@@ -667,6 +724,11 @@ export default function Calculator() {
         offerId: currentOfferId,
         clientInfo,
         zestawienie,
+        // Kurs zamrożony w ofercie (albo bieżący, jeśli oferta jeszcze nie zapisana).
+        // Serwer przelicza kwoty tym kursem, więc PDF wygenerowany po zmianie kursu przez
+        // admina pokazuje dokładnie te kwoty, które klient dostał przy wysyłce.
+        currency,
+        eurPlnRate: rate,
       });
       setSaveMessage({ type: 'success', text: language === 'pl' ? 'PDF wygenerowany!' : 'PDF generated!' });
     } catch (error) {
@@ -706,7 +768,8 @@ export default function Calculator() {
           if (res.ok) {
             const { offer } = await res.json();
             setCurrentOfferId(offer.id);
-            setCurrentOfferName(offer.offer_name);
+            setCurrentOfferName(offer.display_name);
+            setCurrentOfferRawName(offer.offer_name ?? '');
             restoreOfferData(offer.offer_data);
             setSaveMessage({ type: 'success', text: t.offers?.offerLoaded || 'Offer loaded!' });
             setTimeout(() => setSaveMessage(null), 3000);
@@ -721,15 +784,33 @@ export default function Calculator() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
-  
+
+  // Domyślne PGL i transport z panelu admina — TYLKO dla nowej kalkulacji.
+  //
+  // Gdy w URL jest ?edit=<id>, kalkulator wczytuje zapisaną ofertę i to ONA jest źródłem
+  // prawdy. Wstawienie tu wartości z ustawień nadpisałoby cenę oferty, która mogła już
+  // zostać wysłana do klienta albo czeka na akceptację seniora. Dlatego dwa zabezpieczenia:
+  //   1. wychodzimy, gdy w URL jest ?edit (sprawdzenie synchroniczne — nie czekamy na fetch),
+  //   2. ref pilnuje, że domyślne wejdą najwyżej raz i nie skasują ręcznych zmian handlowca.
+  const defaultsAppliedRef = useRef(false);
+  useEffect(() => {
+    if (defaultsAppliedRef.current) return;
+    if (!settingsLoaded) return;
+    if (searchParams.get('edit')) return;
+    defaultsAppliedRef.current = true;
+    setPglBase(settings.pglBase);
+    setTransport(settings.transportBase);
+  }, [settingsLoaded, settings, searchParams]);
+
   // Save offer function
   const handleSaveOffer = async () => {
-    if (!saveOfferName.trim() && !currentOfferName.trim()) return;
-    
     setSaveLoading(true);
     const offerData = collectOfferData();
-    const name = saveOfferName.trim() || currentOfferName.trim();
-    
+    // Nazwa jest opcjonalna. Pusta => baza nada "offer_<ID>" (kolumna generowana display_name).
+    // Przy ponownym zapisie bierzemy nazwę SUROWĄ, nie display_name — inaczej oferta bez
+    // nazwy zapisałaby "offer_14" jako nazwę własną i przestałaby być "bez nazwy".
+    const name = saveOfferName.trim() || currentOfferRawName.trim();
+
     try {
       const url = currentOfferId ? `/api/offers/${currentOfferId}` : '/api/offers';
       const method = currentOfferId ? 'PUT' : 'POST';
@@ -743,7 +824,12 @@ export default function Calculator() {
       if (res.ok) {
         const { offer } = await res.json();
         setCurrentOfferId(offer.id);
-        setCurrentOfferName(offer.offer_name);
+        setCurrentOfferName(offer.display_name);
+        setCurrentOfferRawName(offer.offer_name ?? '');
+        // Od tej chwili oferta ma własny, zamrożony kurs. Gdyby admin zmienił kurs, a
+        // handlowiec zapisał ponownie tę samą ofertę z otwartej karty — zapisze się kurs
+        // pierwotny, nie nowy.
+        setRateOverride(offerData.eurPlnRate);
         setShowSaveModal(false);
         setSaveOfferName('');
         setSaveMessage({ type: 'success', text: currentOfferId ? (t.offers?.updated || 'Updated!') : (t.offers?.saved || 'Saved!') });
@@ -902,13 +988,16 @@ export default function Calculator() {
             </p>
             <input
               type="text"
-              value={saveOfferName || currentOfferName}
+              value={saveOfferName}
               onChange={e => setSaveOfferName(e.target.value)}
               placeholder={t.offers?.offerNamePlaceholder}
-              className={`w-full bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none mb-4
+              className={`w-full bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none mb-2
                 ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
               autoFocus
             />
+            <p className="text-xs text-[var(--text-secondary)] mb-4">
+              {t.offers?.offerNameOptionalHint}
+            </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => {
@@ -921,7 +1010,7 @@ export default function Calculator() {
               </button>
               <button
                 onClick={handleSaveOffer}
-                disabled={saveLoading || (!saveOfferName.trim() && !currentOfferName.trim())}
+                disabled={saveLoading}
                 className="px-4 py-2 text-sm rounded bg-[var(--accent-cr)] text-white font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {saveLoading ? t.offers?.saving : t.common.save}
@@ -1215,7 +1304,7 @@ export default function Calculator() {
                     {grade.name}
                   </span>
                   <span className="font-mono text-xs font-semibold text-[var(--accent-hrs)] bg-[rgba(232,160,32,0.08)] px-2 py-0.5 rounded">
-                    {grade.value} {t.common.currency}
+                    {money(grade.value)} {symbol}
                   </span>
                 </div>
               ))}
@@ -1239,6 +1328,20 @@ export default function Calculator() {
           </span>
         </div>
       )}
+
+      {/* Waluta wyświetlania. Świadomie POZA warunkiem bloku "Waga arkusza" — tamten blok
+          znika w trybie KRĄG i przy pustych wymiarach, a przełącznik ma być zawsze widoczny. */}
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-muted)]">
+          {t.common.currencyLabel}
+        </span>
+        <CurrencySelector />
+        {currency === 'PLN' && (
+          <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1">
+            1 EUR = {rate.toFixed(2)} PLN
+          </span>
+        )}
+      </div>
 
       {/* Dimension Warning */}
       {warningText && (
@@ -1265,26 +1368,26 @@ export default function Calculator() {
             {/* PGL Period */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.pglPeriod}</span>
-              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">0</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money(0)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Dimension Surcharge */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.thicknessWidth}</span>
               <span className={`font-mono text-[13px] font-medium min-w-[64px] text-right ${dimSurcharge === null ? 'text-[var(--accent-sum)]' : 'text-[var(--text-value)]'}`}>
-                {dimSurcharge !== null ? dimSurcharge : '—'}
+                {dimSurcharge !== null ? money(dimSurcharge) : '—'}
               </span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Grade Surcharge */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.grade}</span>
               <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">
-                {selectedGrade ? selectedGrade.value : 0}
+                {money(selectedGrade ? selectedGrade.value : 0)}
               </span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Thickness Tolerance */}
@@ -1296,8 +1399,8 @@ export default function Calculator() {
                 selectedIdx={tolThickIdx}
                 onChangeIdx={(v, idx) => { setTolThick(v); setTolThickIdx(idx); }}
               />
-              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{tolThick}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(tolThick)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Certificate */}
@@ -1312,8 +1415,8 @@ export default function Calculator() {
                 value={cert}
                 onChange={setCert}
               />
-              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{cert}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(cert)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Coating (HDG only) */}
@@ -1344,12 +1447,11 @@ export default function Calculator() {
                     </button>
                   ))}
                 </div>
-                <span className="font-mono text-xs font-semibold text-[var(--text-value)] text-right ml-2 whitespace-nowrap flex-shrink-0">
-                  {coatingSurcharge !== null ? (
-                    <>
-                      {coatingSurcharge} <span className="font-normal text-[10px] text-[var(--text-muted)]">{t.common.currency}</span>
-                    </>
-                  ) : t.huta.unavailable}
+                <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1 whitespace-nowrap flex-shrink-0">
+                  {coatingSurcharge !== null ? money(coatingSurcharge) : t.huta.unavailable}
+                </span>
+                <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px] flex-shrink-0">
+                  {coatingSurcharge !== null ? symbol : ''}
                 </span>
               </div>
             )}
@@ -1360,32 +1462,32 @@ export default function Calculator() {
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.protection}</span>
                   <ToggleGroup options={[{label:'O',value:0},{label:'U',value:3},{label:'A',value:5}]} value={crZabezp} onChange={setCrZabezp} />
-                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{crZabezp}</span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(crZabezp)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.packaging}</span>
                   <ToggleGroup options={getLocalizedOptions.crPackaging} value={crOpak} selectedIdx={crOpakIdx} onChangeIdx={(v, idx) => { setCrOpak(v); setCrOpakIdx(idx); }} />
-                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{crOpak}</span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(crOpak)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.surface} (CR)</span>
                   <ToggleGroup options={getLocalizedOptions.crSurface} value={crPowierz} onChange={setCrPowierz} />
-                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{crPowierz}</span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(crPowierz)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.surfaceFinish}</span>
                   <ToggleGroup options={getLocalizedOptions.crFinish} value={crWykon} selectedIdx={crWykonIdx} onChangeIdx={(v, idx) => { setCrWykon(v); setCrWykonIdx(idx); }} />
-                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{crWykon}</span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(crWykon)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.weld}</span>
                   <ToggleGroup options={getLocalizedOptions.crWeld} value={crZgrzew} onChange={setCrZgrzew} />
-                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{crZgrzew}</span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(crZgrzew)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
               </>
             )}
@@ -1396,32 +1498,32 @@ export default function Calculator() {
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.protection}</span>
                   <ToggleGroup options={[{label:'O',value:2},{label:'EO',value:2},{label:'S',value:20},{label:'CE',value:0}]} value={hdgZabezp} selectedIdx={hdgZabezpIdx} onChangeIdx={(v, idx) => { setHdgZabezp(v); setHdgZabezpIdx(idx); }} />
-                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{hdgZabezp}</span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(hdgZabezp)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.packaging}</span>
                   <ToggleGroup options={getLocalizedOptions.hdgPackaging} value={hdgOpak} selectedIdx={hdgOpakIdx} onChangeIdx={(v, idx) => { setHdgOpak(v); setHdgOpakIdx(idx); }} />
-                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{hdgOpak}</span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(hdgOpak)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.surface} (HDG)</span>
                   <ToggleGroup options={getLocalizedOptions.hdgSurface} value={hdgPowierz} onChange={setHdgPowierz} />
-                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{hdgPowierz}</span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(hdgPowierz)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.surfaceFinish}</span>
                   <ToggleGroup options={getLocalizedOptions.hdgFinish} value={hdgWykon} onChange={setHdgWykon} />
-                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{hdgWykon}</span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(hdgWykon)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.weld}</span>
                   <ToggleGroup options={getLocalizedOptions.hdgWeld} value={hdgZgrzew} onChange={setHdgZgrzew} />
-                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{hdgZgrzew}</span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(hdgZgrzew)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
               </>
             )}
@@ -1430,8 +1532,8 @@ export default function Calculator() {
           {/* Sum Huta */}
           <div className={`flex items-center px-4 py-3 border-t-[1.5px] border-[var(--border-hi)] mt-auto ${isDark ? 'bg-[rgba(0,0,0,0.18)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
             <span className="flex-1 text-[11px] font-bold tracking-widest uppercase text-[var(--accent-hrs)]">{t.huta.sum}</span>
-            <span className="font-mono text-lg font-semibold text-[var(--accent-hrs)]">{sumaHuta.toFixed(2)}</span>
-            <span className="text-[11px] text-[var(--text-secondary)] font-mono ml-1.5">{t.common.currency}</span>
+            <span className="font-mono text-lg font-semibold text-[var(--accent-hrs)]">{money2(sumaHuta)}</span>
+            <span className="text-[11px] text-[var(--text-secondary)] font-mono ml-1.5">{symbol}</span>
           </div>
         </div>
 
@@ -1449,64 +1551,64 @@ export default function Calculator() {
             {/* Base Surcharge */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.baseSurcharge}</span>
-              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{baseSurcharge}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money(baseSurcharge)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Length Tolerance */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.lengthTolerance}</span>
               <ToggleGroup options={getLocalizedOptions.lengthTolerance} value={sscLenTol} onChange={setSscLenTol} />
-              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{sscLenTol}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscLenTol)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Flatness */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.flatness}</span>
               <ToggleGroup options={getLocalizedOptions.flatness} value={sscFlatness} onChange={setSscFlatness} />
-              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{sscFlatness}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscFlatness)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Surface */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.surface}</span>
               <ToggleGroup options={getLocalizedOptions.surface} value={sscSurface} onChange={setSscSurface} />
-              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{sscSurface}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscSurface)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Max Weight */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.maxPackWeight}</span>
               <ToggleGroup options={[{label:'<1T',value:20},{label:'1–1,5T',value:10},{label:'1,5–2,25T',value:7.5},{label:'2,2–2,5T',value:5},{label:'2,5–3,5T',value:0},{label:'>3,5T',value:-3}]} value={sscMaxWeight} onChange={setSscMaxWeight} />
-              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{sscMaxWeight}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscMaxWeight)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Marking */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.marking}</span>
               <ToggleGroup options={getLocalizedOptions.marking} value={sscMarking} onChange={setSscMarking} />
-              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{sscMarking}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscMarking)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Edging */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.edging}</span>
               <ToggleGroup options={getLocalizedOptions.edging} value={sscEdging} onChange={setSscEdging} />
-              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{sscEdging}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscEdging)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Yield Strength (HRS specific grades only) */}
             {showYield && (
               <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                 <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.yieldStrength}</span>
-                <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">7</span>
-                <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+                <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money(7)}</span>
+                <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
               </div>
             )}
             
@@ -1514,16 +1616,16 @@ export default function Calculator() {
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.packaging}</span>
               <ToggleGroup options={[{label:'S01',value:0,title:t.ssc.packagingDesc.S01},{label:'S03',value:10,title:t.ssc.packagingDesc.S03},{label:'S12',value:5,title:t.ssc.packagingDesc.S12},{label:'S13',value:10,title:t.ssc.packagingDesc.S13},{label:'SB2',value:23,title:t.ssc.packagingDesc.SB2},{label:'SB3',value:29,title:t.ssc.packagingDesc.SB3}]} value={sscPacking} selectedIdx={sscPackingIdx} onChangeIdx={(v, idx) => { setSscPacking(v); setSscPackingIdx(idx); }} />
-              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{sscPacking}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscPacking)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Labels */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.labels}</span>
               <ToggleGroup options={getLocalizedOptions.labels} value={sscLabels} onChange={setSscLabels} />
-              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{sscLabels}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscLabels)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Scrap */}
@@ -1531,16 +1633,16 @@ export default function Calculator() {
               <span className="flex-1 text-xs text-[var(--text-secondary)]">
                 {t.ssc.scrap} <span className="text-[var(--text-muted)]">({language === 'pl' ? 'stała' : 'const'})</span>
               </span>
-              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{SCRAP_CONSTANT}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money(SCRAP_CONSTANT)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
           </div>
           
           {/* Sum SSC */}
           <div className={`flex items-center px-4 py-3 border-t-[1.5px] border-[var(--border-hi)] mt-auto ${isDark ? 'bg-[rgba(0,0,0,0.18)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
             <span className="flex-1 text-[11px] font-bold tracking-widest uppercase text-[var(--accent-cr)]">{t.ssc.sum}</span>
-            <span className="font-mono text-lg font-semibold text-[var(--accent-cr)]">{sumaSSC.toFixed(2)}</span>
-            <span className="text-[11px] text-[var(--text-secondary)] font-mono ml-1.5">{t.common.currency}</span>
+            <span className="font-mono text-lg font-semibold text-[var(--accent-cr)]">{money2(sumaSSC)}</span>
+            <span className="text-[11px] text-[var(--text-secondary)] font-mono ml-1.5">{symbol}</span>
           </div>
         </div>}
 
@@ -1560,20 +1662,20 @@ export default function Calculator() {
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.pglBase}</span>
               <input
                 type="number"
-                value={pglBase}
-                onChange={e => setPglBase(parseFloat(e.target.value) || 0)}
+                value={moneyInput(pglBase)}
+                onChange={e => setPglBase(fromDisplay(parseFloat(e.target.value) || 0))}
                 min="0"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[110px] focus:border-[var(--accent-cr)] outline-none
                   ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
               />
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Wsad Price */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.inputPrice} (PGL + Σ {language === 'pl' ? 'Huta' : 'Mill'})</span>
-              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{cenaWsadu.toFixed(2)}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money2(cenaWsadu)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             <div className="h-px bg-[var(--border)] mx-4 my-1" />
@@ -1596,8 +1698,8 @@ export default function Calculator() {
             {/* Margin Calculated */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.margin}</span>
-              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{marzaNetto.toFixed(2)}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money2(marzaNetto)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             <div className="h-px bg-[var(--border)] mx-4 my-1" />
@@ -1607,13 +1709,13 @@ export default function Calculator() {
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.extra}</span>
               <input
                 type="number"
-                value={extra}
-                onChange={e => setExtra(parseFloat(e.target.value) || 0)}
+                value={moneyInput(extra)}
+                onChange={e => setExtra(fromDisplay(parseFloat(e.target.value) || 0))}
                 min="0"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
                   ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
               />
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Transport */}
@@ -1621,13 +1723,13 @@ export default function Calculator() {
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.transport}</span>
               <input
                 type="number"
-                value={transport}
-                onChange={e => setTransport(parseFloat(e.target.value) || 0)}
+                value={moneyInput(transport)}
+                onChange={e => setTransport(fromDisplay(parseFloat(e.target.value) || 0))}
                 min="0"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
                   ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
               />
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             <div className="h-px bg-[var(--border)] mx-4 my-1" />
@@ -1636,16 +1738,16 @@ export default function Calculator() {
             {!isCoilMode && (
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">Σ SSC {language === 'pl' ? 'Processing' : 'Processing'}</span>
-              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{sumaSSC.toFixed(2)}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money2(sumaSSC)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             )}
             
             {/* Final Price */}
             <div className="flex items-center px-4 py-2 mx-3.5 my-2 rounded bg-[rgba(245,71,90,0.08)] border border-[rgba(245,71,90,0.25)]">
               <span className="flex-1 text-xs text-[var(--text-primary)] font-semibold">{t.summary.finalPrice.toUpperCase()}</span>
-              <span className="font-mono text-base font-bold text-[var(--accent-sum)] min-w-[64px] text-right">{cenaKoncowa.toFixed(2)}</span>
-              <span className="text-[10px] text-[var(--accent-sum)] font-mono ml-1 w-[22px]">{t.common.currency}</span>
+              <span className="font-mono text-base font-bold text-[var(--accent-sum)] min-w-[64px] text-right">{money2(cenaKoncowa)}</span>
+              <span className="text-[10px] text-[var(--accent-sum)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
             {/* Tons */}
@@ -1677,8 +1779,8 @@ export default function Calculator() {
           {/* Sum Final */}
           <div className={`flex items-center px-4 py-3 border-t-[1.5px] border-[var(--border-hi)] mt-auto ${isDark ? 'bg-[rgba(0,0,0,0.18)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
             <span className="flex-1 text-[11px] font-bold tracking-widest uppercase text-[var(--accent-sum)]">{isCoilMode ? (language === 'pl' ? 'Suma (Marża)' : 'Total (Margin)') : (language === 'pl' ? 'Suma (Marża + SSC)' : 'Total (Margin + SSC)')}</span>
-            <span className="font-mono text-lg font-semibold text-[var(--accent-sum)]">{cenaKoncowa.toFixed(2)}</span>
-            <span className="text-[11px] text-[var(--text-secondary)] font-mono ml-1.5">{t.common.currency}</span>
+            <span className="font-mono text-lg font-semibold text-[var(--accent-sum)]">{money2(cenaKoncowa)}</span>
+            <span className="text-[11px] text-[var(--text-secondary)] font-mono ml-1.5">{symbol}</span>
           </div>
         </div>
       </div>
@@ -1772,12 +1874,12 @@ export default function Calculator() {
                           {item.type}
                         </span>
                       </td>
-                      <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{item.sumaHuta.toFixed(2)}</td>
-                      <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{item.sumaSSC.toFixed(2)}</td>
-                      <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{item.marza.toFixed(2)}</td>
-                      <td className="px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{item.finalPrice.toFixed(2)} {t.common.currency}</td>
+                      <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaHuta)}</td>
+                      <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaSSC)}</td>
+                      <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.marza)}</td>
+                      <td className="px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{money2(item.finalPrice)} {symbol}</td>
                       <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{item.tons.toFixed(2)} {t.common.tons}</td>
-                      <td className="px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{item.totalValue.toFixed(2)} €</td>
+                      <td className="px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{money2(item.totalValue)} {currencyUnit}</td>
                       <td className="px-3.5 py-2 text-right whitespace-nowrap">
                         <button onClick={() => editItem(item.id)} className="bg-transparent border border-[var(--border)] rounded px-2 py-1 text-[13px] hover:border-[var(--accent-cr)] hover:text-[var(--accent-cr)] transition-colors ml-1" title={t.common.edit}>✏️</button>
                         <button onClick={() => dupItem(item.id)} className="bg-transparent border border-[var(--border)] rounded px-2 py-1 text-[13px] hover:border-[#a78bfa] hover:text-[#a78bfa] transition-colors ml-1" title={t.common.duplicate}>⧉</button>
@@ -1796,8 +1898,8 @@ export default function Calculator() {
               {t.zestawienie.total}
             </span>
             <span className="flex items-baseline gap-1.5">
-              <span className="font-mono text-xl font-bold text-[var(--accent-sum)]">{zestTotal.toFixed(2)}</span>
-              <span className="font-mono text-[11px] text-[var(--text-secondary)]">€ {language === 'pl' ? 'łącznie' : 'total'}</span>
+              <span className="font-mono text-xl font-bold text-[var(--accent-sum)]">{money2(zestTotal)}</span>
+              <span className="font-mono text-[11px] text-[var(--text-secondary)]">{currencyUnit} {language === 'pl' ? 'łącznie' : 'total'}</span>
             </span>
           </div>
         </div>
