@@ -339,13 +339,22 @@ export default function Calculator() {
   }, [currentType, thickness, selectedCoating, getCoatingSurcharge]);
   
   // Calculate base surcharge
-  const baseSurcharge = useMemo(() => {
-    if (isCoilMode) return 0;
+  const baseSurchargeRaw = useMemo(() => {
+    if (isCoilMode) return null;
     if (currentType === 'HRS') {
-      return getBaseLengthSurchargeHRS(thickness, length) || 29;
+      return getBaseLengthSurchargeHRS(thickness, length);
     }
-    return getBaseSurchargeCRHDG(thickness, width) || 29;
+    return getBaseSurchargeCRHDG(thickness, width);
   }, [currentType, thickness, length, width, isCoilMode, getBaseLengthSurchargeHRS, getBaseSurchargeCRHDG]);
+  const baseSurcharge = isCoilMode ? 0 : (baseSurchargeRaw ?? 29);
+
+  const baseSurchargeWarning = useMemo(() => {
+    if (isCoilMode || baseSurchargeRaw !== null) return null;
+    return formatWarning(t.warnings.baseSurchargeFallback, {
+      thickness: thickness.toFixed(2),
+      value: 29,
+    });
+  }, [isCoilMode, baseSurchargeRaw, thickness, t.warnings]);
   
   // Check yield visibility
   const showYield = currentType === 'HRS' && YIELD_GRADES.includes(gradeInput);
@@ -1349,6 +1358,15 @@ export default function Calculator() {
           ${isDark ? 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#f5a0a8]' : 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#9b2a35]'}`}>
           <span className="text-base">⚠</span>
           <span dangerouslySetInnerHTML={{ __html: warningText }} />
+        </div>
+      )}
+
+      {/* Base Surcharge Fallback Warning */}
+      {baseSurchargeWarning && (
+        <div className={`flex items-center gap-2.5 mb-4 px-4 py-2.5 rounded-md border-l-[3px] border-[var(--accent-sum)] text-xs font-mono animate-[fadeIn_0.2s_ease]
+          ${isDark ? 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#f5a0a8]' : 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#9b2a35]'}`}>
+          <span className="text-base">⚠</span>
+          <span dangerouslySetInnerHTML={{ __html: baseSurchargeWarning }} />
         </div>
       )}
 

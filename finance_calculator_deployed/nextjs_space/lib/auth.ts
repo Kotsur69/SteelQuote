@@ -1,7 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
-
-const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'default-secret');
+import { JWT_SECRET_BYTES as secret } from './jwtSecret';
 
 export type Role = 'junior' | 'senior' | 'admin';
 

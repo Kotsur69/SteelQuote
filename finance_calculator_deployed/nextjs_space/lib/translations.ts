@@ -278,6 +278,7 @@ export interface Translations {
     maxThickness: string;
     outOfRange: string;
     widthOutOfRange: string;
+    baseSurchargeFallback: string;
   };
 
   // Client information
@@ -695,6 +696,7 @@ export const pl: Translations = {
     maxThickness: 'Dla szerokości <strong>{width} mm</strong> maksymalna dostępna grubość wynosi <strong>{maxTh} mm</strong>. Wpisana wartość ({thickness} mm) jest za duża.',
     outOfRange: 'Kombinacja grubości <strong>{thickness} mm</strong> i szerokości <strong>{width} mm</strong> jest poza zakresem tabeli.',
     widthOutOfRange: 'Szerokość <strong>{width} mm</strong> jest poza zakresem tabeli.',
+    baseSurchargeFallback: 'Grubość <strong>{thickness} mm</strong> jest poza zakresem tabeli dopłat bazowych SSC — użyto szacunkowej dopłaty <strong>{value} €/t</strong>, która może być niedokładna.',
   },
 
   client: {
@@ -1105,6 +1107,7 @@ export const en: Translations = {
     maxThickness: 'For width <strong>{width} mm</strong> maximum available thickness is <strong>{maxTh} mm</strong>. Entered value ({thickness} mm) is too large.',
     outOfRange: 'Combination of thickness <strong>{thickness} mm</strong> and width <strong>{width} mm</strong> is out of table range.',
     widthOutOfRange: 'Width <strong>{width} mm</strong> is out of table range.',
+    baseSurchargeFallback: 'Thickness <strong>{thickness} mm</strong> is out of the SSC base surcharge table range — an estimated surcharge of <strong>{value} €/t</strong> was used, which may not be accurate.',
   },
 
   client: {
@@ -1514,6 +1517,7 @@ export const cs: Translations = {
     maxThickness: 'Pro šířku <strong>{width} mm</strong> je maximální dostupná tloušťka <strong>{maxTh} mm</strong>. Zadaná hodnota ({thickness} mm) je příliš velká.',
     outOfRange: 'Kombinace tloušťky <strong>{thickness} mm</strong> a šířky <strong>{width} mm</strong> je mimo rozsah tabulky.',
     widthOutOfRange: 'Šířka <strong>{width} mm</strong> je mimo rozsah tabulky.',
+    baseSurchargeFallback: 'Tloušťka <strong>{thickness} mm</strong> je mimo rozsah tabulky základních přirážek SSC — byla použita odhadovaná přirážka <strong>{value} €/t</strong>, která nemusí být přesná.',
   },
 
   client: {
@@ -1923,6 +1927,7 @@ export const de: Translations = {
     maxThickness: 'Für die Breite <strong>{width} mm</strong> beträgt die maximal verfügbare Dicke <strong>{maxTh} mm</strong>. Der eingegebene Wert ({thickness} mm) ist zu groß.',
     outOfRange: 'Die Kombination aus Dicke <strong>{thickness} mm</strong> und Breite <strong>{width} mm</strong> liegt außerhalb des Tabellenbereichs.',
     widthOutOfRange: 'Die Breite <strong>{width} mm</strong> liegt außerhalb des Tabellenbereichs.',
+    baseSurchargeFallback: 'Die Dicke <strong>{thickness} mm</strong> liegt außerhalb des Tabellenbereichs für SSC-Grundzuschläge — es wurde ein geschätzter Zuschlag von <strong>{value} €/t</strong> verwendet, der möglicherweise ungenau ist.',
   },
 
   client: {

@@ -10,8 +10,7 @@ export interface FreshSession extends SessionPayload {
 
 // Zwraca błędową odpowiedź (401/403) albo świeżą sesję z aktualną rolą z bazy.
 // Używać na początku route handlerów, które wymagają roli lub operacji wrażliwych
-// (approve/reject/admin/send). Dla samych odczytów, gdzie 24h opóźnienie roli jest
-// akceptowalne, można użyć lżejszego requireRoleFromToken.
+// (approve/reject/admin/send).
 export async function requireRole(
   allowedRoles: Role[]
 ): Promise<{ session: FreshSession } | { error: NextResponse }> {
@@ -42,19 +41,4 @@ export async function requireRole(
       isActive: true,
     },
   };
-}
-
-// Lekki wariant bez zapytania do bazy — ufa roli z tokenu.
-// Tylko dla odczytów niskiego ryzyka; NIE dla approve/reject/admin/send.
-export function requireRoleFromToken(
-  session: SessionPayload | null,
-  allowedRoles: Role[]
-): { ok: true } | { error: NextResponse } {
-  if (!session) {
-    return { error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-  if (!allowedRoles.includes(session.role)) {
-    return { error: NextResponse.json({ error: 'Brak uprawnień' }, { status: 403 }) };
-  }
-  return { ok: true };
 }

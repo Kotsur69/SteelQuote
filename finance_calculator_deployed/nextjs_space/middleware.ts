@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import { JWT_SECRET_BYTES as secret } from './lib/jwtSecret';
 
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get('auth-token')?.value;
@@ -12,7 +13,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/', request.url));
     }
     try {
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'default-secret');
       const { payload } = await jwtVerify(token, secret);
       if (payload.role !== 'senior') {
         return NextResponse.redirect(new URL('/calculator', request.url));
@@ -29,7 +29,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/', request.url));
     }
     try {
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'default-secret');
       const { payload } = await jwtVerify(token, secret);
       if (payload.role !== 'admin') {
         return NextResponse.redirect(new URL('/calculator', request.url));
@@ -47,7 +46,6 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'default-secret');
       await jwtVerify(token, secret);
       return NextResponse.next();
     } catch {
@@ -58,7 +56,6 @@ export async function middleware(request: NextRequest) {
   // Redirect logged in users from login page to calculator
   if (pathname === '/' && token) {
     try {
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'default-secret');
       await jwtVerify(token, secret);
       return NextResponse.redirect(new URL('/calculator', request.url));
     } catch {
