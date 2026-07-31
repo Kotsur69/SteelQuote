@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
-import { ClientInfo } from '@/lib/pdfGenerator';
+import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useOfferSearch } from '@/lib/useOfferSearch';
@@ -250,13 +250,12 @@ function AdminOffersContent() {
   };
 
   const handleExportPDF = async (o: AdminOffer) => {
-    const empty: ClientInfo = { firstName: '', lastName: '', company: '', address: '', nip: '', phone: '', email: '' };
     flash('success', 'Generuję PDF...');
     try {
       await downloadServerPdf({
         offerName: o.display_name,
         offerId: o.id,
-        clientInfo: o.offer_data.clientInfo || empty,
+        clientInfo: normalizeClientInfo(o.offer_data.clientInfo),
         zestawienie: (o.offer_data.zestawienie as never) || [],
         createdAt: o.created_at,
         // Waluta i kurs z SAMEJ oferty, nie z bieżących ustawień.

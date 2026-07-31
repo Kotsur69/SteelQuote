@@ -1,8 +1,22 @@
 import { NextResponse } from 'next/server';
-import { getSession } from '@/lib/auth';
+import { requireRole } from '@/lib/rbac';
 import { isCurrency, sanitizeRate, DEFAULT_CURRENCY, type Currency } from '@/lib/currency';
 import fs from 'fs';
 import path from 'path';
+
+// Wszystkie pola ponizej (nazwa oferty, dane klienta, gatunek stali) to wolny
+// tekst od uzytkownika i trafiaja do HTML wysylanego do zewnetrznej uslugi
+// Abacusa (HTML -> PDF, prawdopodobnie headless-Chrome). Bez escapowania ktos
+// wpisujac np. "<img src=x onerror=...>" w polu Firma dostalby wykonanie JS
+// wewnatrz tej uslugi. Escapuj KAZDA wartosc user-input przed wstawieniem do HTML.
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -21,12 +35,16 @@ interface OrderItem {
   results: { sumaHuta: number; sumaSSC: number; cenaKoncowa: number };
 }
 
+// Lokalna kopia kształtu z lib/pdfGenerator.ts. Trasa generowania PDF-a jest
+// świadomie samodzielna (renderuje HTML po stronie serwera), ale POLA MUSZĄ
+// nadążać za tamtym typem — inaczej nowe dane cicho wypadają z oferty klienta.
 interface ClientInfo {
   firstName: string;
   lastName: string;
   company: string;
   address: string;
   nip: string;
+  sapId: string;
   phone: string;
   email: string;
 }
@@ -70,10 +88,10 @@ function buildHtml(
       <tr>
         <td style="text-align:center;font-weight:600;">${idx + 1}</td>
         <td>
-          <div style="font-weight:600;font-size:11px;">${item.grade}</div>
-          <div style="font-size:10px;color:#64748b;">${dims}${item.coating ? ' / ' + item.coating : ''}${item.isCoil ? ' (KRĄG)' : ''}</div>
+          <div style="font-weight:600;font-size:11px;">${escapeHtml(item.grade)}</div>
+          <div style="font-size:10px;color:#64748b;">${dims}${item.coating ? ' / ' + escapeHtml(item.coating) : ''}${item.isCoil ? ' (KRĄG)' : ''}</div>
         </td>
-        <td style="text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${typeClass};color:#fff;font-size:10px;font-weight:700;">${item.steelType}</span></td>
+        <td style="text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${typeClass};color:#fff;font-size:10px;font-weight:700;">${escapeHtml(item.steelType)}</span></td>
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.thickness.toFixed(2)}</td>
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.width.toFixed(0)}</td>
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.isCoil ? '-' : item.length.toFixed(0)}</td>
@@ -139,28 +157,29 @@ function buildHtml(
       </div>
     </div>
     <div class="offer-meta">
-      <div class="offer-title">${offerName || 'Oferta cenowa'}</div>
-      <div class="meta-row"><span class="lbl">Data: </span><span class="meta-val">${offerDate}</span></div>
-      <div class="meta-row"><span class="lbl">Sporządził: </span><span class="meta-val">${userName || '-'}</span></div>
+      <div class="offer-title">${escapeHtml(offerName) || 'Oferta cenowa'}</div>
+      <div class="meta-row"><span class="lbl">Data: </span><span class="meta-val">${escapeHtml(offerDate)}</span></div>
+      <div class="meta-row"><span class="lbl">Sporządził: </span><span class="meta-val">${escapeHtml(userName) || '-'}</span></div>
     </div>
   </div>
 
   <div class="info-grid">
     <div class="info-block">
       <div class="info-block-title">Odbiorca</div>
-      ${client.company ? `<div class="info-row"><span class="lbl">Firma:</span><span class="val">${client.company}</span></div>` : ''}
-      ${(client.firstName || client.lastName) ? `<div class="info-row"><span class="lbl">Osoba:</span><span class="val">${client.firstName} ${client.lastName}</span></div>` : ''}
-      ${client.address ? `<div class="info-row"><span class="lbl">Adres:</span><span class="val">${client.address}</span></div>` : ''}
-      ${client.nip ? `<div class="info-row"><span class="lbl">NIP:</span><span class="val">${client.nip}</span></div>` : ''}
-      ${client.phone ? `<div class="info-row"><span class="lbl">Telefon:</span><span class="val">${client.phone}</span></div>` : ''}
-      ${client.email ? `<div class="info-row"><span class="lbl">Email:</span><span class="val">${client.email}</span></div>` : ''}
+      ${client.company ? `<div class="info-row"><span class="lbl">Firma:</span><span class="val">${escapeHtml(client.company)}</span></div>` : ''}
+      ${(client.firstName || client.lastName) ? `<div class="info-row"><span class="lbl">Osoba:</span><span class="val">${escapeHtml(client.firstName)} ${escapeHtml(client.lastName)}</span></div>` : ''}
+      ${client.address ? `<div class="info-row"><span class="lbl">Adres:</span><span class="val">${escapeHtml(client.address)}</span></div>` : ''}
+      ${client.nip ? `<div class="info-row"><span class="lbl">NIP:</span><span class="val">${escapeHtml(client.nip)}</span></div>` : ''}
+      ${client.sapId ? `<div class="info-row"><span class="lbl">SAP ID:</span><span class="val">${escapeHtml(client.sapId)}</span></div>` : ''}
+      ${client.phone ? `<div class="info-row"><span class="lbl">Telefon:</span><span class="val">${escapeHtml(client.phone)}</span></div>` : ''}
+      ${client.email ? `<div class="info-row"><span class="lbl">Email:</span><span class="val">${escapeHtml(client.email)}</span></div>` : ''}
     </div>
     <div class="info-block">
       <div class="info-block-title">Podsumowanie</div>
       <div class="info-row"><span class="lbl">Pozycji:</span><span class="val">${items.length}</span></div>
       <div class="info-row"><span class="lbl">Łącznie t:</span><span class="val">${totalTons.toFixed(2)} t</span></div>
       <div class="info-row"><span class="lbl">Wartość:</span><span class="val" style="color:#059669;font-size:12px;">${totalValue.toFixed(2)} ${unit}</span></div>
-      <div class="info-row"><span class="lbl">Typy:</span><span class="val">${[...new Set(items.map(i => i.steelType))].join(', ')}</span></div>
+      <div class="info-row"><span class="lbl">Typy:</span><span class="val">${escapeHtml([...new Set(items.map(i => i.steelType))].join(', '))}</span></div>
     </div>
   </div>
 
@@ -206,7 +225,7 @@ function buildHtml(
     </ul>
     <div class="footer-sign">
       <div class="sign-block">
-        <div class="sign-name">${userName || ''}</div>
+        <div class="sign-name">${escapeHtml(userName)}</div>
         <div class="sign-line">Sporządził</div>
       </div>
       <div class="sign-block">
@@ -222,17 +241,18 @@ function buildHtml(
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireRole(['junior', 'senior', 'admin']);
+    if ('error' in auth) {
+      return auth.error;
     }
+    const session = auth.session;
 
     const { items, clientInfo, offerName, offerDate, currency, eurPlnRate } = await request.json();
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'No items provided' }, { status: 400 });
     }
 
-    const client: ClientInfo = clientInfo || { firstName: '', lastName: '', company: '', address: '', nip: '', phone: '', email: '' };
+    const client: ClientInfo = clientInfo || { firstName: '', lastName: '', company: '', address: '', nip: '', sapId: '', phone: '', email: '' };
     const userName = session.email || '';
     const date = offerDate || new Date().toLocaleDateString('pl-PL');
 

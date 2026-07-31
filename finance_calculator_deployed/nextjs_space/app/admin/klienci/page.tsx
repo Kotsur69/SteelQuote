@@ -11,6 +11,7 @@ interface Client {
   company: string | null;
   nip: string | null;
   address: string | null;
+  sap_id: string | null;
   phone: string | null;
   email: string | null;
   offers_count: number;
@@ -18,7 +19,7 @@ interface Client {
 
 const EMPTY = {
   id: null as number | null,
-  first_name: '', last_name: '', company: '', nip: '', address: '', phone: '', email: '',
+  first_name: '', last_name: '', company: '', nip: '', address: '', sap_id: '', phone: '', email: '',
 };
 
 export default function AdminClientsPage() {
@@ -78,7 +79,8 @@ export default function AdminClientsPage() {
     setForm({
       id: c.id,
       first_name: c.first_name || '', last_name: c.last_name || '', company: c.company || '',
-      nip: c.nip || '', address: c.address || '', phone: c.phone || '', email: c.email || '',
+      nip: c.nip || '', address: c.address || '', sap_id: c.sap_id || '',
+      phone: c.phone || '', email: c.email || '',
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -132,6 +134,8 @@ export default function AdminClientsPage() {
             value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
           <input className={inputCls} placeholder={t.admin.nip}
             value={form.nip} onChange={(e) => setForm({ ...form, nip: e.target.value })} />
+          <input className={inputCls} placeholder={t.client.sapId}
+            value={form.sap_id} onChange={(e) => setForm({ ...form, sap_id: e.target.value })} />
           <input className={inputCls} placeholder={t.admin.phone}
             value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input className={inputCls} type="email" placeholder={t.admin.clientEmailLabel}
@@ -175,6 +179,7 @@ export default function AdminClientsPage() {
                   <th className="px-4 py-2.5 font-medium">{t.admin.company}</th>
                   <th className="px-4 py-2.5 font-medium">{t.admin.firstName} {t.admin.lastName}</th>
                   <th className="px-4 py-2.5 font-medium">{t.admin.nip}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.client.sapId}</th>
                   <th className="px-4 py-2.5 font-medium">{t.admin.phone} / {t.admin.clientEmailLabel}</th>
                   <th className="px-4 py-2.5 font-medium text-center">{t.admin.offersCount}</th>
                   <th className="px-4 py-2.5 font-medium text-right">{t.admin.actions}</th>
@@ -188,6 +193,7 @@ export default function AdminClientsPage() {
                       {[c.first_name, c.last_name].filter(Boolean).join(' ') || '—'}
                     </td>
                     <td className="px-4 py-3 font-mono text-[var(--text-secondary)]">{c.nip || '—'}</td>
+                    <td className="px-4 py-3 font-mono text-[var(--text-secondary)]">{c.sap_id || '—'}</td>
                     <td className="px-4 py-3 text-[11px] text-[var(--text-secondary)] font-mono">
                       <div>{c.phone || '—'}</div>
                       <div>{c.email || '—'}</div>

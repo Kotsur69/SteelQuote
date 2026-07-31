@@ -38,6 +38,17 @@ through a server-side Abacus.ai-hosted rendering endpoint
   rate it was saved with, so changing the rate later never rewrites a saved,
   pending, or sent offer's price. Admin settings panel to configure the base
   exchange rate, base PGL, and base transport cost
+- Client information split into company details (company, NIP, address, SAP ID)
+  and optional contact details, which stay locked until company and NIP are
+  filled. Company and NIP are typeahead search fields over the client
+  directory — picking a suggestion fills in all four company fields. Saving an
+  offer adds or updates that client in the directory, so the search learns new
+  clients (existing values are never overwritten — only blanks get filled).
+  Either field falls back to the other when empty, so clearing the NIP while the
+  company is filled still suggests that company. Contact people are shared across
+  the whole team: a company can have many, saving an offer stores the person, and
+  the name field lists that company's contacts as soon as you click into it —
+  picking one fills surname, phone, and e-mail
 - Offers: create, list, duplicate, delete, edit — stored per-user in
   Postgres, with client info attached; optional offer name with an automatic
   `offer_<id>` fallback shown consistently across all offer lists; search by
@@ -60,6 +71,8 @@ psql "$DATABASE_URL" -f migrations/005_add_offer_workflow.sql
 psql "$DATABASE_URL" -f migrations/006_create_clients_table.sql
 psql "$DATABASE_URL" -f migrations/007_create_settings_table.sql
 psql "$DATABASE_URL" -f migrations/008_offer_display_name.sql
+psql "$DATABASE_URL" -f migrations/009_add_sap_id_and_client_lookup.sql
+psql "$DATABASE_URL" -f migrations/010_create_client_contacts.sql
 npm run dev
 ```
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import Navigation from '@/components/Navigation';
-import { ClientInfo } from '@/lib/pdfGenerator';
+import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
@@ -209,15 +209,12 @@ export default function SeniorPage() {
   };
 
   const handleExportPDF = async (offer: Offer) => {
-    const emptyClientInfo: ClientInfo = {
-      firstName: '', lastName: '', company: '', address: '', nip: '', phone: '', email: '',
-    };
     showMessage('success', 'Generuję PDF...');
     try {
       await downloadServerPdf({
         offerName: offer.display_name,
         offerId: offer.id,
-        clientInfo: offer.offer_data.clientInfo || emptyClientInfo,
+        clientInfo: normalizeClientInfo(offer.offer_data.clientInfo),
         zestawienie: offer.offer_data.zestawienie || [],
         createdAt: offer.created_at,
         // Waluta i kurs z SAMEJ oferty - starszy widzi i wysyła dokładnie to, co wycenił handlowiec.

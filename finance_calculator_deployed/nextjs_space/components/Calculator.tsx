@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
+import NumericField from '@/components/NumericField';
 import {
   GRADE_TABLES,
   DIMENSION_MATRIX_HRS,
@@ -23,7 +24,16 @@ import {
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
 import { formatWarning } from '@/lib/translations';
-import { ClientInfo } from '@/lib/pdfGenerator';
+import {
+  ClientInfo,
+  EMPTY_CLIENT_INFO,
+  normalizeClientInfo,
+  hasRequiredCompanyDetails,
+} from '@/lib/pdfGenerator';
+import ClientCombobox from '@/components/ClientCombobox';
+import ContactCombobox from '@/components/ContactCombobox';
+import type { ContactSuggestion } from '@/lib/useContactLookup';
+import type { ClientSuggestion } from '@/lib/useClientLookup';
 import { downloadServerPdf } from '@/lib/serverPdf';
 import { exportZestawienieToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
@@ -180,6 +190,10 @@ export default function Calculator() {
   // Zestawienie
   const [zestawienie, setZestawienie] = useState<ZestawienieItem[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
+  // true gdy edytowana pozycja nie ma zapisanego snapshotu .inputs (oferta sprzed v1.3) —
+  // przełączniki dopłat NIE zostały odtworzone, tylko zostawione takie, jakie były w
+  // kalkulatorze wcześniej. Zapis takiej pozycji może po cichu policzyć inną cenę.
+  const [legacyEditWarning, setLegacyEditWarning] = useState(false);
   
   // Offer management
   const searchParams = useSearchParams();
@@ -197,16 +211,50 @@ export default function Calculator() {
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   // Client info
-  const [clientInfo, setClientInfo] = useState<ClientInfo>({
-    firstName: '',
-    lastName: '',
-    company: '',
-    address: '',
-    nip: '',
-    phone: '',
-    email: '',
-  });
+  const [clientInfo, setClientInfo] = useState<ClientInfo>(EMPTY_CLIENT_INFO);
   const [showClientInfo, setShowClientInfo] = useState(false);
+
+  // Klasy panelu klienta wyciągnięte do stałych. Ten sam długi string powtarzał się
+  // przy każdym z ośmiu pól; rozjazd choćby w jednym rozsypywał spójność panelu,
+  // a przy dokładaniu SAP_ID trzeba by go było skopiować po raz dziewiąty.
+  const fieldLabelClass =
+    'text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]';
+  const sectionLegendClass =
+    'mb-3 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-primary)]';
+  const clientFieldClass = `bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[#a78bfa] outline-none transition-colors w-full disabled:cursor-not-allowed
+    ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`;
+
+  // Dane kontaktowe są opcjonalne (przy części firm po prostu niepotrzebne), ale
+  // wpisywanie ich "w powietrze", zanim wiadomo czyje one są, tworzyłoby kontakty
+  // bez właściciela. Firma + NIP to minimum, które przypina je do konkretnego klienta.
+  const isContactUnlocked = hasRequiredCompanyDetails(clientInfo);
+
+  // Wybór podpowiedzi nadpisuje KOMPLET danych firmy, nie tylko pole, w którym
+  // szukano. O to chodzi w podpowiedziach: jedno kliknięcie zamiast czterech
+  // przepisywanych ręcznie pól. Dane kontaktowe zostają nietknięte — w katalogu
+  // siedzi kontakt sprzed miesięcy, a ofertę może dziś prowadzić kto inny.
+  const applyClientSuggestion = (client: ClientSuggestion) => {
+    setClientInfo(prev => ({
+      ...prev,
+      company: client.company,
+      nip: client.nip,
+      address: client.address,
+      sapId: client.sapId,
+    }));
+  };
+
+  // Wybór osoby z listy uzupełnia KOMPLET danych kontaktowych. Dane firmy zostają
+  // nietknięte — kontakt zawsze należy do firmy już wskazanej wyżej, więc nie ma
+  // czego w niej podmieniać.
+  const applyContactSuggestion = (contact: ContactSuggestion) => {
+    setClientInfo(prev => ({
+      ...prev,
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      phone: contact.phone,
+      email: contact.email,
+    }));
+  };
   const [pdfLoading, setPdfLoading] = useState(false);
   
   // Grade dropdown
@@ -558,6 +606,7 @@ export default function Calculator() {
     if (editingId !== null) {
       setZestawienie(prev => prev.map(item => item.id === editingId ? snap : item));
       setEditingId(null);
+      setLegacyEditWarning(false);
     } else {
       setZestawienie(prev => [...prev, snap]);
     }
@@ -581,6 +630,7 @@ export default function Calculator() {
     setIsCoilMode(item.isCoil || false);
 
     const inp = item.inputs;
+    setLegacyEditWarning(!inp);
     if (inp) {
       // Odtwarzamy pełną konfigurację dopłat zapisaną przy dodaniu pozycji.
       setSelectedGrade(inp.selectedGrade);
@@ -619,7 +669,7 @@ export default function Calculator() {
   // Delete item
   const deleteItem = (id: number) => {
     setZestawienie(prev => prev.filter(i => i.id !== id));
-    if (editingId === id) setEditingId(null);
+    if (editingId === id) { setEditingId(null); setLegacyEditWarning(false); }
   };
   
   // Clear zestawienie
@@ -701,7 +751,10 @@ export default function Calculator() {
     if (data.transport !== undefined) setTransport(data.transport);
     if (data.tons !== undefined) setTons(data.tons);
     if (data.zestawienie !== undefined) setZestawienie(data.zestawienie);
-    if (data.clientInfo !== undefined) setClientInfo(data.clientInfo);
+    // normalizeClientInfo, a nie surowe przypisanie: oferta zapisana przed dodaniem
+    // SAP_ID nie ma tego pola, a niekontrolowany input to ostrzeżenie Reacta i pole,
+    // którego nie da się edytować.
+    if (data.clientInfo !== undefined) setClientInfo(normalizeClientInfo(data.clientInfo));
 
     // Kurs zamrożony w ofercie ma pierwszeństwo nad bieżącym z ustawień — oferta wyceniona
     // po 4,30 zostaje po 4,30, choćby admin ustawił dziś 4,45.
@@ -1074,10 +1127,13 @@ export default function Calculator() {
       <Navigation isDark={isDark} />
 
       {/* Client Information Panel */}
-      <div className="mb-6 bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
+      {/* BEZ overflow-hidden (inaczej niż pozostałe karty): lista podpowiedzi pod polem
+          "Imię" wypada poza dolną krawędź panelu i przycięcie ucinało ją do paska.
+          Zaokrąglenie górnych rogów przejmuje rounded-t-md na nagłówku poniżej. */}
+      <div className="mb-6 bg-[var(--bg-card)] border border-[var(--border)] rounded-md">
         <button
           onClick={() => setShowClientInfo(!showClientInfo)}
-          className="w-full flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)] hover:bg-[rgba(255,255,255,0.025)] transition-colors"
+          className="w-full flex items-center gap-2.5 px-4 py-3 rounded-t-md border-b border-[var(--border)] hover:bg-[rgba(255,255,255,0.025)] transition-colors"
         >
           <span className="w-2 h-2 rounded-full bg-[#a78bfa]" />
           <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">
@@ -1091,91 +1147,146 @@ export default function Calculator() {
         </button>
         
         {showClientInfo && (
-          <div className="p-4 grid grid-cols-4 gap-3 animate-[fadeIn_0.2s_ease]">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
-                {t.client?.firstName || 'Imię'}
-              </label>
-              <input
-                type="text"
-                value={clientInfo.firstName}
-                onChange={e => setClientInfo(prev => ({ ...prev, firstName: e.target.value }))}
-                className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[#a78bfa] outline-none transition-colors w-full
-                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
-                {t.client?.lastName || 'Nazwisko'}
-              </label>
-              <input
-                type="text"
-                value={clientInfo.lastName}
-                onChange={e => setClientInfo(prev => ({ ...prev, lastName: e.target.value }))}
-                className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[#a78bfa] outline-none transition-colors w-full
-                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
-                {t.client?.company || 'Firma'}
-              </label>
-              <input
-                type="text"
-                value={clientInfo.company}
-                onChange={e => setClientInfo(prev => ({ ...prev, company: e.target.value }))}
-                className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[#a78bfa] outline-none transition-colors w-full
-                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
-                {t.client?.nip || 'NIP'}
-              </label>
-              <input
-                type="text"
-                value={clientInfo.nip}
-                onChange={e => setClientInfo(prev => ({ ...prev, nip: e.target.value }))}
-                className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[#a78bfa] outline-none transition-colors w-full
-                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5 col-span-2">
-              <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
-                {t.client?.address || 'Adres'}
-              </label>
-              <input
-                type="text"
-                value={clientInfo.address}
-                onChange={e => setClientInfo(prev => ({ ...prev, address: e.target.value }))}
-                className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[#a78bfa] outline-none transition-colors w-full
-                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
-                {t.client?.phone || 'Telefon'}
-              </label>
-              <input
-                type="tel"
-                value={clientInfo.phone}
-                onChange={e => setClientInfo(prev => ({ ...prev, phone: e.target.value }))}
-                className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[#a78bfa] outline-none transition-colors w-full
-                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
-                {t.client?.email || 'E-mail'}
-              </label>
-              <input
-                type="email"
-                value={clientInfo.email}
-                onChange={e => setClientInfo(prev => ({ ...prev, email: e.target.value }))}
-                className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[#a78bfa] outline-none transition-colors w-full
-                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-              />
-            </div>
+          <div className="p-4 flex flex-col gap-5 animate-[fadeIn_0.2s_ease]">
+            {/* --- Dane firmy: podstawa oferty, zawsze edytowalne --- */}
+            <fieldset className="border-0 p-0 m-0">
+              <legend className={sectionLegendClass}>
+                {t.client?.companySection || 'Dane firmy'}
+              </legend>
+
+              <div className="grid grid-cols-4 gap-3">
+                {/* Firma i NIP to wyszukiwarki po katalogu klientów. Wybór podpowiedzi
+                    w KTÓREJKOLWIEK z nich uzupełnia cały komplet: firmę, NIP, adres
+                    i SAP ID — stąd ten sam handler pod oboma polami.
+
+                    fallbackQuery krzyżuje oba pola: puste pole szuka po zawartości
+                    sąsiedniego. Dzięki temu skasowanie NIP-u przy wpisanej firmie nie
+                    gasi podpowiedzi — kliknięcie w puste pole NIP pokazuje właśnie tę
+                    firmę i pozwala odzyskać brakujący numer jednym Enterem. */}
+                <ClientCombobox
+                  label={t.client?.company || 'Firma'}
+                  value={clientInfo.company}
+                  onChange={value => setClientInfo(prev => ({ ...prev, company: value }))}
+                  onSelect={applyClientSuggestion}
+                  fallbackQuery={clientInfo.nip}
+                  placeholder={t.client?.searchPlaceholder}
+                  isDark={isDark}
+                  lookupErrorLabel={t.client?.lookupError || 'Nie udało się pobrać podpowiedzi'}
+                />
+
+                <ClientCombobox
+                  label={t.client?.nip || 'NIP'}
+                  value={clientInfo.nip}
+                  onChange={value => setClientInfo(prev => ({ ...prev, nip: value }))}
+                  onSelect={applyClientSuggestion}
+                  fallbackQuery={clientInfo.company}
+                  placeholder={t.client?.searchPlaceholder}
+                  isDark={isDark}
+                  lookupErrorLabel={t.client?.lookupError || 'Nie udało się pobrać podpowiedzi'}
+                />
+
+                <div className="flex flex-col gap-1.5">
+                  <label className={fieldLabelClass}>
+                    {t.client?.address || 'Adres'}
+                  </label>
+                  <input
+                    type="text"
+                    value={clientInfo.address}
+                    onChange={e => setClientInfo(prev => ({ ...prev, address: e.target.value }))}
+                    className={clientFieldClass}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className={fieldLabelClass}>
+                    {t.client?.sapId || 'SAP ID'}
+                  </label>
+                  <input
+                    type="text"
+                    value={clientInfo.sapId}
+                    onChange={e => setClientInfo(prev => ({ ...prev, sapId: e.target.value }))}
+                    className={clientFieldClass}
+                  />
+                </div>
+              </div>
+            </fieldset>
+
+            {/* --- Dane kontaktowe: opcjonalne, zablokowane bez firmy i NIP-u ---
+                `fieldset disabled` wyłącza wszystkie pola w środku jednym atrybutem —
+                bez rozstawiania `disabled` po każdym incie i, co ważniejsze, wypada
+                wtedy z kolejności tabulacji, więc klawiaturą też się tam nie wejdzie. */}
+            <fieldset
+              disabled={!isContactUnlocked}
+              className={`border-0 p-0 m-0 transition-opacity duration-200 ${
+                isContactUnlocked ? 'opacity-100' : 'opacity-40'
+              }`}
+            >
+              <legend className={sectionLegendClass}>
+                {t.client?.contactSection || 'Dane kontaktowe'}
+              </legend>
+
+              {!isContactUnlocked && (
+                // Powód blokady, nie sama blokada. Wyszarzone pola bez wyjaśnienia
+                // czytają się jak awaria; tu od razu widać, co odblokowuje sekcję.
+                <p role="status" className="mb-3 text-[10px] font-mono text-[#f59e0b]">
+                  {t.client?.contactLocked || 'Uzupełnij firmę i NIP, żeby wpisać dane kontaktowe'}
+                </p>
+              )}
+
+              <div className="grid grid-cols-4 gap-3">
+                {/* Imię jest wyszukiwarką po osobach TEJ firmy. Kontakty są wspólne dla
+                    działu (tabela client_contacts, migracja 010), więc osobę wpisaną
+                    kiedyś przez kogoś innego wystarczy tu wybrać zamiast przepisywać
+                    z maila. Wybór uzupełnia też nazwisko, telefon i e-mail. */}
+                <ContactCombobox
+                  label={t.client?.firstName || 'Imię'}
+                  value={clientInfo.firstName}
+                  company={clientInfo.company}
+                  nip={clientInfo.nip}
+                  onChange={value => setClientInfo(prev => ({ ...prev, firstName: value }))}
+                  onSelect={applyContactSuggestion}
+                  placeholder={t.client?.contactSearchPlaceholder}
+                  isDark={isDark}
+                  lookupErrorLabel={t.client?.lookupError || 'Nie udało się pobrać podpowiedzi'}
+                />
+
+                <div className="flex flex-col gap-1.5">
+                  <label className={fieldLabelClass}>
+                    {t.client?.lastName || 'Nazwisko'}
+                  </label>
+                  <input
+                    type="text"
+                    value={clientInfo.lastName}
+                    onChange={e => setClientInfo(prev => ({ ...prev, lastName: e.target.value }))}
+                    className={clientFieldClass}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className={fieldLabelClass}>
+                    {t.client?.phone || 'Telefon'}
+                  </label>
+                  <input
+                    type="tel"
+                    value={clientInfo.phone}
+                    onChange={e => setClientInfo(prev => ({ ...prev, phone: e.target.value }))}
+                    className={clientFieldClass}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className={fieldLabelClass}>
+                    {t.client?.email || 'E-mail'}
+                  </label>
+                  <input
+                    type="email"
+                    value={clientInfo.email}
+                    onChange={e => setClientInfo(prev => ({ ...prev, email: e.target.value }))}
+                    className={clientFieldClass}
+                  />
+                </div>
+              </div>
+            </fieldset>
           </div>
         )}
       </div>
@@ -1214,22 +1325,22 @@ export default function Calculator() {
         })}
       </div>
 
-      {/* KRĄG (Coil) Mode Toggle */}
+      {/* Tryb ARKUSZ / KRĄG — etykieta i kolor zawsze pokazują aktywny tryb, nie tylko "wyłączony" stan */}
       <div className="flex items-center gap-3 mb-4">
         <button
           onClick={() => setIsCoilMode(!isCoilMode)}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-md font-mono text-[12px] font-semibold tracking-wider border-[1.5px] transition-all
             ${isCoilMode
               ? 'bg-[rgba(168,85,247,0.12)] border-[#a855f7] text-[#a855f7] shadow-[0_0_12px_rgba(168,85,247,0.15)]'
-              : `bg-[var(--bg-panel)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]`
+              : 'bg-[rgba(59,142,245,0.12)] border-[var(--accent-cr)] text-[var(--accent-cr)] shadow-[0_0_12px_rgba(59,142,245,0.15)]'
             }`}
         >
-          <span className={`w-8 h-[18px] rounded-full relative transition-all ${isCoilMode ? 'bg-[#a855f7]' : isDark ? 'bg-[#2a3048]' : 'bg-[#b8c0d8]'}`}>
-            <span className={`absolute top-[2px] w-[14px] h-[14px] rounded-full transition-all ${isCoilMode ? 'left-[16px] bg-white' : 'left-[2px] bg-[var(--text-muted)]'}`} />
+          <span className={`w-8 h-[18px] rounded-full relative transition-all ${isCoilMode ? 'bg-[#a855f7]' : 'bg-[var(--accent-cr)]'}`}>
+            <span className={`absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-all ${isCoilMode ? 'left-[16px]' : 'left-[2px]'}`} />
           </span>
-          <span>{t.inputs.coilMode}</span>
-          <span className={`text-[10px] font-normal tracking-normal ${isCoilMode ? 'text-[#c084fc]' : 'text-[var(--text-muted)]'}`}>
-            {isCoilMode ? t.inputs.coilModeShort : t.inputs.sheetMode}
+          <span className="uppercase">{isCoilMode ? t.inputs.coilMode : t.inputs.sheetMode}</span>
+          <span className={`text-[10px] font-normal tracking-normal ${isCoilMode ? 'text-[#c084fc]' : 'text-[#7db4f8]'}`}>
+            {isCoilMode ? t.inputs.coilModeShort : t.inputs.sheetModeShort}
           </span>
         </button>
       </div>
@@ -1240,10 +1351,9 @@ export default function Calculator() {
           <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
             {t.inputs.thickness}
           </label>
-          <input
-            type="number"
+          <NumericField
             value={thickness}
-            onChange={e => setThickness(parseFloat(e.target.value) || 0)}
+            onChange={setThickness}
             step="0.01"
             min="0"
             className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none transition-colors w-full
@@ -1254,10 +1364,10 @@ export default function Calculator() {
           <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
             {t.inputs.width}
           </label>
-          <input
-            type="number"
+          <NumericField
             value={width}
-            onChange={e => setWidth(parseInt(e.target.value) || 0)}
+            onChange={setWidth}
+            parse={raw => parseInt(raw, 10)}
             step="1"
             min="0"
             className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none transition-colors w-full
@@ -1269,10 +1379,10 @@ export default function Calculator() {
             <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
               {t.inputs.length}
             </label>
-            <input
-              type="number"
+            <NumericField
               value={length}
-              onChange={e => setLength(parseInt(e.target.value) || 0)}
+              onChange={setLength}
+              parse={raw => parseInt(raw, 10)}
               step="1"
               min="0"
               className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none transition-colors w-full
@@ -1367,6 +1477,15 @@ export default function Calculator() {
           ${isDark ? 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#f5a0a8]' : 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#9b2a35]'}`}>
           <span className="text-base">⚠</span>
           <span dangerouslySetInnerHTML={{ __html: baseSurchargeWarning }} />
+        </div>
+      )}
+
+      {/* Legacy Item Edit Warning — item has no saved .inputs snapshot (pre-v1.3 offer) */}
+      {legacyEditWarning && (
+        <div className={`flex items-center gap-2.5 mb-4 px-4 py-2.5 rounded-md border-l-[3px] border-[var(--accent-sum)] text-xs font-mono animate-[fadeIn_0.2s_ease]
+          ${isDark ? 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#f5a0a8]' : 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#9b2a35]'}`}>
+          <span className="text-base">⚠</span>
+          <span>{t.warnings.legacyItemEdit}</span>
         </div>
       )}
 
@@ -1678,10 +1797,9 @@ export default function Calculator() {
             {/* PGL Base */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.pglBase}</span>
-              <input
-                type="number"
+              <NumericField
                 value={moneyInput(pglBase)}
-                onChange={e => setPglBase(fromDisplay(parseFloat(e.target.value) || 0))}
+                onChange={v => setPglBase(fromDisplay(v))}
                 min="0"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[110px] focus:border-[var(--accent-cr)] outline-none
                   ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
@@ -1701,10 +1819,9 @@ export default function Calculator() {
             {/* Margin % */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.margin} %</span>
-              <input
-                type="number"
+              <NumericField
                 value={marginPct}
-                onChange={e => setMarginPct(parseFloat(e.target.value) || 0)}
+                onChange={setMarginPct}
                 min="0"
                 step="0.1"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
@@ -1725,10 +1842,9 @@ export default function Calculator() {
             {/* Extra */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.extra}</span>
-              <input
-                type="number"
+              <NumericField
                 value={moneyInput(extra)}
-                onChange={e => setExtra(fromDisplay(parseFloat(e.target.value) || 0))}
+                onChange={v => setExtra(fromDisplay(v))}
                 min="0"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
                   ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
@@ -1739,10 +1855,9 @@ export default function Calculator() {
             {/* Transport */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.transport}</span>
-              <input
-                type="number"
+              <NumericField
                 value={moneyInput(transport)}
-                onChange={e => setTransport(fromDisplay(parseFloat(e.target.value) || 0))}
+                onChange={v => setTransport(fromDisplay(v))}
                 min="0"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
                   ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
@@ -1771,10 +1886,9 @@ export default function Calculator() {
             {/* Tons */}
             <div className="flex items-center px-4 py-2 mx-3.5 mt-2">
               <span className="flex-1 text-xs font-semibold text-[var(--text-secondary)]">{t.summary.quantity}</span>
-              <input
-                type="number"
+              <NumericField
                 value={tons}
-                onChange={e => setTons(parseFloat(e.target.value) || 1)}
+                onChange={setTons}
                 min="0.01"
                 step="0.5"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none

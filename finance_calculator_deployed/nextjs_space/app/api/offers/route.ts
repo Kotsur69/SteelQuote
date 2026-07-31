@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { escapeLikePattern } from '@/lib/search';
+import { upsertClientFromOffer } from '@/lib/clientDirectory';
+import { normalizeClientInfo } from '@/lib/pdfGenerator';
 
 const OFFER_COLUMNS = `o.id, o.offer_name, o.display_name, o.offer_data, o.status, o.user_id,
   o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at, o.rejection_reason, o.sent_at,
@@ -72,14 +74,33 @@ export async function POST(request: NextRequest) {
 
     const name = typeof offer_name === 'string' && offer_name.trim() ? offer_name.trim() : null;
 
-    const result = await pool.query(
-      `INSERT INTO offers (user_id, offer_name, offer_data)
-       VALUES ($1, $2, $3)
-       RETURNING id, offer_name, display_name, offer_data, status, created_at, updated_at`,
-      [session.userId, name, JSON.stringify(offer_data)]
-    );
+    // Dane klienta z oferty trafiają też do katalogu `clients`, żeby wyszukiwarka
+    // firmy/NIP-u w kalkulatorze uczyła się nowych klientów (patrz lib/clientDirectory.ts).
+    // Klient i oferta zapisują się w JEDNEJ transakcji — nieudany INSERT oferty nie ma
+    // zostawiać w katalogu firmy bez ani jednej oferty.
+    const clientInfo = normalizeClientInfo((offer_data as Record<string, unknown>).clientInfo);
 
-    return NextResponse.json({ offer: result.rows[0] }, { status: 201 });
+    const db = await pool.connect();
+    try {
+      await db.query('BEGIN');
+
+      const clientId = await upsertClientFromOffer(db, clientInfo, session.userId);
+
+      const result = await db.query(
+        `INSERT INTO offers (user_id, offer_name, offer_data, client_id)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, offer_name, display_name, offer_data, status, created_at, updated_at`,
+        [session.userId, name, JSON.stringify(offer_data), clientId]
+      );
+
+      await db.query('COMMIT');
+      return NextResponse.json({ offer: result.rows[0] }, { status: 201 });
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    } finally {
+      db.release();
+    }
   } catch (error) {
     console.error('Error creating offer:', error);
     return NextResponse.json({ error: 'Failed to create offer' }, { status: 500 });

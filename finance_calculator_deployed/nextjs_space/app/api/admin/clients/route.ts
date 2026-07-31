@@ -9,7 +9,7 @@ export async function GET() {
 
   try {
     const result = await pool.query(
-      `SELECT c.id, c.first_name, c.last_name, c.company, c.nip, c.address,
+      `SELECT c.id, c.first_name, c.last_name, c.company, c.nip, c.address, c.sap_id,
               c.phone, c.email, c.created_by, c.created_at, c.updated_at,
               COUNT(o.id)::int AS offers_count
        FROM clients c
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const b = await request.json();
-    const { first_name, last_name, company, nip, address, phone, email } = b;
+    const { first_name, last_name, company, nip, address, sap_id, phone, email } = b;
 
     if (!company && !last_name && !first_name) {
       return NextResponse.json(
@@ -42,12 +42,12 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await pool.query(
-      `INSERT INTO clients (first_name, last_name, company, nip, address, phone, email, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, first_name, last_name, company, nip, address, phone, email, created_by, created_at, updated_at`,
+      `INSERT INTO clients (first_name, last_name, company, nip, address, sap_id, phone, email, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, first_name, last_name, company, nip, address, sap_id, phone, email, created_by, created_at, updated_at`,
       [
         first_name || null, last_name || null, company || null, nip || null,
-        address || null, phone || null, email || null, session.userId,
+        address || null, sap_id || null, phone || null, email || null, session.userId,
       ]
     );
     return NextResponse.json({ client: result.rows[0] }, { status: 201 });
@@ -69,7 +69,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Brak id klienta' }, { status: 400 });
     }
 
-    const fields = ['first_name', 'last_name', 'company', 'nip', 'address', 'phone', 'email'];
+    const fields = ['first_name', 'last_name', 'company', 'nip', 'address', 'sap_id', 'phone', 'email'];
     const sets: string[] = [];
     const values: unknown[] = [];
     let i = 1;
@@ -87,7 +87,7 @@ export async function PATCH(request: NextRequest) {
     values.push(id);
     const result = await pool.query(
       `UPDATE clients SET ${sets.join(', ')} WHERE id = $${i}
-       RETURNING id, first_name, last_name, company, nip, address, phone, email, created_by, created_at, updated_at`,
+       RETURNING id, first_name, last_name, company, nip, address, sap_id, phone, email, created_by, created_at, updated_at`,
       values
     );
 

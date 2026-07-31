@@ -40,9 +40,12 @@
    senior/admin (`approve`/`reject` routes) — obecnie nieosiągalne przy aktualnym cyklu
    statusów, ale niezabezpieczone defensywnie.
 5. `requireRoleFromToken` w `lib/rbac.ts` to martwy kod, nigdzie niewywoływany.
-6. `lib/pdfGenerator.ts` (stary klientowy jsPDF) jest całkowicie martwy — tylko jego typ
-   `ClientInfo` jest gdziekolwiek importowany. Potwierdza notatkę "klientowy jsPDF już
-   nieużywany" z STAN_PROJEKTU.md.
+6. ~~`lib/pdfGenerator.ts` (stary klientowy jsPDF) jest całkowicie martwy — tylko jego typ
+   `ClientInfo` jest gdziekolwiek importowany.~~ **NIEAKTUALNE od 2026-07-31 (v1.4):** plik nie
+   generuje już żadnego PDF-u, jest za to kontraktem danych klienta — poza typem `ClientInfo`
+   (rozszerzonym o `sapId`) eksportuje `EMPTY_CLIENT_INFO`, `normalizeClientInfo` oraz
+   `hasRequiredCompanyDetails`, używane przez kalkulator, listy ofert i panele. Nazwa pliku
+   wprowadza w błąd (nic tu nie „generuje PDF") i jest kandydatem do zmiany.
 7. Pola liczbowe w trybie PLN w kalkulatorze przeliczają się od nowa z EUR przy każdym
    renderze, co powoduje drobne przeformatowanie w trakcie wpisywania. Kosmetyczne — wartość
    EUR pod spodem nigdy nie jest uszkodzona.

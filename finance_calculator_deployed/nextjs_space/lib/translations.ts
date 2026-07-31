@@ -141,6 +141,7 @@ export interface Translations {
     coilMode: string;
     coilModeShort: string;
     sheetMode: string;
+    sheetModeShort: string;
     sheetWeight: string;
   };
   
@@ -279,6 +280,7 @@ export interface Translations {
     outOfRange: string;
     widthOutOfRange: string;
     baseSurchargeFallback: string;
+    legacyItemEdit: string;
   };
 
   // Client information
@@ -290,10 +292,22 @@ export interface Translations {
     company: string;
     address: string;
     nip: string;
+    sapId: string;
     phone: string;
     email: string;
     collapse: string;
     expand: string;
+    // Nagłówki dwóch sekcji panelu klienta: dane firmy (wymagane) i dane
+    // kontaktowe (opcjonalne, odblokowywane firmą + NIP-em).
+    companySection: string;
+    contactSection: string;
+    contactLocked: string;
+    searchPlaceholder: string;
+    // Podpowiedź pod polem "Imię" — osoby zapisane dla wskazanej firmy. Osobny tekst
+    // od searchPlaceholder, bo tamten zachęca do pisania, a to pole pokazuje listę
+    // już po samym kliknięciu.
+    contactSearchPlaceholder: string;
+    lookupError: string;
   };
 
   // PDF Export
@@ -464,7 +478,7 @@ export const pl: Translations = {
     yes: 'Tak',
     no: 'Nie',
     loading: 'Ładowanie...',
-    version: 'v1.3',
+    version: 'v1.4',
   },
 
   navigation: {
@@ -576,6 +590,7 @@ export const pl: Translations = {
     coilMode: 'KRĄG',
     coilModeShort: 'Krąg (bez cięcia)',
     sheetMode: 'Arkusz',
+    sheetModeShort: 'Arkusz (cięcie na wymiar)',
     sheetWeight: 'Waga arkusza',
   },
   
@@ -697,6 +712,7 @@ export const pl: Translations = {
     outOfRange: 'Kombinacja grubości <strong>{thickness} mm</strong> i szerokości <strong>{width} mm</strong> jest poza zakresem tabeli.',
     widthOutOfRange: 'Szerokość <strong>{width} mm</strong> jest poza zakresem tabeli.',
     baseSurchargeFallback: 'Grubość <strong>{thickness} mm</strong> jest poza zakresem tabeli dopłat bazowych SSC — użyto szacunkowej dopłaty <strong>{value} €/t</strong>, która może być niedokładna.',
+    legacyItemEdit: 'Ta pozycja została dodana przed wprowadzeniem szczegółowej edycji — przełączniki dopłat po lewej NIE zostały automatycznie odtworzone z oryginału. Sprawdź je ręcznie przed zapisaniem, inaczej cena może się zmienić.',
   },
 
   client: {
@@ -707,10 +723,17 @@ export const pl: Translations = {
     company: 'Firma',
     address: 'Adres',
     nip: 'NIP',
+    sapId: 'SAP ID',
     phone: 'Nr telefonu',
     email: 'E-mail',
     collapse: 'Zwiń',
     expand: 'Rozwiń',
+    companySection: 'Dane firmy',
+    contactSection: 'Dane kontaktowe',
+    contactLocked: 'Uzupełnij firmę i NIP, żeby wpisać dane kontaktowe',
+    searchPlaceholder: 'Zacznij pisać — podpowiemy z bazy',
+    contactSearchPlaceholder: 'Wybierz osobę lub wpisz nową',
+    lookupError: 'Nie udało się pobrać podpowiedzi',
   },
 
   pdf: {
@@ -875,7 +898,7 @@ export const en: Translations = {
     yes: 'Yes',
     no: 'No',
     loading: 'Loading...',
-    version: 'v1.3',
+    version: 'v1.4',
   },
 
   navigation: {
@@ -987,6 +1010,7 @@ export const en: Translations = {
     coilMode: 'COIL',
     coilModeShort: 'Coil (no cutting)',
     sheetMode: 'Sheet',
+    sheetModeShort: 'Sheet (cut to size)',
     sheetWeight: 'Sheet weight',
   },
   
@@ -1108,6 +1132,7 @@ export const en: Translations = {
     outOfRange: 'Combination of thickness <strong>{thickness} mm</strong> and width <strong>{width} mm</strong> is out of table range.',
     widthOutOfRange: 'Width <strong>{width} mm</strong> is out of table range.',
     baseSurchargeFallback: 'Thickness <strong>{thickness} mm</strong> is out of the SSC base surcharge table range — an estimated surcharge of <strong>{value} €/t</strong> was used, which may not be accurate.',
+    legacyItemEdit: 'This item was added before detailed editing existed — the surcharge toggles on the left were NOT automatically restored from the original. Check them manually before saving, or the price may change.',
   },
 
   client: {
@@ -1118,10 +1143,17 @@ export const en: Translations = {
     company: 'Company',
     address: 'Address',
     nip: 'Tax ID (NIP)',
+    sapId: 'SAP ID',
     phone: 'Phone',
     email: 'E-mail',
     collapse: 'Collapse',
     expand: 'Expand',
+    companySection: 'Company details',
+    contactSection: 'Contact details',
+    contactLocked: 'Fill in company and Tax ID (NIP) to enter contact details',
+    searchPlaceholder: 'Start typing — we will suggest from the database',
+    contactSearchPlaceholder: 'Pick a person or type a new one',
+    lookupError: 'Could not load suggestions',
   },
 
   pdf: {
@@ -1285,7 +1317,7 @@ export const cs: Translations = {
     yes: 'Ano',
     no: 'Ne',
     loading: 'Načítání...',
-    version: 'v1.3',
+    version: 'v1.4',
   },
 
   navigation: {
@@ -1397,6 +1429,7 @@ export const cs: Translations = {
     coilMode: 'SVITEK',
     coilModeShort: 'Svitek (bez dělení)',
     sheetMode: 'Tabule',
+    sheetModeShort: 'Tabule (dělení na míru)',
     sheetWeight: 'Hmotnost tabule',
   },
 
@@ -1518,6 +1551,7 @@ export const cs: Translations = {
     outOfRange: 'Kombinace tloušťky <strong>{thickness} mm</strong> a šířky <strong>{width} mm</strong> je mimo rozsah tabulky.',
     widthOutOfRange: 'Šířka <strong>{width} mm</strong> je mimo rozsah tabulky.',
     baseSurchargeFallback: 'Tloušťka <strong>{thickness} mm</strong> je mimo rozsah tabulky základních přirážek SSC — byla použita odhadovaná přirážka <strong>{value} €/t</strong>, která nemusí být přesná.',
+    legacyItemEdit: 'Tato položka byla přidána před zavedením podrobné editace — přepínače příplatků vlevo NEBYLY automaticky obnoveny z originálu. Před uložením je ručně zkontrolujte, jinak se cena může změnit.',
   },
 
   client: {
@@ -1528,10 +1562,17 @@ export const cs: Translations = {
     company: 'Firma',
     address: 'Adresa',
     nip: 'DIČ (NIP)',
+    sapId: 'SAP ID',
     phone: 'Telefon',
     email: 'E-mail',
     collapse: 'Sbalit',
     expand: 'Rozbalit',
+    companySection: 'Údaje o firmě',
+    contactSection: 'Kontaktní údaje',
+    contactLocked: 'Vyplňte firmu a DIČ, abyste mohli zadat kontaktní údaje',
+    searchPlaceholder: 'Začněte psát — napovíme z databáze',
+    contactSearchPlaceholder: 'Vyberte osobu nebo zadejte novou',
+    lookupError: 'Nepodařilo se načíst návrhy',
   },
 
   pdf: {
@@ -1695,7 +1736,7 @@ export const de: Translations = {
     yes: 'Ja',
     no: 'Nein',
     loading: 'Wird geladen...',
-    version: 'v1.3',
+    version: 'v1.4',
   },
 
   navigation: {
@@ -1807,6 +1848,7 @@ export const de: Translations = {
     coilMode: 'COIL',
     coilModeShort: 'Coil (kein Schnitt)',
     sheetMode: 'Tafel',
+    sheetModeShort: 'Tafel (Zuschnitt)',
     sheetWeight: 'Tafelgewicht',
   },
 
@@ -1928,6 +1970,7 @@ export const de: Translations = {
     outOfRange: 'Die Kombination aus Dicke <strong>{thickness} mm</strong> und Breite <strong>{width} mm</strong> liegt außerhalb des Tabellenbereichs.',
     widthOutOfRange: 'Die Breite <strong>{width} mm</strong> liegt außerhalb des Tabellenbereichs.',
     baseSurchargeFallback: 'Die Dicke <strong>{thickness} mm</strong> liegt außerhalb des Tabellenbereichs für SSC-Grundzuschläge — es wurde ein geschätzter Zuschlag von <strong>{value} €/t</strong> verwendet, der möglicherweise ungenau ist.',
+    legacyItemEdit: 'Diese Position wurde vor Einführung der Detailbearbeitung hinzugefügt — die Zuschlagsschalter links wurden NICHT automatisch aus dem Original wiederhergestellt. Bitte vor dem Speichern manuell prüfen, sonst kann sich der Preis ändern.',
   },
 
   client: {
@@ -1938,10 +1981,17 @@ export const de: Translations = {
     company: 'Firma',
     address: 'Adresse',
     nip: 'USt-IdNr. (NIP)',
+    sapId: 'SAP ID',
     phone: 'Telefon',
     email: 'E-Mail',
     collapse: 'Einklappen',
     expand: 'Ausklappen',
+    companySection: 'Firmendaten',
+    contactSection: 'Kontaktdaten',
+    contactLocked: 'Firma und USt-IdNr. ausfüllen, um Kontaktdaten einzugeben',
+    searchPlaceholder: 'Tippen Sie los — wir schlagen aus der Datenbank vor',
+    contactSearchPlaceholder: 'Person wählen oder neue eingeben',
+    lookupError: 'Vorschläge konnten nicht geladen werden',
   },
 
   pdf: {

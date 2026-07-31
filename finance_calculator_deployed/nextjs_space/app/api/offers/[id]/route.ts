@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
+import { upsertClientFromOffer } from '@/lib/clientDirectory';
+import { normalizeClientInfo } from '@/lib/pdfGenerator';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -72,14 +74,42 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // łącznie z adminem — to, co poszło do klienta, musi zostać w historii bez zmian.
     const isAdmin = session.role === 'admin';
     const isSenior = session.role === 'senior';
-    const result = await pool.query(
-      `UPDATE offers
-       SET offer_name = $1, offer_data = $2, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3 AND status <> 'sent'
-         AND (user_id = $4 OR $5 OR ($6 AND status = 'pending_review'))
-       RETURNING id, offer_name, display_name, offer_data, status, created_at, updated_at`,
-      [name, JSON.stringify(offer_data), offerId, session.userId, isAdmin, isSenior]
-    );
+
+    // Jak w POST /api/offers: dane klienta lądują też w katalogu `clients`, w tej
+    // samej transakcji co zapis oferty.
+    const clientInfo = normalizeClientInfo((offer_data as Record<string, unknown>).clientInfo);
+
+    const db = await pool.connect();
+    let result;
+    try {
+      await db.query('BEGIN');
+
+      // Upsert idzie PRZED UPDATE-em, bo jego wynik (client_id) jest częścią UPDATE-u.
+      // Gdy UPDATE nie złapie żadnego wiersza (brak uprawnień albo oferta 'sent'),
+      // ROLLBACK cofa też dopisanego klienta — odbita edycja nie ma zostawiać śladu
+      // w katalogu.
+      const clientId = await upsertClientFromOffer(db, clientInfo, session.userId);
+
+      result = await db.query(
+        `UPDATE offers
+         SET offer_name = $1, offer_data = $2, client_id = $3, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $4 AND status <> 'sent'
+           AND (user_id = $5 OR $6 OR ($7 AND status = 'pending_review'))
+         RETURNING id, offer_name, display_name, offer_data, status, created_at, updated_at`,
+        [name, JSON.stringify(offer_data), clientId, offerId, session.userId, isAdmin, isSenior]
+      );
+
+      if (result.rows.length === 0) {
+        await db.query('ROLLBACK');
+      } else {
+        await db.query('COMMIT');
+      }
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    } finally {
+      db.release();
+    }
 
     if (result.rows.length === 0) {
       const existing = await pool.query(
