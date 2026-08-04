@@ -119,6 +119,8 @@ export interface Translations {
     subtitle: string;
     light: string;
     dark: string;
+    highContrastOn: string;
+    highContrastOff: string;
   };
   
   // Steel types
@@ -473,6 +475,8 @@ export interface Translations {
     addContact: string;
     editContact: string;
     person: string;
+    contactCreated: string;
+    noClientContacts: string;
   };
 }
 
@@ -585,6 +589,8 @@ export const pl: Translations = {
     subtitle: 'steel surcharge pricing tool',
     light: 'Light',
     dark: 'Dark',
+    highContrastOn: 'Normalny widok',
+    highContrastOff: 'Wysoki kontrast',
   },
   
   steelTypes: {
@@ -908,6 +914,8 @@ export const pl: Translations = {
     addContact: 'Dodaj kontakt',
     editContact: 'Edytuj kontakt',
     person: 'Osoba',
+    contactCreated: 'Kontakt dodany',
+    noClientContacts: 'Brak zapisanych kontaktów',
   },
 };
 
@@ -1020,6 +1028,8 @@ export const en: Translations = {
     subtitle: 'steel surcharge pricing tool',
     light: 'Light',
     dark: 'Dark',
+    highContrastOn: 'Normal View',
+    highContrastOff: 'High Contrast',
   },
   
   steelTypes: {
@@ -1343,6 +1353,8 @@ export const en: Translations = {
     addContact: 'Add contact',
     editContact: 'Edit contact',
     person: 'Person',
+    contactCreated: 'Contact added',
+    noClientContacts: 'No saved contacts',
   },
 };
 
@@ -1454,6 +1466,8 @@ export const cs: Translations = {
     subtitle: 'nástroj pro výpočet příplatků za ocel',
     light: 'Světlý',
     dark: 'Tmavý',
+    highContrastOn: 'Normální zobrazení',
+    highContrastOff: 'Vysoký kontrast',
   },
 
   steelTypes: {
@@ -1777,6 +1791,8 @@ export const cs: Translations = {
     addContact: 'Přidat kontakt',
     editContact: 'Upravit kontakt',
     person: 'Osoba',
+    contactCreated: 'Kontakt přidán',
+    noClientContacts: 'Žádné uložené kontakty',
   },
 };
 
@@ -1888,6 +1904,8 @@ export const de: Translations = {
     subtitle: 'Werkzeug zur Berechnung von Stahlzuschlägen',
     light: 'Hell',
     dark: 'Dunkel',
+    highContrastOn: 'Normale Ansicht',
+    highContrastOff: 'Hoher Kontrast',
   },
 
   steelTypes: {
@@ -2211,6 +2229,8 @@ export const de: Translations = {
     addContact: 'Kontakt hinzufügen',
     editContact: 'Kontakt bearbeiten',
     person: 'Person',
+    contactCreated: 'Kontakt hinzugefügt',
+    noClientContacts: 'Keine gespeicherten Kontakte',
   },
 };
 

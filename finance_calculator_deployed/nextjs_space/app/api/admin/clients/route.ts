@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
+import { syncPrimaryContact } from '@/lib/clientDirectory';
 
 // GET - Lista klientów + liczba powiązanych ofert (tylko admin).
 export async function GET() {
@@ -41,16 +42,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await pool.query(
-      `INSERT INTO clients (first_name, last_name, company, nip, address, sap_id, phone, email, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id, first_name, last_name, company, nip, address, sap_id, phone, email, created_by, created_at, updated_at`,
-      [
-        first_name || null, last_name || null, company || null, nip || null,
-        address || null, sap_id || null, phone || null, email || null, session.userId,
-      ]
-    );
-    return NextResponse.json({ client: result.rows[0] }, { status: 201 });
+    const db = await pool.connect();
+    try {
+      await db.query('BEGIN');
+      const result = await db.query(
+        `INSERT INTO clients (first_name, last_name, company, nip, address, sap_id, phone, email, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id, first_name, last_name, company, nip, address, sap_id, phone, email, created_by, created_at, updated_at`,
+        [
+          first_name || null, last_name || null, company || null, nip || null,
+          address || null, sap_id || null, phone || null, email || null, session.userId,
+        ]
+      );
+      const client = result.rows[0];
+      // Zapis klienta i synchronizacja kontaktu głównego do client_contacts razem
+      // w jednej transakcji — patrz komentarz przy syncPrimaryContact.
+      await syncPrimaryContact(
+        db,
+        client.id,
+        { firstName: first_name || '', lastName: last_name || '', phone: phone || '', email: email || '' },
+        session.userId
+      );
+      await db.query('COMMIT');
+      return NextResponse.json({ client }, { status: 201 });
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    } finally {
+      db.release();
+    }
   } catch (error) {
     console.error('Error creating client:', error);
     return NextResponse.json({ error: 'Failed to create client' }, { status: 500 });
@@ -61,6 +81,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const auth = await requireRole(['admin']);
   if ('error' in auth) return auth.error;
+  const { session } = auth;
 
   try {
     const b = await request.json();
@@ -85,16 +106,44 @@ export async function PATCH(request: NextRequest) {
     sets.push(`updated_at = CURRENT_TIMESTAMP`);
 
     values.push(id);
-    const result = await pool.query(
-      `UPDATE clients SET ${sets.join(', ')} WHERE id = $${i}
-       RETURNING id, first_name, last_name, company, nip, address, sap_id, phone, email, created_by, created_at, updated_at`,
-      values
-    );
 
-    if (result.rows.length === 0) {
-      return NextResponse.json({ error: 'Nie znaleziono klienta' }, { status: 404 });
+    const db = await pool.connect();
+    try {
+      await db.query('BEGIN');
+      const result = await db.query(
+        `UPDATE clients SET ${sets.join(', ')} WHERE id = $${i}
+         RETURNING id, first_name, last_name, company, nip, address, sap_id, phone, email, created_by, created_at, updated_at`,
+        values
+      );
+
+      if (result.rows.length === 0) {
+        await db.query('ROLLBACK');
+        return NextResponse.json({ error: 'Nie znaleziono klienta' }, { status: 404 });
+      }
+
+      const client = result.rows[0];
+      // Synchronizacja bierze wartości PO UPDATE (RETURNING), nie tylko pola z tego
+      // requestu — inaczej edycja samego telefonu zgubiłaby dopasowanie po imieniu
+      // i nazwisku, które w tym PATCH mogły w ogóle nie zostać przesłane.
+      await syncPrimaryContact(
+        db,
+        client.id,
+        {
+          firstName: client.first_name || '',
+          lastName: client.last_name || '',
+          phone: client.phone || '',
+          email: client.email || '',
+        },
+        session.userId
+      );
+      await db.query('COMMIT');
+      return NextResponse.json({ client });
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    } finally {
+      db.release();
     }
-    return NextResponse.json({ client: result.rows[0] });
   } catch (error) {
     console.error('Error updating client:', error);
     return NextResponse.json({ error: 'Failed to update client' }, { status: 500 });

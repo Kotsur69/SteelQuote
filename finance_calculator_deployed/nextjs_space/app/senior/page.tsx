@@ -8,6 +8,7 @@ import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
+import { useHighContrast } from '@/lib/useHighContrast';
 import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import {
@@ -64,6 +65,7 @@ export default function SeniorPage() {
   const { t } = useLanguage();
   const router = useRouter();
   const [isDark, setIsDark] = useDarkMode();
+  const [highContrast, setHighContrast] = useHighContrast();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
@@ -266,7 +268,15 @@ export default function SeniorPage() {
   const pendingCount = offers.filter((o) => o.status === 'pending_review').length;
   const awaitingSendCount = offers.filter((o) => o.status === 'approved').length;
 
-  const cssVars = isDark
+  const cssVars = highContrast
+    ? {
+        '--bg': '#ffffff', '--bg-panel': '#f0f0f0', '--bg-card': '#ffffff',
+        '--bg-input': '#ffffff', '--border': '#000000', '--border-hi': '#000000',
+        '--text-primary': '#000000', '--text-secondary': '#1a1a1a', '--text-muted': '#333333',
+        '--text-value': '#000000', '--accent-hrs': '#7a4a00', '--accent-cr': '#0b3d91',
+        '--accent-hdg': '#0b6b2c', '--accent-sum': '#9c0b1e',
+      }
+    : isDark
     ? {
         '--bg': '#0f1117', '--bg-panel': '#181c26', '--bg-card': '#1e2333',
         '--bg-input': '#141720', '--border': '#2a3048', '--border-hi': '#3d4a70',
@@ -309,6 +319,17 @@ export default function SeniorPage() {
           <span>{isDark ? t.header.light : t.header.dark}</span>
         </button>
         <button
+          onClick={() => setHighContrast(!highContrast)}
+          className={`rounded-[20px] px-3.5 py-1.5 text-[11px] font-mono flex items-center gap-1.5 border-2 transition-colors ${
+            highContrast
+              ? 'bg-black text-white border-black'
+              : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <span className="text-sm">🔲</span>
+          <span>{highContrast ? t.header.highContrastOn : t.header.highContrastOff}</span>
+        </button>
+        <button
           onClick={async () => {
             await fetch('/api/auth/logout', { method: 'POST' });
             window.location.href = '/';
@@ -320,7 +341,7 @@ export default function SeniorPage() {
       </header>
 
       {/* Navigation */}
-      <Navigation isDark={isDark} />
+      <Navigation isDark={isDark} highContrast={highContrast} />
 
       {/* Message Toast */}
       {message && (
@@ -398,7 +419,7 @@ export default function SeniorPage() {
               <div
                 key={offer.id}
                 className={`p-4 hover:bg-[rgba(255,255,255,0.02)] transition-colors ${
-                  !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
+                  highContrast ? 'hover:bg-[rgba(0,0,0,0.10)]' : !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">

@@ -111,6 +111,60 @@ async function upsertContact(
   );
 }
 
+// Synchronizuje "kontakt główny" wpisany wprost w formularzu klienta (panel admina
+// Klienci, app/api/admin/clients) do wspólnej tabeli client_contacts, żeby ta sama
+// osoba była widoczna w zakładce Kontakty. Bez tego admin wpisywał dane osoby w
+// Klienci i nigdzie się one nie pojawiały — client_contacts zasilały wyłącznie
+// zapis oferty i przycisk "Zapisz kontakt" w kalkulatorze.
+//
+// W odróżnieniu od upsertContact() wyżej (gap-fill, bo tam handlowiec mógł wysłać
+// niepełny formularz) TA funkcja NADPISUJE telefon/e-mail wprost — admin edytujący
+// Klienci jest tu źródłem prawdy, nie ma powodu chronić starszych danych przed jego
+// własną poprawką.
+export async function syncPrimaryContact(
+  db: PoolClient,
+  clientId: number,
+  contact: { firstName: string; lastName: string; phone: string; email: string },
+  userId: number
+): Promise<void> {
+  const firstName = contact.firstName.trim();
+  const lastName = contact.lastName.trim();
+  if (firstName === '' && lastName === '') return;
+
+  const phone = contact.phone.trim();
+  const email = contact.email.trim();
+
+  // To samo wyrażenie dopasowania co przy unikalnym indeksie z migracji 010 i przy
+  // upsertContact() wyżej — inaczej SELECT nie trafi w ten sam wiersz co INSERT.
+  const existing = await db.query<{ id: number }>(
+    `SELECT id FROM client_contacts
+     WHERE client_id = $1
+       AND LOWER(TRIM(COALESCE(first_name, ''))) = LOWER($2)
+       AND LOWER(TRIM(COALESCE(last_name,  ''))) = LOWER($3)
+     ORDER BY id ASC
+     LIMIT 1`,
+    [clientId, firstName, lastName]
+  );
+
+  if (existing.rows.length === 0) {
+    await db.query(
+      `INSERT INTO client_contacts (client_id, first_name, last_name, phone, email, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [clientId, firstName || null, lastName || null, phone || null, email || null, userId]
+    );
+    return;
+  }
+
+  await db.query(
+    `UPDATE client_contacts
+     SET phone      = $1,
+         email      = $2,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $3`,
+    [phone || null, email || null, existing.rows[0].id]
+  );
+}
+
 // Dopisz lub zaktualizuj klienta na podstawie danych z oferty. Zwraca clients.id
 // (do wpisania w offers.client_id) albo null, gdy oferta nie niesie nic, co
 // identyfikowałoby firmę.

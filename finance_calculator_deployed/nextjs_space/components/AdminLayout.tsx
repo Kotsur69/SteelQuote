@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import { useDarkMode } from '@/lib/useDarkMode';
+import { useHighContrast } from '@/lib/useHighContrast';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -16,8 +17,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isDark, setIsDark] = useDarkMode();
+  const [highContrast, setHighContrast] = useHighContrast();
 
-  const cssVars = isDark
+  const cssVars = highContrast
+    ? {
+        '--bg': '#ffffff',
+        '--bg-panel': '#f0f0f0',
+        '--bg-card': '#ffffff',
+        '--bg-input': '#ffffff',
+        '--border': '#000000',
+        '--border-hi': '#000000',
+        '--text-primary': '#000000',
+        '--text-secondary': '#1a1a1a',
+        '--text-muted': '#333333',
+        '--text-value': '#000000',
+        '--accent-hrs': '#7a4a00',
+        '--accent-cr': '#0b3d91',
+        '--accent-hdg': '#0b6b2c',
+        '--accent-sum': '#9c0b1e',
+      }
+    : isDark
     ? {
         '--bg': '#0f1117',
         '--bg-panel': '#181c26',
@@ -93,6 +112,17 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <span>{isDark ? t.header.light : t.header.dark}</span>
         </button>
         <button
+          onClick={() => setHighContrast(!highContrast)}
+          className={`rounded-[20px] px-3.5 py-1.5 text-[11px] font-mono flex items-center gap-1.5 border-2 transition-colors ${
+            highContrast
+              ? 'bg-black text-white border-black'
+              : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <span className="text-sm">🔲</span>
+          <span>{highContrast ? t.header.highContrastOn : t.header.highContrastOff}</span>
+        </button>
+        <button
           onClick={() => router.push('/calculator')}
           className="bg-[var(--bg-card)] border border-[var(--border)] rounded-[20px] px-3.5 py-1.5 text-[11px] font-mono text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] transition-colors"
         >
@@ -122,7 +152,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   isActive
                     ? 'bg-[rgba(59,142,245,0.12)] border-[#3b8ef5] text-[#3b8ef5]'
                     : `border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.03)]
-                       ${!isDark ? 'hover:bg-[rgba(0,0,0,0.03)]' : ''}`
+                       ${highContrast ? 'hover:bg-[rgba(0,0,0,0.12)]' : !isDark ? 'hover:bg-[rgba(0,0,0,0.03)]' : ''}`
                 }`}
             >
               <span className="text-base">{tab.icon}</span>

@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 
-// Panel admina — zakładka "Kontakty": pełny CRUD nad client_contacts (edycja/usuwanie),
+// Panel admina — zakładki "Kontakty" i "Klienci": pełny CRUD nad client_contacts,
 // w odróżnieniu od /api/clients/contacts (GET podpowiedzi + POST zapisu przez handlowca,
-// który tylko uzupełnia luki i nigdy nie nadpisuje). Tu admin nadpisuje pola wprost —
-// to narzędzie do poprawek, nie kolejny "miękki" zapis.
+// który tylko uzupełnia luki i nigdy nie nadpisuje). Tu admin tworzy i nadpisuje pola
+// wprost — to narzędzie do poprawek, nie kolejny "miękki" zapis.
 
 // GET - Lista wszystkich kontaktów, z nazwą firmy (tylko admin).
 export async function GET() {
@@ -24,6 +24,60 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching contacts:', error);
     return NextResponse.json({ error: 'Failed to fetch contacts' }, { status: 500 });
+  }
+}
+
+// POST - Nowy kontakt dodany ręcznie przez admina, np. z panelu Klienci (akcja
+// "+ Kontakt" przy konkretnej firmie). Body: { client_id, first_name, last_name,
+// phone, email }. W odróżnieniu od /api/clients/contacts (POST handlowca, wywoływane
+// z kalkulatora przy okazji zapisu oferty) admin tworzy wiersz wprost, dla dowolnego
+// klienta z katalogu, bez przechodzenia przez formularz oferty.
+export async function POST(request: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if ('error' in auth) return auth.error;
+  const { session } = auth;
+
+  try {
+    const b = await request.json();
+    const clientId = parseInt(b.client_id, 10);
+    const firstName = (b.first_name || '').trim();
+    const lastName = (b.last_name || '').trim();
+
+    if (!clientId) {
+      return NextResponse.json({ error: 'Brak id klienta' }, { status: 400 });
+    }
+    if (firstName === '' && lastName === '') {
+      return NextResponse.json({ error: 'Podaj imię lub nazwisko' }, { status: 400 });
+    }
+
+    try {
+      const result = await pool.query(
+        `INSERT INTO client_contacts (client_id, first_name, last_name, phone, email, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, client_id, first_name, last_name, phone, email, created_at, updated_at`,
+        [
+          clientId,
+          firstName || null,
+          lastName || null,
+          (b.phone || '').trim() || null,
+          (b.email || '').trim() || null,
+          session.userId,
+        ]
+      );
+      return NextResponse.json({ contact: result.rows[0] }, { status: 201 });
+    } catch (dbError) {
+      // Kolizja z unikalnym indeksem (client_id + imię + nazwisko) — patrz migracja 010.
+      if ((dbError as { code?: string }).code === '23505') {
+        return NextResponse.json(
+          { error: 'Osoba o tym imieniu i nazwisku już istnieje dla tej firmy' },
+          { status: 409 }
+        );
+      }
+      throw dbError;
+    }
+  } catch (error) {
+    console.error('Error creating contact:', error);
+    return NextResponse.json({ error: 'Failed to create contact' }, { status: 500 });
   }
 }
 

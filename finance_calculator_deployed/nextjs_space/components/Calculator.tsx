@@ -38,6 +38,7 @@ import type { ClientSuggestion } from '@/lib/useClientLookup';
 import { downloadServerPdf } from '@/lib/serverPdf';
 import { exportZestawienieToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
+import { useHighContrast } from '@/lib/useHighContrast';
 
 // Pełny zestaw wejść (przełączników dopłat) dla pojedynczej pozycji zestawienia.
 // Bez tego edycja pozycji nie potrafi odtworzyć jej ceny — patrz editItem().
@@ -140,6 +141,7 @@ export default function Calculator() {
   
   // Theme
   const [isDark, setIsDark] = useDarkMode();
+  const [highContrast, setHighContrast] = useHighContrast();
   
   // Input parameters - defaults for HRS
   const [thickness, setThickness] = useState(4);
@@ -227,7 +229,7 @@ export default function Calculator() {
   const sectionLegendClass =
     'mb-3 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-primary)]';
   const clientFieldClass = `bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[#a78bfa] outline-none transition-colors w-full disabled:cursor-not-allowed
-    ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`;
+    ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`;
 
   // Dane kontaktowe są opcjonalne (przy części firm po prostu niepotrzebne), ale
   // wpisywanie ich "w powietrze", zanim wiadomo czyje one są, tworzyłoby kontakty
@@ -568,9 +570,9 @@ export default function Calculator() {
                   fontWeight: 700,
                 }
               : {
-                  backgroundColor: isDark ? 'var(--bg-input)' : '#f4f5fa',
-                  borderColor: isDark ? 'var(--border)' : '#9aa4c4',
-                  color: isDark ? 'var(--text-secondary)' : '#2e3a5c',
+                  backgroundColor: highContrast ? '#ffffff' : isDark ? 'var(--bg-input)' : '#f4f5fa',
+                  borderColor: highContrast ? '#000000' : isDark ? 'var(--border)' : '#9aa4c4',
+                  color: highContrast ? '#000000' : isDark ? 'var(--text-secondary)' : '#2e3a5c',
                 }
             }
           >
@@ -964,8 +966,25 @@ export default function Calculator() {
   const zestTotal = zestawienie.reduce((s, i) => s + i.totalValue, 0);
   const zestTons = zestawienie.reduce((s, i) => s + i.tons, 0);
 
-  // CSS variables based on theme
-  const cssVars = isDark ? {
+  // CSS variables based on theme. Wysoki kontrast to jeden, stały motyw -
+  // wygrywa niezaleznie od isDark, bo sprzedawcy na starych ekranach
+  // potrzebuja jednego, przewidywalnego, mocno kontrastowego widoku.
+  const cssVars = highContrast ? {
+    '--bg': '#ffffff',
+    '--bg-panel': '#f0f0f0',
+    '--bg-card': '#ffffff',
+    '--bg-input': '#ffffff',
+    '--border': '#000000',
+    '--border-hi': '#000000',
+    '--text-primary': '#000000',
+    '--text-secondary': '#1a1a1a',
+    '--text-muted': '#333333',
+    '--text-value': '#000000',
+    '--accent-hrs': '#7a4a00',
+    '--accent-cr': '#0b3d91',
+    '--accent-hdg': '#0b6b2c',
+    '--accent-sum': '#9c0b1e',
+  } : isDark ? {
     '--bg': '#0f1117',
     '--bg-panel': '#181c26',
     '--bg-card': '#1e2333',
@@ -1103,7 +1122,7 @@ export default function Calculator() {
               onChange={e => setSaveOfferName(e.target.value)}
               placeholder={t.offers?.offerNamePlaceholder}
               className={`w-full bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none mb-2
-                ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
               autoFocus
             />
             <p className="text-xs text-[var(--text-secondary)] mb-4">
@@ -1162,6 +1181,17 @@ export default function Calculator() {
           <span>{isDark ? t.header.light : t.header.dark}</span>
         </button>
         <button
+          onClick={() => setHighContrast(!highContrast)}
+          className={`rounded-[20px] px-3.5 py-1.5 text-[11px] font-mono flex items-center gap-1.5 border-2 transition-colors ${
+            highContrast
+              ? 'bg-black text-white border-black'
+              : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          <span className="text-sm">🔲</span>
+          <span>{highContrast ? t.header.highContrastOn : t.header.highContrastOff}</span>
+        </button>
+        <button
           onClick={async () => {
             await fetch('/api/auth/logout', { method: 'POST' });
             window.location.href = '/';
@@ -1173,7 +1203,7 @@ export default function Calculator() {
       </header>
 
       {/* Navigation */}
-      <Navigation isDark={isDark} />
+      <Navigation isDark={isDark} highContrast={highContrast} />
 
       {/* Client Information Panel */}
       {/* BEZ overflow-hidden (inaczej niż pozostałe karty): lista podpowiedzi pod polem
@@ -1220,6 +1250,7 @@ export default function Calculator() {
                   fallbackQuery={clientInfo.nip}
                   placeholder={t.client?.searchPlaceholder}
                   isDark={isDark}
+                  highContrast={highContrast}
                   lookupErrorLabel={t.client?.lookupError || 'Nie udało się pobrać podpowiedzi'}
                 />
 
@@ -1231,6 +1262,7 @@ export default function Calculator() {
                   fallbackQuery={clientInfo.company}
                   placeholder={t.client?.searchPlaceholder}
                   isDark={isDark}
+                  highContrast={highContrast}
                   lookupErrorLabel={t.client?.lookupError || 'Nie udało się pobrać podpowiedzi'}
                 />
 
@@ -1296,6 +1328,7 @@ export default function Calculator() {
                   onSelect={applyContactSuggestion}
                   placeholder={t.client?.contactSearchPlaceholder}
                   isDark={isDark}
+                  highContrast={highContrast}
                   lookupErrorLabel={t.client?.lookupError || 'Nie udało się pobrać podpowiedzi'}
                 />
 
@@ -1419,7 +1452,7 @@ export default function Calculator() {
             step="0.01"
             min="0"
             className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none transition-colors w-full
-              ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+              ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
           />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -1433,7 +1466,7 @@ export default function Calculator() {
             step="1"
             min="0"
             className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none transition-colors w-full
-              ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+              ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
           />
         </div>
         {!isCoilMode && (
@@ -1448,7 +1481,7 @@ export default function Calculator() {
               step="1"
               min="0"
               className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none transition-colors w-full
-                ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
             />
           </div>
         )}
@@ -1469,19 +1502,19 @@ export default function Calculator() {
             placeholder={t.inputs.searchGrade}
             autoComplete="off"
             className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none transition-colors w-full
-              ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+              ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
           />
           {showGradeDropdown && filteredGrades.length > 0 && (
             <div className={`absolute top-full left-0 right-0 mt-1 bg-[var(--bg-panel)] border border-[var(--border-hi)] rounded-md z-50 max-h-60 overflow-y-auto shadow-lg
-              ${!isDark ? 'border-[#7e90c0] shadow-[0_8px_32px_rgba(0,0,0,0.15)]' : 'shadow-[0_8px_32px_rgba(0,0,0,0.6)]'}`}>
+              ${highContrast ? 'border-[#000000] shadow-[0_8px_32px_rgba(0,0,0,0.4)]' : !isDark ? 'border-[#7e90c0] shadow-[0_8px_32px_rgba(0,0,0,0.15)]' : 'shadow-[0_8px_32px_rgba(0,0,0,0.6)]'}`}>
               {filteredGrades.map(grade => (
                 <div
                   key={grade.name}
                   onClick={() => selectGrade(grade)}
                   className={`flex items-center justify-between px-3 py-2 cursor-pointer text-xs border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(59,142,245,0.12)] transition-colors
-                    ${!isDark ? 'hover:bg-[rgba(0,0,0,0.05)]' : ''}`}
+                    ${highContrast ? 'hover:bg-[rgba(0,0,0,0.15)]' : !isDark ? 'hover:bg-[rgba(0,0,0,0.05)]' : ''}`}
                 >
-                  <span className={`font-mono text-[11px] ${!isDark ? 'text-[#141e3a]' : 'text-[var(--text-value)]'}`}>
+                  <span className={`font-mono text-[11px] ${highContrast ? 'text-[#000000]' : !isDark ? 'text-[#141e3a]' : 'text-[var(--text-value)]'}`}>
                     {grade.name}
                   </span>
                   <span className="font-mono text-xs font-semibold text-[var(--accent-hrs)] bg-[rgba(232,160,32,0.08)] px-2 py-0.5 rounded">
@@ -1527,7 +1560,7 @@ export default function Calculator() {
       {/* Dimension Warning */}
       {warningText && (
         <div className={`flex items-center gap-2.5 mb-4 px-4 py-2.5 rounded-md border-l-[3px] border-[var(--accent-sum)] text-xs font-mono animate-[fadeIn_0.2s_ease]
-          ${isDark ? 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#f5a0a8]' : 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#9b2a35]'}`}>
+          ${highContrast ? 'bg-[#fff0f0] border-[#9c0b1e] text-[#9c0b1e]' : isDark ? 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#f5a0a8]' : 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#9b2a35]'}`}>
           <span className="text-base">⚠</span>
           <span dangerouslySetInnerHTML={{ __html: warningText }} />
         </div>
@@ -1536,7 +1569,7 @@ export default function Calculator() {
       {/* Base Surcharge Fallback Warning */}
       {baseSurchargeWarning && (
         <div className={`flex items-center gap-2.5 mb-4 px-4 py-2.5 rounded-md border-l-[3px] border-[var(--accent-sum)] text-xs font-mono animate-[fadeIn_0.2s_ease]
-          ${isDark ? 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#f5a0a8]' : 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#9b2a35]'}`}>
+          ${highContrast ? 'bg-[#fff0f0] border-[#9c0b1e] text-[#9c0b1e]' : isDark ? 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#f5a0a8]' : 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#9b2a35]'}`}>
           <span className="text-base">⚠</span>
           <span dangerouslySetInnerHTML={{ __html: baseSurchargeWarning }} />
         </div>
@@ -1545,7 +1578,7 @@ export default function Calculator() {
       {/* Legacy Item Edit Warning — item has no saved .inputs snapshot (pre-v1.3 offer) */}
       {legacyEditWarning && (
         <div className={`flex items-center gap-2.5 mb-4 px-4 py-2.5 rounded-md border-l-[3px] border-[var(--accent-sum)] text-xs font-mono animate-[fadeIn_0.2s_ease]
-          ${isDark ? 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#f5a0a8]' : 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#9b2a35]'}`}>
+          ${highContrast ? 'bg-[#fff0f0] border-[#9c0b1e] text-[#9c0b1e]' : isDark ? 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#f5a0a8]' : 'bg-[rgba(245,71,90,0.08)] border-[rgba(245,71,90,0.4)] text-[#9b2a35]'}`}>
           <span className="text-base">⚠</span>
           <span>{t.warnings.legacyItemEdit}</span>
         </div>
@@ -1636,9 +1669,9 @@ export default function Calculator() {
                             fontWeight: 700,
                           }
                         : {
-                            backgroundColor: isDark ? 'var(--bg-input)' : '#f4f5fa',
-                            borderColor: isDark ? 'var(--border)' : '#9aa4c4',
-                            color: isDark ? 'var(--text-secondary)' : '#2e3a5c',
+                            backgroundColor: highContrast ? '#ffffff' : isDark ? 'var(--bg-input)' : '#f4f5fa',
+                            borderColor: highContrast ? '#000000' : isDark ? 'var(--border)' : '#9aa4c4',
+                            color: highContrast ? '#000000' : isDark ? 'var(--text-secondary)' : '#2e3a5c',
                           }
                       }
                     >
@@ -1729,7 +1762,7 @@ export default function Calculator() {
           </div>
           
           {/* Sum Huta */}
-          <div className={`flex items-center px-4 py-3 border-t-[1.5px] border-[var(--border-hi)] mt-auto ${isDark ? 'bg-[rgba(0,0,0,0.18)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
+          <div className={`flex items-center px-4 py-3 border-t-[1.5px] border-[var(--border-hi)] mt-auto ${highContrast ? 'bg-[#e0e0e0]' : isDark ? 'bg-[rgba(0,0,0,0.18)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
             <span className="flex-1 text-[11px] font-bold tracking-widest uppercase text-[var(--accent-hrs)]">{t.huta.sum}</span>
             <span className="font-mono text-lg font-semibold text-[var(--accent-hrs)]">{money2(sumaHuta)}</span>
             <span className="text-[11px] text-[var(--text-secondary)] font-mono ml-1.5">{symbol}</span>
@@ -1838,7 +1871,7 @@ export default function Calculator() {
           </div>
           
           {/* Sum SSC */}
-          <div className={`flex items-center px-4 py-3 border-t-[1.5px] border-[var(--border-hi)] mt-auto ${isDark ? 'bg-[rgba(0,0,0,0.18)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
+          <div className={`flex items-center px-4 py-3 border-t-[1.5px] border-[var(--border-hi)] mt-auto ${highContrast ? 'bg-[#e0e0e0]' : isDark ? 'bg-[rgba(0,0,0,0.18)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
             <span className="flex-1 text-[11px] font-bold tracking-widest uppercase text-[var(--accent-cr)]">{t.ssc.sum}</span>
             <span className="font-mono text-lg font-semibold text-[var(--accent-cr)]">{money2(sumaSSC)}</span>
             <span className="text-[11px] text-[var(--text-secondary)] font-mono ml-1.5">{symbol}</span>
@@ -1864,7 +1897,7 @@ export default function Calculator() {
                 onChange={v => setPglBase(fromDisplay(v))}
                 min="0"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[110px] focus:border-[var(--accent-cr)] outline-none
-                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                  ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
               />
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -1887,7 +1920,7 @@ export default function Calculator() {
                 min="0"
                 step="0.1"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
-                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                  ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
               />
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">%</span>
             </div>
@@ -1909,7 +1942,7 @@ export default function Calculator() {
                 onChange={v => setExtra(fromDisplay(v))}
                 min="0"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
-                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                  ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
               />
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -1922,7 +1955,7 @@ export default function Calculator() {
                 onChange={v => setTransport(fromDisplay(v))}
                 min="0"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
-                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                  ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
               />
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -1954,7 +1987,7 @@ export default function Calculator() {
                 min="0.01"
                 step="0.5"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
-                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                  ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
               />
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.tons}</span>
             </div>
@@ -1971,7 +2004,7 @@ export default function Calculator() {
           </div>
           
           {/* Sum Final */}
-          <div className={`flex items-center px-4 py-3 border-t-[1.5px] border-[var(--border-hi)] mt-auto ${isDark ? 'bg-[rgba(0,0,0,0.18)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
+          <div className={`flex items-center px-4 py-3 border-t-[1.5px] border-[var(--border-hi)] mt-auto ${highContrast ? 'bg-[#e0e0e0]' : isDark ? 'bg-[rgba(0,0,0,0.18)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
             <span className="flex-1 text-[11px] font-bold tracking-widest uppercase text-[var(--accent-sum)]">{isCoilMode ? (language === 'pl' ? 'Suma (Marża)' : 'Total (Margin)') : (language === 'pl' ? 'Suma (Marża + SSC)' : 'Total (Margin + SSC)')}</span>
             <span className="font-mono text-lg font-semibold text-[var(--accent-sum)]">{moneyCeil(cenaKoncowa)}</span>
             <span className="text-[11px] text-[var(--text-secondary)] font-mono ml-1.5">{symbol}</span>
@@ -2051,7 +2084,7 @@ export default function Calculator() {
                   </tr>
                 ) : (
                   zestawienie.map((item, idx) => (
-                    <tr key={item.id} className={`border-b border-[rgba(42,48,72,0.4)] ${isDark ? 'hover:bg-[rgba(255,255,255,0.025)]' : 'hover:bg-[rgba(0,0,0,0.025)]'}`}>
+                    <tr key={item.id} className={`border-b border-[rgba(42,48,72,0.4)] ${highContrast ? 'hover:bg-[rgba(0,0,0,0.10)]' : isDark ? 'hover:bg-[rgba(255,255,255,0.025)]' : 'hover:bg-[rgba(0,0,0,0.025)]'}`}>
                       <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{idx + 1}</td>
                       <td className="px-3.5 py-2 text-left">
                         <div className="font-semibold text-xs text-[var(--text-primary)]">{item.grade}</div>
@@ -2087,7 +2120,7 @@ export default function Calculator() {
           </div>
           
           {/* Total */}
-          <div className={`flex items-center justify-between px-5 py-3.5 border-t-[1.5px] border-[var(--border-hi)] ${isDark ? 'bg-[rgba(0,0,0,0.10)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
+          <div className={`flex items-center justify-between px-5 py-3.5 border-t-[1.5px] border-[var(--border-hi)] ${highContrast ? 'bg-[#ececec]' : isDark ? 'bg-[rgba(0,0,0,0.10)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
             <span className="text-[11px] font-bold tracking-widest uppercase text-[var(--text-secondary)]">
               {t.zestawienie.total}
             </span>

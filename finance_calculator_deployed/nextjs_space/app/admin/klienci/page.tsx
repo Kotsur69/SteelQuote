@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 
@@ -17,10 +17,21 @@ interface Client {
   offers_count: number;
 }
 
+interface Contact {
+  id: number;
+  client_id: number;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
 const EMPTY = {
   id: null as number | null,
   first_name: '', last_name: '', company: '', nip: '', address: '', sap_id: '', phone: '', email: '',
 };
+
+const EMPTY_CONTACT_FORM = { first_name: '', last_name: '', phone: '', email: '' };
 
 export default function AdminClientsPage() {
   const { t } = useLanguage();
@@ -29,6 +40,14 @@ export default function AdminClientsPage() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Kontakty firm — pobierane raz, zgrupowane po client_id, żeby rozwinięcie wiersza
+  // firmy nie odpytywało API za każdym kliknięciem.
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [expandedClientId, setExpandedClientId] = useState<number | null>(null);
+  const [contactForm, setContactForm] = useState(EMPTY_CONTACT_FORM);
+  const [editingContact, setEditingContact] = useState<{ id: number } & typeof EMPTY_CONTACT_FORM | null>(null);
+  const [contactBusy, setContactBusy] = useState(false);
 
   const flash = (type: 'success' | 'error', text: string) => {
     setMessage({ type, text });
@@ -49,7 +68,92 @@ export default function AdminClientsPage() {
     }
   };
 
-  useEffect(() => { fetchClients(); }, []);
+  const fetchContacts = async () => {
+    const res = await fetch('/api/admin/contacts');
+    if (res.ok) {
+      const data = await res.json();
+      setContacts(data.contacts);
+    }
+  };
+
+  useEffect(() => { fetchClients(); fetchContacts(); }, []);
+
+  const contactsByClient = useMemo(() => {
+    const map = new Map<number, Contact[]>();
+    for (const contact of contacts) {
+      const list = map.get(contact.client_id);
+      if (list) list.push(contact);
+      else map.set(contact.client_id, [contact]);
+    }
+    return map;
+  }, [contacts]);
+
+  const toggleExpanded = (clientId: number) => {
+    setExpandedClientId((current) => (current === clientId ? null : clientId));
+    setContactForm(EMPTY_CONTACT_FORM);
+    setEditingContact(null);
+  };
+
+  const handleAddContact = async (clientId: number) => {
+    if (contactForm.first_name.trim() === '' && contactForm.last_name.trim() === '') return;
+    setContactBusy(true);
+    try {
+      const res = await fetch('/api/admin/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, ...contactForm }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        flash('success', t.admin.contactCreated);
+        setContactForm(EMPTY_CONTACT_FORM);
+        fetchContacts();
+      } else {
+        flash('error', data.error || t.admin.saveFailed);
+      }
+    } finally {
+      setContactBusy(false);
+    }
+  };
+
+  const handleEditContactSave = async () => {
+    if (!editingContact) return;
+    setContactBusy(true);
+    try {
+      const res = await fetch('/api/admin/contacts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingContact),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        flash('success', t.admin.contactUpdated);
+        setEditingContact(null);
+        fetchContacts();
+      } else {
+        flash('error', data.error || t.admin.saveFailed);
+      }
+    } finally {
+      setContactBusy(false);
+    }
+  };
+
+  const handleDeleteContact = async (id: number) => {
+    if (!confirm(t.admin.confirmDeleteContact)) return;
+    setContactBusy(true);
+    try {
+      const res = await fetch(`/api/admin/contacts?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        flash('success', t.admin.contactDeleted);
+        if (editingContact?.id === id) setEditingContact(null);
+        fetchContacts();
+      } else {
+        flash('error', t.admin.saveFailed);
+      }
+    } finally {
+      setContactBusy(false);
+    }
+  };
 
   const editing = form.id !== null;
 
@@ -67,6 +171,10 @@ export default function AdminClientsPage() {
         flash('success', editing ? t.admin.clientUpdated : t.admin.clientCreated);
         setForm(EMPTY);
         fetchClients();
+        // Zapis klienta synchronizuje kontakt główny do client_contacts po stronie
+        // serwera (patrz lib/clientDirectory.ts:syncPrimaryContact) — odśwież lokalną
+        // listę, żeby było to widać bez ręcznego przeładowania strony.
+        fetchContacts();
       } else {
         flash('error', data.error || t.admin.saveFailed);
       }
@@ -93,7 +201,11 @@ export default function AdminClientsPage() {
       if (res.ok) {
         flash('success', t.admin.clientDeleted);
         if (form.id === id) setForm(EMPTY);
+        if (expandedClientId === id) setExpandedClientId(null);
         fetchClients();
+        // ON DELETE CASCADE w client_contacts (migracja 010) usuwa kontakty tej
+        // firmy razem z nią — odśwież lokalną listę, żeby nie zostały widoczne.
+        fetchContacts();
       } else {
         flash('error', t.admin.saveFailed);
       }
@@ -187,7 +299,8 @@ export default function AdminClientsPage() {
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
                 {clients.map((c) => (
-                  <tr key={c.id}>
+                  <Fragment key={c.id}>
+                  <tr>
                     <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{c.company || '—'}</td>
                     <td className="px-4 py-3 text-[var(--text-secondary)]">
                       {[c.first_name, c.last_name].filter(Boolean).join(' ') || '—'}
@@ -201,6 +314,10 @@ export default function AdminClientsPage() {
                     <td className="px-4 py-3 text-center font-mono text-[var(--text-value)]">{c.offers_count}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2 justify-end">
+                        <button onClick={() => toggleExpanded(c.id)} disabled={busy}
+                          className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50">
+                          👤 {t.admin.navContacts} ({contactsByClient.get(c.id)?.length || 0})
+                        </button>
                         <button onClick={() => handleEdit(c)} disabled={busy}
                           className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)] hover:bg-[rgba(59,142,245,0.15)] transition-colors disabled:opacity-50">
                           ✏️ {t.common.edit}
@@ -212,6 +329,90 @@ export default function AdminClientsPage() {
                       </div>
                     </td>
                   </tr>
+                  {expandedClientId === c.id && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-4 bg-[var(--bg-input)] border-b border-[var(--border)]">
+                        <div className="space-y-2">
+                          {(contactsByClient.get(c.id) || []).length === 0 ? (
+                            <div className="text-xs text-[var(--text-secondary)]">{t.admin.noClientContacts}</div>
+                          ) : (
+                            (contactsByClient.get(c.id) || []).map((contact) =>
+                              editingContact?.id === contact.id ? (
+                                <div key={contact.id} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 items-center">
+                                  <input className={inputCls} placeholder={t.admin.firstName}
+                                    value={editingContact.first_name}
+                                    onChange={(e) => setEditingContact({ ...editingContact, first_name: e.target.value })} />
+                                  <input className={inputCls} placeholder={t.admin.lastName}
+                                    value={editingContact.last_name}
+                                    onChange={(e) => setEditingContact({ ...editingContact, last_name: e.target.value })} />
+                                  <input className={inputCls} placeholder={t.admin.phone}
+                                    value={editingContact.phone}
+                                    onChange={(e) => setEditingContact({ ...editingContact, phone: e.target.value })} />
+                                  <input className={inputCls} type="email" placeholder={t.admin.clientEmailLabel}
+                                    value={editingContact.email}
+                                    onChange={(e) => setEditingContact({ ...editingContact, email: e.target.value })} />
+                                  <div className="flex gap-2">
+                                    <button onClick={handleEditContactSave} disabled={contactBusy}
+                                      className="px-3 py-1.5 text-xs font-medium rounded bg-[var(--accent-cr)] text-white hover:opacity-90 transition-opacity disabled:opacity-50">
+                                      {t.admin.save}
+                                    </button>
+                                    <button onClick={() => setEditingContact(null)} disabled={contactBusy}
+                                      className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                                      {t.admin.cancel}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div key={contact.id} className="flex items-center gap-3 text-xs">
+                                  <span className="flex-1 text-[var(--text-primary)]">
+                                    {[contact.first_name, contact.last_name].filter(Boolean).join(' ') || '—'}
+                                  </span>
+                                  <span className="flex-1 font-mono text-[var(--text-secondary)]">{contact.phone || '—'}</span>
+                                  <span className="flex-1 font-mono text-[var(--text-secondary)]">{contact.email || '—'}</span>
+                                  <button
+                                    onClick={() => setEditingContact({
+                                      id: contact.id,
+                                      first_name: contact.first_name || '',
+                                      last_name: contact.last_name || '',
+                                      phone: contact.phone || '',
+                                      email: contact.email || '',
+                                    })}
+                                    disabled={contactBusy}
+                                    className="px-2 py-1 rounded border border-[var(--accent-cr)] text-[var(--accent-cr)] hover:bg-[rgba(59,142,245,0.08)] transition-colors disabled:opacity-50">
+                                    ✏️
+                                  </button>
+                                  <button onClick={() => handleDeleteContact(contact.id)} disabled={contactBusy}
+                                    className="px-2 py-1 rounded border border-[var(--accent-sum)] text-[var(--accent-sum)] hover:bg-[rgba(245,71,90,0.08)] transition-colors disabled:opacity-50">
+                                    🗑️
+                                  </button>
+                                </div>
+                              )
+                            )
+                          )}
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 items-center pt-2 border-t border-[var(--border)]">
+                            <input className={inputCls} placeholder={t.admin.firstName}
+                              value={contactForm.first_name}
+                              onChange={(e) => setContactForm({ ...contactForm, first_name: e.target.value })} />
+                            <input className={inputCls} placeholder={t.admin.lastName}
+                              value={contactForm.last_name}
+                              onChange={(e) => setContactForm({ ...contactForm, last_name: e.target.value })} />
+                            <input className={inputCls} placeholder={t.admin.phone}
+                              value={contactForm.phone}
+                              onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} />
+                            <input className={inputCls} type="email" placeholder={t.admin.clientEmailLabel}
+                              value={contactForm.email}
+                              onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} />
+                            <button onClick={() => handleAddContact(c.id)} disabled={contactBusy}
+                              className="px-3 py-1.5 text-xs font-medium rounded bg-[var(--accent-cr)] text-white hover:opacity-90 transition-opacity disabled:opacity-50">
+                              + {t.admin.addContact}
+                            </button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

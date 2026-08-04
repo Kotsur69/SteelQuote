@@ -16,6 +16,7 @@ interface ContactComboboxProps {
   onSelect: (contact: ContactSuggestion) => void;
   placeholder?: string;
   isDark: boolean;
+  highContrast?: boolean;
   lookupErrorLabel: string;
 }
 
@@ -36,6 +37,7 @@ export default function ContactCombobox({
   onSelect,
   placeholder,
   isDark,
+  highContrast = false,
   lookupErrorLabel,
 }: ContactComboboxProps) {
   const listboxId = useId();
@@ -78,7 +80,7 @@ export default function ContactCombobox({
         onFocus={() => setIsOpen(true)}
         onKeyDown={handleKeyDown}
         className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[#a78bfa] outline-none transition-colors w-full disabled:cursor-not-allowed
-          ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+          ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
       />
 
       {failed && (

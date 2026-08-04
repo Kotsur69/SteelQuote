@@ -48,7 +48,16 @@ through a server-side Abacus.ai-hosted rendering endpoint
   company is filled still suggests that company. Contact people are shared across
   the whole team: a company can have many, saving an offer stores the person, and
   the name field lists that company's contacts as soon as you click into it —
-  picking one fills surname, phone, and e-mail
+  picking one fills surname, phone, and e-mail. The admin Clients panel can also
+  manage a company's contacts directly — expand, edit, add, or delete any of them
+  without leaving the panel
+- Base PGL configured per steel type (HRS/CR/HDG) instead of one shared value.
+  Final unit price, line totals, and the calculator/offer-list/PDF summaries all
+  round up to the nearest currency unit (never undercharge); the underlying
+  stored/intermediate values stay unrounded
+- High Contrast mode — a toggle next to Light/Dark, available on every page. One
+  fixed bold black-on-white palette independent of the light/dark choice, plus
+  larger text, for salespeople on older or very small screens
 - Offers: create, list, duplicate, delete, edit — stored per-user in
   Postgres, with client info attached; optional offer name with an automatic
   `offer_<id>` fallback shown consistently across all offer lists; search by
@@ -73,6 +82,8 @@ psql "$DATABASE_URL" -f migrations/007_create_settings_table.sql
 psql "$DATABASE_URL" -f migrations/008_offer_display_name.sql
 psql "$DATABASE_URL" -f migrations/009_add_sap_id_and_client_lookup.sql
 psql "$DATABASE_URL" -f migrations/010_create_client_contacts.sql
+psql "$DATABASE_URL" -f migrations/011_split_pgl_base_by_type.sql
+psql "$DATABASE_URL" -f migrations/012_resync_client_contacts.sql
 npm run dev
 ```
 
@@ -104,7 +115,6 @@ for PDF export, not for the rest of the app.
 - [ ] Signup flow beyond the admin-only `/api/signup` endpoint
 - [ ] Password reset via email
 - [ ] Sales dashboard / offer history view
-- [ ] Client picker in the calculator instead of manual entry
 - [ ] Resolve dormant Prisma/NextAuth scaffold (finish wiring or remove)
 
 ## License

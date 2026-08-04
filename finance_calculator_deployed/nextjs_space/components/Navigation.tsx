@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 interface NavigationProps {
   isDark: boolean;
+  highContrast?: boolean;
 }
 
 interface NavUser {
@@ -15,7 +16,7 @@ interface NavUser {
   role: string;
 }
 
-export default function Navigation({ isDark }: NavigationProps) {
+export default function Navigation({ isDark, highContrast }: NavigationProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
   const [user, setUser] = useState<NavUser | null>(null);
@@ -53,7 +54,7 @@ export default function Navigation({ isDark }: NavigationProps) {
               ${isActive
                 ? 'bg-[rgba(59,142,245,0.12)] border-[#3b8ef5] text-[#3b8ef5]'
                 : `border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.03)]
-                   ${!isDark ? 'hover:bg-[rgba(0,0,0,0.03)]' : ''}`
+                   ${highContrast ? 'hover:bg-[rgba(0,0,0,0.12)]' : !isDark ? 'hover:bg-[rgba(0,0,0,0.03)]' : ''}`
               }`}
           >
             <span className="text-base">{tab.icon}</span>

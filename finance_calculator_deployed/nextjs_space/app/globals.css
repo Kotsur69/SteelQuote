@@ -388,3 +388,51 @@ input[type=number] {
   .type-btn { font-size: 13px; padding: 11px 10px; }
   .params-bar { grid-template-columns: 1fr 1fr; }
 }
+
+/* ─── HIGH CONTRAST MODE ───
+   Jeden, stały motyw (bez wariantów jasny/ciemny) dla sprzedawcow na
+   starych/malych ekranach (np. 800x600). Kolory dla elementow sterowanych
+   przez zmienne CSS sa nadpisywane bezposrednio w obiekcie cssVars w JS
+   (Calculator.tsx, offers/senior/AdminLayout) - blok ponizej to warstwa
+   zapasowa (gdyby jakis element renderowal sie poza tym drzewem) plus
+   globalne wzmocnienie grubosci, grubosci obramowan i rozmiaru tekstu,
+   ktorego nie da sie latwo przekazac przez zmienne CSS. */
+:root.hc,
+.hc {
+  --bg:          #ffffff;
+  --bg-panel:    #f0f0f0;
+  --bg-card:     #ffffff;
+  --bg-input:    #ffffff;
+  --border:      #000000;
+  --border-hi:   #000000;
+  --accent:      #0b3d91;
+  --accent-light:#0b3d91;
+  --accent-hrs:  #7a4a00;
+  --accent-cr:   #0b3d91;
+  --accent-hdg:  #0b6b2c;
+  --accent-sum:  #9c0b1e;
+  --text-primary:   #000000;
+  --text-secondary: #1a1a1a;
+  --text-muted:     #333333;
+  --text-value:     #000000;
+}
+
+html.hc body { zoom: 1.18; }
+
+.hc, .hc * {
+  font-weight: 600 !important;
+}
+.hc h1, .hc h2,
+.hc .sum-label, .hc .sum-value,
+.hc .z-final, .hc .final-price-row,
+.hc .col-card-header h2 {
+  font-weight: 800 !important;
+}
+.hc .toggle-btn, .hc .type-btn, .hc .row-input, .hc .param-group input,
+.hc .col-card, .hc .grade-dropdown, .hc .z-action-btn, .hc .btn-add-zestawienie {
+  border-width: 2px !important;
+}
+.hc .sum-row { border-top-width: 3px !important; }
+.hc .data-row, .hc .zr td, .hc .zt { border-bottom-width: 2px !important; }
+.hc .dim-warning { border-width: 2px !important; color: #9c0b1e !important; }
+.hc .grade-dropdown { box-shadow: 0 8px 24px rgba(0,0,0,0.35) !important; }
