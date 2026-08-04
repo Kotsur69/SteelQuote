@@ -29,12 +29,14 @@ CREATE TABLE IF NOT EXISTS app_settings (
 
 -- Seed = dzisiejsze hardkody z Calculator.tsx (pglBase 645, transport 20) + kurs 4,30.
 -- ON CONFLICT DO NOTHING => ponowne puszczenie migracji nie nadpisze zmian admina.
-INSERT INTO app_settings (id, eur_pln_rate, pgl_base, transport_base)
-VALUES (1, 4.3000, 645, 20)
+-- pgl_base celowo pominięte z listy kolumn: korzysta z DEFAULT tabeli na świeżej bazie;
+-- na bazie, gdzie migracja 011 już usunęła tę kolumnę, ten INSERT musi jej nie dotykać.
+INSERT INTO app_settings (id, eur_pln_rate, transport_base)
+VALUES (1, 4.3000, 20)
 ON CONFLICT (id) DO NOTHING;
 
 \echo '== Ustawienia po migracji =='
-SELECT id, eur_pln_rate, pgl_base, transport_base FROM app_settings;
+SELECT id, eur_pln_rate, transport_base FROM app_settings;
 
 COMMIT;
 -- W razie problemów zamiast powyższego COMMIT użyj:

@@ -2084,7 +2084,11 @@ export default function Calculator() {
                   </tr>
                 ) : (
                   zestawienie.map((item, idx) => (
-                    <tr key={item.id} className={`border-b border-[rgba(42,48,72,0.4)] ${highContrast ? 'hover:bg-[rgba(0,0,0,0.10)]' : isDark ? 'hover:bg-[rgba(255,255,255,0.025)]' : 'hover:bg-[rgba(0,0,0,0.025)]'}`}>
+                    <tr
+                      key={item.id}
+                      onClick={() => editItem(item.id)}
+                      className={`cursor-pointer border-b border-[rgba(42,48,72,0.4)] ${highContrast ? 'hover:bg-[rgba(0,0,0,0.10)]' : isDark ? 'hover:bg-[rgba(255,255,255,0.025)]' : 'hover:bg-[rgba(0,0,0,0.025)]'}`}
+                    >
                       <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{idx + 1}</td>
                       <td className="px-3.5 py-2 text-left">
                         <div className="font-semibold text-xs text-[var(--text-primary)]">{item.grade}</div>
@@ -2107,7 +2111,7 @@ export default function Calculator() {
                       <td className="px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{moneyCeil(item.finalPrice)} {symbol}</td>
                       <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{item.tons.toFixed(2)} {t.common.tons}</td>
                       <td className="px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{moneyCeil(item.totalValue)} {currencyUnit}</td>
-                      <td className="px-3.5 py-2 text-right whitespace-nowrap">
+                      <td className="px-3.5 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => editItem(item.id)} className="bg-transparent border border-[var(--border)] rounded px-2 py-1 text-[13px] hover:border-[var(--accent-cr)] hover:text-[var(--accent-cr)] transition-colors ml-1" title={t.common.edit}>✏️</button>
                         <button onClick={() => dupItem(item.id)} className="bg-transparent border border-[var(--border)] rounded px-2 py-1 text-[13px] hover:border-[#a78bfa] hover:text-[#a78bfa] transition-colors ml-1" title={t.common.duplicate}>⧉</button>
                         <button onClick={() => deleteItem(item.id)} className="bg-transparent border border-[var(--border)] rounded px-2 py-1 text-[13px] hover:border-[var(--accent-sum)] hover:text-[var(--accent-sum)] transition-colors ml-1" title={t.common.delete}>🗑</button>

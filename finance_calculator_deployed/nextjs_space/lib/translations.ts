@@ -411,6 +411,16 @@ export interface Translations {
       saved: string;
       saveFailed: string;
       frozenRateNotice: string;
+      historyTitle: string;
+      historyDownload: string;
+      historyEmpty: string;
+      historyLoading: string;
+      historyColType: string;
+      historyColOld: string;
+      historyColNew: string;
+      historyColDelta: string;
+      historyColBy: string;
+      historyColWhen: string;
     };
     totalOffers: string;
     activeSalespeople: string;
@@ -497,7 +507,7 @@ export const pl: Translations = {
     yes: 'Tak',
     no: 'Nie',
     loading: 'Ładowanie...',
-    version: 'v1.4',
+    version: 'v1.5',
   },
 
   navigation: {
@@ -850,6 +860,16 @@ export const pl: Translations = {
       saveFailed: 'Nie udało się zapisać ustawień.',
       frozenRateNotice:
         'Zmiany dotyczą wyłącznie NOWYCH kalkulacji. Oferty zapisane, oczekujące na akceptację seniora i wysłane zachowują swój kurs oraz swoje PGL z dnia wyceny.',
+      historyTitle: 'Historia zmian PGL bazowego',
+      historyDownload: 'Pobierz historię (.xlsx)',
+      historyEmpty: 'Brak zapisanych zmian cen PGL.',
+      historyLoading: 'Wczytywanie historii…',
+      historyColType: 'Typ stali',
+      historyColOld: 'Stara cena',
+      historyColNew: 'Nowa cena',
+      historyColDelta: 'Zmiana',
+      historyColBy: 'Zmienił',
+      historyColWhen: 'Data zmiany',
     },
     totalOffers: 'Oferty łącznie',
     activeSalespeople: 'Aktywni handlowcy',
@@ -936,7 +956,7 @@ export const en: Translations = {
     yes: 'Yes',
     no: 'No',
     loading: 'Loading...',
-    version: 'v1.4',
+    version: 'v1.5',
   },
 
   navigation: {
@@ -1289,6 +1309,16 @@ export const en: Translations = {
       saveFailed: 'Failed to save settings.',
       frozenRateNotice:
         'Changes apply to NEW calculations only. Saved offers, offers awaiting senior approval and sent offers keep the rate and PGL from the day they were priced.',
+      historyTitle: 'Base PGL price change history',
+      historyDownload: 'Download history (.xlsx)',
+      historyEmpty: 'No PGL price changes recorded yet.',
+      historyLoading: 'Loading history…',
+      historyColType: 'Steel type',
+      historyColOld: 'Old price',
+      historyColNew: 'New price',
+      historyColDelta: 'Change',
+      historyColBy: 'Changed by',
+      historyColWhen: 'Changed at',
     },
     totalOffers: 'Total offers',
     activeSalespeople: 'Active salespeople',
@@ -1374,7 +1404,7 @@ export const cs: Translations = {
     yes: 'Ano',
     no: 'Ne',
     loading: 'Načítání...',
-    version: 'v1.4',
+    version: 'v1.5',
   },
 
   navigation: {
@@ -1727,6 +1757,16 @@ export const cs: Translations = {
       saveFailed: 'Nastavení se nepodařilo uložit.',
       frozenRateNotice:
         'Změny se týkají pouze NOVÝCH kalkulací. Uložené nabídky, nabídky čekající na schválení a odeslané nabídky si ponechávají kurz a PGL ze dne ocenění.',
+      historyTitle: 'Historie změn základní ceny PGL',
+      historyDownload: 'Stáhnout historii (.xlsx)',
+      historyEmpty: 'Zatím nejsou zaznamenány žádné změny ceny PGL.',
+      historyLoading: 'Načítání historie…',
+      historyColType: 'Typ oceli',
+      historyColOld: 'Stará cena',
+      historyColNew: 'Nová cena',
+      historyColDelta: 'Změna',
+      historyColBy: 'Změnil',
+      historyColWhen: 'Datum změny',
     },
     totalOffers: 'Celkem nabídek',
     activeSalespeople: 'Aktivní obchodníci',
@@ -1812,7 +1852,7 @@ export const de: Translations = {
     yes: 'Ja',
     no: 'Nein',
     loading: 'Wird geladen...',
-    version: 'v1.4',
+    version: 'v1.5',
   },
 
   navigation: {
@@ -2165,6 +2205,16 @@ export const de: Translations = {
       saveFailed: 'Einstellungen konnten nicht gespeichert werden.',
       frozenRateNotice:
         'Änderungen gelten nur für NEUE Kalkulationen. Gespeicherte, zur Freigabe anstehende und versendete Angebote behalten Kurs und PGL vom Tag der Kalkulation.',
+      historyTitle: 'Änderungsverlauf Basis-PGL',
+      historyDownload: 'Verlauf herunterladen (.xlsx)',
+      historyEmpty: 'Noch keine PGL-Preisänderungen erfasst.',
+      historyLoading: 'Verlauf wird geladen…',
+      historyColType: 'Stahltyp',
+      historyColOld: 'Alter Preis',
+      historyColNew: 'Neuer Preis',
+      historyColDelta: 'Änderung',
+      historyColBy: 'Geändert von',
+      historyColWhen: 'Geändert am',
     },
     totalOffers: 'Angebote gesamt',
     activeSalespeople: 'Aktive Vertriebsmitarbeiter',

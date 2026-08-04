@@ -68,7 +68,7 @@ function AdminOffersContent() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [filters, setFilters] = useState({
-    status: '',
+    status: searchParams.get('status') || '',
     user_id: searchParams.get('user_id') || '',
     date_from: '',
     date_to: '',

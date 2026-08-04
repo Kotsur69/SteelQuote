@@ -32,7 +32,8 @@ through a server-side Abacus.ai-hosted rendering endpoint
 - Admin/senior can approve, reject, or edit offers awaiting review directly
   from their panels, and send approved offers to the client; quick-filter
   tabs (awaiting review / awaiting send / reviewed by me / all)
-- Calculator page for HRS / CR / HDG pricing with live totals
+- Calculator page for HRS / CR / HDG pricing with live totals; clicking a line
+  item's row (not just its pencil icon) opens it for editing
 - EUR/PLN currency switch (all roles) — EUR is the single source of truth
   internally, PLN is a display/input layer; an offer freezes the exchange
   rate it was saved with, so changing the rate later never rewrites a saved,
@@ -54,7 +55,13 @@ through a server-side Abacus.ai-hosted rendering endpoint
 - Base PGL configured per steel type (HRS/CR/HDG) instead of one shared value.
   Final unit price, line totals, and the calculator/offer-list/PDF summaries all
   round up to the nearest currency unit (never undercharge); the underlying
-  stored/intermediate values stay unrounded
+  stored/intermediate values stay unrounded. Every change to a base PGL price is
+  logged (steel type, old/new value, who, when) in an admin-only history table,
+  downloadable as `.xlsx`; HRS/CR/HDG get a consistent color per type (orange/
+  blue/green) throughout the settings panel
+- Admin dashboard tiles (offers by status, active salespeople, total offers)
+  link straight to the offers list pre-filtered to that status, or to the
+  salespeople panel
 - High Contrast mode — a toggle next to Light/Dark, available on every page. One
   fixed bold black-on-white palette independent of the light/dark choice, plus
   larger text, for salespeople on older or very small screens
@@ -84,6 +91,7 @@ psql "$DATABASE_URL" -f migrations/009_add_sap_id_and_client_lookup.sql
 psql "$DATABASE_URL" -f migrations/010_create_client_contacts.sql
 psql "$DATABASE_URL" -f migrations/011_split_pgl_base_by_type.sql
 psql "$DATABASE_URL" -f migrations/012_resync_client_contacts.sql
+psql "$DATABASE_URL" -f migrations/013_create_pgl_price_history.sql
 npm run dev
 ```
 

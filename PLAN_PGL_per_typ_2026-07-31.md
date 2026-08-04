@@ -2,7 +2,9 @@
 
 **Data:** 2026-07-31
 **Projekt:** AMSteel_Quote (`finance_calculator_deployed/nextjs_space`)
-**Status:** PLAN — nic nie zaimplementowane
+**Status:** ZREALIZOWANE (migracja `011_split_pgl_base_by_type.sql`, wdrożone jako część v1.4).
+Kontynuacja tego obszaru — historia zmian cen PGL per typ z eksportem Excel oraz kolory
+HRS/CR/HDG w panelu ustawień — opisana w `STAN_PROJEKTU.md`, sesja „2026-08-04 (trzecia)".
 **Zgłoszenie testerów:** (1) po zmianie PGL bazowego w panelu admina handlowcy nadal widzą starą cenę, (2) prośba o osobne PGL bazowe dla HRS, CR i HDG zamiast jednego wspólnego
 
 ---

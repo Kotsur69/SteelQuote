@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 
@@ -60,22 +61,28 @@ export default function AdminDashboardPage() {
         <div className="space-y-6">
           {/* Kafelki podsumowania */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md p-5">
+            <Link
+              href="/admin/oferty"
+              className="block bg-[var(--bg-card)] border border-[var(--border)] rounded-md p-5 transition-colors hover:border-[var(--border-hi)] hover:bg-[rgba(255,255,255,0.03)]"
+            >
               <p className="text-[10px] uppercase tracking-widest text-[var(--text-secondary)] font-mono">
                 {t.admin.totalOffers}
               </p>
               <p className="text-3xl font-semibold text-[var(--text-primary)] mt-2 font-mono">
                 {totalOffers}
               </p>
-            </div>
-            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md p-5">
+            </Link>
+            <Link
+              href="/admin/handlowcy"
+              className="block bg-[var(--bg-card)] border border-[var(--border)] rounded-md p-5 transition-colors hover:border-[var(--border-hi)] hover:bg-[rgba(255,255,255,0.03)]"
+            >
               <p className="text-[10px] uppercase tracking-widest text-[var(--text-secondary)] font-mono">
                 {t.admin.activeSalespeople}
               </p>
               <p className="text-3xl font-semibold text-[var(--accent-hdg)] mt-2 font-mono">
                 {activeSalespeople}
               </p>
-            </div>
+            </Link>
           </div>
 
           {/* Oferty wg statusu */}
@@ -88,17 +95,21 @@ export default function AdminDashboardPage() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-y sm:divide-y-0 divide-[var(--border)]">
               {STATUSES.map((s) => (
-                <div key={s} className="p-4 text-center">
+                <Link
+                  key={s}
+                  href={`/admin/oferty?status=${s}`}
+                  className="group block p-4 text-center transition-colors hover:bg-[rgba(255,255,255,0.03)]"
+                >
                   <p
                     className="text-2xl font-semibold font-mono"
                     style={{ color: STATUS_ACCENT[s] }}
                   >
                     {byStatus[s]}
                   </p>
-                  <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mt-1">
+                  <p className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] mt-1 transition-colors group-hover:text-[var(--text-primary)]">
                     {t.offerStatus[s]}
                   </p>
-                </div>
+                </Link>
               ))}
             </div>
           </div>

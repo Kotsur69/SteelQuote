@@ -69,6 +69,10 @@ function parseNumber(
   return { value: n };
 }
 
+// PGL-owe kolumny, dla których zmiana wartości jest logowana do pgl_price_history
+// (migracja 013) — eurPlnRate/transportBase nie mają odpowiednika steel_type, więc null.
+type SteelType = 'HRS' | 'CR' | 'HDG';
+
 // PATCH - Zmiana ustawień. Tylko admin.
 // Body: { eurPlnRate?, pglBaseHrs?, pglBaseCr?, pglBaseHdg?, transportBase? } - wysyłamy
 // tylko to, co się zmienia.
@@ -83,17 +87,25 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const spec = [
-      { key: 'eurPlnRate', column: 'eur_pln_rate', label: 'Kurs EUR/PLN', min: 0.0001, max: 100 },
-      { key: 'pglBaseHrs', column: 'pgl_base_hrs', label: 'PGL bazowe HRS', min: 0, max: 100000 },
-      { key: 'pglBaseCr', column: 'pgl_base_cr', label: 'PGL bazowe CR', min: 0, max: 100000 },
-      { key: 'pglBaseHdg', column: 'pgl_base_hdg', label: 'PGL bazowe HDG', min: 0, max: 100000 },
-      { key: 'transportBase', column: 'transport_base', label: 'Transport bazowy', min: 0, max: 100000 },
-    ] as const;
+    const spec: {
+      key: keyof AppSettings;
+      column: string;
+      label: string;
+      min: number;
+      max: number;
+      steelType: SteelType | null;
+    }[] = [
+      { key: 'eurPlnRate', column: 'eur_pln_rate', label: 'Kurs EUR/PLN', min: 0.0001, max: 100, steelType: null },
+      { key: 'pglBaseHrs', column: 'pgl_base_hrs', label: 'PGL bazowe HRS', min: 0, max: 100000, steelType: 'HRS' },
+      { key: 'pglBaseCr', column: 'pgl_base_cr', label: 'PGL bazowe CR', min: 0, max: 100000, steelType: 'CR' },
+      { key: 'pglBaseHdg', column: 'pgl_base_hdg', label: 'PGL bazowe HDG', min: 0, max: 100000, steelType: 'HDG' },
+      { key: 'transportBase', column: 'transport_base', label: 'Transport bazowy', min: 0, max: 100000, steelType: null },
+    ];
 
     const sets: string[] = [];
     const values: unknown[] = [];
     let i = 1;
+    const touchedPgl: { column: string; steelType: SteelType; value: number }[] = [];
 
     for (const field of spec) {
       if (body[field.key] === undefined) continue;
@@ -103,6 +115,9 @@ export async function PATCH(request: NextRequest) {
       }
       sets.push(`${field.column} = $${i++}`);
       values.push(parsed.value);
+      if (field.steelType) {
+        touchedPgl.push({ column: field.column, steelType: field.steelType, value: parsed.value });
+      }
     }
 
     if (sets.length === 0) {
@@ -113,20 +128,56 @@ export async function PATCH(request: NextRequest) {
     values.push(session.userId);
     sets.push('updated_at = CURRENT_TIMESTAMP');
 
-    const result = await pool.query(
-      `UPDATE app_settings SET ${sets.join(', ')} WHERE id = 1
-       RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, transport_base`,
-      values
-    );
+    const db = await pool.connect();
+    try {
+      await db.query('BEGIN');
 
-    if (result.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'Brak wiersza ustawień - uruchom migrację 007_create_settings_table.sql' },
-        { status: 404 }
+      // Stare wartości PGL PRZED zapisem, zablokowane FOR UPDATE — inaczej równoległy PATCH
+      // mógłby wstawić log historii z już nieaktualnym "starym" stanem (patrz migracja 013).
+      const before = await db.query(
+        'SELECT pgl_base_hrs, pgl_base_cr, pgl_base_hdg FROM app_settings WHERE id = 1 FOR UPDATE'
       );
-    }
 
-    return NextResponse.json({ settings: rowToSettings(result.rows[0]) });
+      if (before.rows.length === 0) {
+        await db.query('ROLLBACK');
+        return NextResponse.json(
+          { error: 'Brak wiersza ustawień - uruchom migrację 007_create_settings_table.sql' },
+          { status: 404 }
+        );
+      }
+
+      const oldByColumn: Record<string, number> = {
+        pgl_base_hrs: Number(before.rows[0].pgl_base_hrs),
+        pgl_base_cr: Number(before.rows[0].pgl_base_cr),
+        pgl_base_hdg: Number(before.rows[0].pgl_base_hdg),
+      };
+
+      const result = await db.query(
+        `UPDATE app_settings SET ${sets.join(', ')} WHERE id = 1
+         RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, transport_base`,
+        values
+      );
+
+      // Log historii tylko dla pól, które faktycznie zmieniły wartość — bez no-op wpisów,
+      // gdy admin klika "zapisz" bez realnej zmiany danego pola.
+      for (const field of touchedPgl) {
+        const oldValue = oldByColumn[field.column];
+        if (oldValue === field.value) continue;
+        await db.query(
+          `INSERT INTO pgl_price_history (steel_type, old_price, new_price, changed_by)
+           VALUES ($1, $2, $3, $4)`,
+          [field.steelType, oldValue, field.value, session.userId]
+        );
+      }
+
+      await db.query('COMMIT');
+      return NextResponse.json({ settings: rowToSettings(result.rows[0]) });
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    } finally {
+      db.release();
+    }
   } catch (error) {
     console.error('Error updating settings:', error);
     return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });

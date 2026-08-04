@@ -1,9 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 import { DEFAULT_SETTINGS, type AppSettings } from '@/lib/currency';
+import type { PglPriceHistoryEntry } from '@/app/api/settings/pgl-history/route';
+import { exportPglHistoryToExcel } from '@/lib/pglHistoryExport';
+
+// Spójna paleta per typ stali w całym panelu (te same zmienne, co w Calculatorze):
+// HRS = pomarańczowy, CR = niebieski, HDG = zielony.
+const STEEL_TYPE_COLOR: Record<'HRS' | 'CR' | 'HDG', string> = {
+  HRS: 'var(--accent-hrs)',
+  CR: 'var(--accent-cr)',
+  HDG: 'var(--accent-hdg)',
+};
 
 // Pola trzymamy jako string, a nie number: pole musi pozwolić wpisać "4," albo wyczyścić
 // zawartość w trakcie edycji. Konwersja i walidacja następuje przy zapisie — a serwer
@@ -26,6 +36,23 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(toForm(DEFAULT_SETTINGS));
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [history, setHistory] = useState<PglPriceHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch('/api/settings/pgl-history');
+      if (res.ok) {
+        const { history: rows } = await res.json();
+        setHistory(rows as PglPriceHistoryEntry[]);
+      }
+    } catch (error) {
+      console.error('Error loading PGL price history:', error);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -41,7 +68,8 @@ export default function AdminSettingsPage() {
         setLoading(false);
       }
     })();
-  }, []);
+    loadHistory();
+  }, [loadHistory]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -62,6 +90,7 @@ export default function AdminSettingsPage() {
       if (res.ok) {
         setForm(toForm(data.settings as AppSettings));
         setMessage({ type: 'success', text: t.admin.settings.saved });
+        loadHistory();
       } else {
         // Serwer zwraca konkretny powód (np. "Kurs EUR/PLN: wartość musi być w zakresie 0.0001-100").
         setMessage({ type: 'error', text: data.error || t.admin.settings.saveFailed });
@@ -75,7 +104,7 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const fields: { key: keyof AppSettings; label: string; hint: string; unit: string; step: string }[] = [
+  const fields: { key: keyof AppSettings; label: string; hint: string; unit: string; step: string; color?: string }[] = [
     {
       key: 'eurPlnRate',
       label: t.admin.settings.eurPlnRate,
@@ -89,6 +118,7 @@ export default function AdminSettingsPage() {
       hint: t.admin.settings.pglBaseHint,
       unit: '€/t',
       step: '0.01',
+      color: STEEL_TYPE_COLOR.HRS,
     },
     {
       key: 'pglBaseCr',
@@ -96,6 +126,7 @@ export default function AdminSettingsPage() {
       hint: t.admin.settings.pglBaseHint,
       unit: '€/t',
       step: '0.01',
+      color: STEEL_TYPE_COLOR.CR,
     },
     {
       key: 'pglBaseHdg',
@@ -103,6 +134,7 @@ export default function AdminSettingsPage() {
       hint: t.admin.settings.pglBaseHint,
       unit: '€/t',
       step: '0.01',
+      color: STEEL_TYPE_COLOR.HDG,
     },
     {
       key: 'transportBase',
@@ -134,7 +166,17 @@ export default function AdminSettingsPage() {
               {fields.map((field) => (
                 <div key={field.key} className="px-4 py-3 border-b border-[rgba(42,48,72,0.5)]">
                   <div className="flex items-center gap-3">
-                    <label htmlFor={field.key} className="flex-1 text-xs text-[var(--text-secondary)]">
+                    <label
+                      htmlFor={field.key}
+                      className="flex-1 flex items-center gap-1.5 text-xs"
+                      style={{ color: field.color ?? 'var(--text-secondary)' }}
+                    >
+                      {field.color && (
+                        <span
+                          className="w-1.5 h-1.5 rounded-full shrink-0"
+                          style={{ backgroundColor: field.color }}
+                        />
+                      )}
                       {field.label}
                     </label>
                     <input
@@ -183,6 +225,87 @@ export default function AdminSettingsPage() {
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
               {t.admin.settings.frozenRateNotice}
             </p>
+          </div>
+
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
+            <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)]">
+              <span className="w-2 h-2 rounded-full bg-[var(--accent-cr)]" />
+              <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">
+                {t.admin.settings.historyTitle}
+              </h2>
+              <button
+                onClick={() => exportPglHistoryToExcel(history)}
+                disabled={history.length === 0}
+                className="ml-auto px-3 py-1.5 rounded bg-[var(--bg-input)] border border-[var(--border)] text-[10px] font-mono font-semibold tracking-wider text-[var(--text-primary)] hover:border-[var(--accent-cr)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {t.admin.settings.historyDownload}
+              </button>
+            </div>
+
+            {historyLoading ? (
+              <div className="p-6 text-center text-xs text-[var(--text-secondary)]">
+                {t.admin.settings.historyLoading}
+              </div>
+            ) : history.length === 0 ? (
+              <div className="p-6 text-center text-xs text-[var(--text-secondary)]">
+                {t.admin.settings.historyEmpty}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-[var(--border)] text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+                      <th className="text-left font-medium px-4 py-2">{t.admin.settings.historyColType}</th>
+                      <th className="text-right font-medium px-4 py-2">{t.admin.settings.historyColOld}</th>
+                      <th className="text-right font-medium px-4 py-2">{t.admin.settings.historyColNew}</th>
+                      <th className="text-right font-medium px-4 py-2">{t.admin.settings.historyColDelta}</th>
+                      <th className="text-left font-medium px-4 py-2">{t.admin.settings.historyColBy}</th>
+                      <th className="text-left font-medium px-4 py-2">{t.admin.settings.historyColWhen}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((entry) => {
+                      const delta = entry.newPrice - entry.oldPrice;
+                      return (
+                        <tr key={entry.id} className="border-b border-[rgba(42,48,72,0.5)] last:border-b-0">
+                          <td className="px-4 py-2 font-mono font-semibold">
+                            <span
+                              className="inline-flex items-center gap-1.5"
+                              style={{ color: STEEL_TYPE_COLOR[entry.steelType] }}
+                            >
+                              <span
+                                className="w-1.5 h-1.5 rounded-full shrink-0"
+                                style={{ backgroundColor: STEEL_TYPE_COLOR[entry.steelType] }}
+                              />
+                              {entry.steelType}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-right font-mono text-[var(--text-secondary)]">
+                            {entry.oldPrice.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-2 text-right font-mono text-[var(--text-primary)]">
+                            {entry.newPrice.toFixed(2)}
+                          </td>
+                          <td
+                            className="px-4 py-2 text-right font-mono font-semibold"
+                            style={{ color: delta >= 0 ? 'var(--accent-sum)' : 'var(--accent-hdg)' }}
+                          >
+                            {delta >= 0 ? '+' : ''}
+                            {delta.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-2 text-[var(--text-secondary)]">
+                            {entry.changedByName || entry.changedByEmail || '—'}
+                          </td>
+                          <td className="px-4 py-2 font-mono text-[var(--text-muted)]">
+                            {new Date(entry.changedAt).toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

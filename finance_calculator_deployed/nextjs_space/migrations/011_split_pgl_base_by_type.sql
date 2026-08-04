@@ -19,11 +19,22 @@ ALTER TABLE app_settings
 
 -- Backfill z dotychczasowej wspólnej wartości. COALESCE = no-op przy ponownym uruchomieniu
 -- po tym, jak admin już rozdzielił wartości przez nowy panel.
-UPDATE app_settings
-SET pgl_base_hrs = COALESCE(pgl_base_hrs, pgl_base, 645),
-    pgl_base_cr  = COALESCE(pgl_base_cr,  pgl_base, 645),
-    pgl_base_hdg = COALESCE(pgl_base_hdg, pgl_base, 645)
-WHERE id = 1;
+-- Owinięte w warunek na istnienie pgl_base: przy kolejnym uruchomieniu tej migracji (np. przy
+-- każdym starcie steelquote-start.ps1) kolumna pgl_base jest już usunięta niżej w tym samym
+-- pliku, więc bezwarunkowy UPDATE referencjonujący ją wywalałby się na starcie za drugim razem.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'app_settings' AND column_name = 'pgl_base'
+    ) THEN
+        UPDATE app_settings
+        SET pgl_base_hrs = COALESCE(pgl_base_hrs, pgl_base, 645),
+            pgl_base_cr  = COALESCE(pgl_base_cr,  pgl_base, 645),
+            pgl_base_hdg = COALESCE(pgl_base_hdg, pgl_base, 645)
+        WHERE id = 1;
+    END IF;
+END $$;
 
 ALTER TABLE app_settings
     ALTER COLUMN pgl_base_hrs SET DEFAULT 645,
