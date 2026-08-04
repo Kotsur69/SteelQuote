@@ -13,7 +13,9 @@ type FormState = Record<keyof AppSettings, string>;
 function toForm(s: AppSettings): FormState {
   return {
     eurPlnRate: String(s.eurPlnRate),
-    pglBase: String(s.pglBase),
+    pglBaseHrs: String(s.pglBaseHrs),
+    pglBaseCr: String(s.pglBaseCr),
+    pglBaseHdg: String(s.pglBaseHdg),
     transportBase: String(s.transportBase),
   };
 }
@@ -50,7 +52,9 @@ export default function AdminSettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           eurPlnRate: form.eurPlnRate,
-          pglBase: form.pglBase,
+          pglBaseHrs: form.pglBaseHrs,
+          pglBaseCr: form.pglBaseCr,
+          pglBaseHdg: form.pglBaseHdg,
           transportBase: form.transportBase,
         }),
       });
@@ -80,8 +84,22 @@ export default function AdminSettingsPage() {
       step: '0.0001',
     },
     {
-      key: 'pglBase',
-      label: t.admin.settings.pglBase,
+      key: 'pglBaseHrs',
+      label: t.admin.settings.pglBaseHrs,
+      hint: t.admin.settings.pglBaseHint,
+      unit: '€/t',
+      step: '0.01',
+    },
+    {
+      key: 'pglBaseCr',
+      label: t.admin.settings.pglBaseCr,
+      hint: t.admin.settings.pglBaseHint,
+      unit: '€/t',
+      step: '0.01',
+    },
+    {
+      key: 'pglBaseHdg',
+      label: t.admin.settings.pglBaseHdg,
       hint: t.admin.settings.pglBaseHint,
       unit: '€/t',
       step: '0.01',

@@ -3,6 +3,8 @@
 // jako warstwa prezentacji + adapter na wejściu (toDisplay przy odczycie, fromDisplay
 // przy edycji). Dzięki temu silnik liczenia nie wie nic o walutach.
 
+import type { SteelType } from './calculatorData';
+
 export type Currency = 'EUR' | 'PLN';
 
 export const DEFAULT_CURRENCY: Currency = 'EUR';
@@ -12,17 +14,35 @@ export const CURRENCY_STORAGE_KEY = 'amsteel-currency';
 // nie ma zamrożonego kursu.
 export const DEFAULT_EUR_PLN_RATE = 4.3;
 
+// PGL bazowe jest osobne dla każdego typu stali — HRS, CR i HDG mają różne bazowe ceny
+// wsadu w praktyce (migracja 011). Transport i kurs zostają wspólne dla całej kalkulacji.
 export interface AppSettings {
   eurPlnRate: number;
-  pglBase: number;
+  pglBaseHrs: number;
+  pglBaseCr: number;
+  pglBaseHdg: number;
   transportBase: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   eurPlnRate: DEFAULT_EUR_PLN_RATE,
-  pglBase: 645,
+  pglBaseHrs: 645,
+  pglBaseCr: 645,
+  pglBaseHdg: 645,
   transportBase: 20,
 };
+
+// PGL bazowe dla aktualnie wybranego typu stali w kalkulatorze.
+export function pglBaseForType(type: SteelType, settings: AppSettings): number {
+  switch (type) {
+    case 'HRS':
+      return settings.pglBaseHrs;
+    case 'CR':
+      return settings.pglBaseCr;
+    case 'HDG':
+      return settings.pglBaseHdg;
+  }
+}
 
 export function isCurrency(value: unknown): value is Currency {
   return value === 'EUR' || value === 'PLN';
@@ -61,6 +81,17 @@ export function formatMoney(eur: number, rate: number, currency: Currency, decim
   return toDisplay(eur, rate, currency).toFixed(decimals);
 }
 
+// Cena końcowa jest zawsze zaokrąglana W GÓRĘ do pełnej jednostki waluty wyświetlania
+// (decyzja biznesowa: nigdy nie zaniżać ceny końcowej). Reszta kwot (rozbicie dopłat,
+// sumy pośrednie, wartość całkowita) zostaje na 2 miejscach po przecinku bez zmian.
+export function ceilToUnit(eur: number, rate: number, currency: Currency): number {
+  return Math.ceil(toDisplay(eur, rate, currency));
+}
+
+export function formatMoneyCeil(eur: number, rate: number, currency: Currency): string {
+  return String(ceilToUnit(eur, rate, currency));
+}
+
 // --- Waluta ZAPISANA W OFERCIE -------------------------------------------------
 // Oferta niesie własną walutę i własny kurs (offer_data.displayCurrency / .eurPlnRate),
 // zamrożone w chwili zapisu. Listy ofert, podgląd u starszego i PDF muszą czytać JE,
@@ -94,4 +125,13 @@ export function formatOfferMoney(
   decimals = 2
 ): string {
   return toDisplay(eur, offerRate(data), offerCurrency(data)).toFixed(decimals);
+}
+
+// Wariant formatOfferMoney dla ceny końcowej — zaokrąglenie w górę do pełnej jednostki,
+// tym samym zamrożonym kursem/walutą co reszta kwot oferty. Patrz ceilToUnit.
+export function formatOfferMoneyCeil(
+  eur: number,
+  data: OfferCurrencyMeta | null | undefined
+): string {
+  return String(ceilToUnit(eur, offerRate(data), offerCurrency(data)));
 }

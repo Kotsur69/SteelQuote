@@ -96,8 +96,8 @@ function buildHtml(
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.width.toFixed(0)}</td>
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.isCoil ? '-' : item.length.toFixed(0)}</td>
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.quantity.toFixed(2)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;font-weight:600;">${(item.pricePerTon * fx).toFixed(2)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;">${(item.pricePerTon * item.quantity * fx).toFixed(2)}</td>
+        <td style="text-align:right;font-family:'Courier New',monospace;font-weight:600;">${Math.ceil(item.pricePerTon * fx)}</td>
+        <td style="text-align:right;font-family:'Courier New',monospace;">${Math.ceil(item.pricePerTon * item.quantity * fx)}</td>
         <td style="font-size:10px;color:#64748b;"></td>
       </tr>`;
   }).join('');
@@ -178,7 +178,7 @@ function buildHtml(
       <div class="info-block-title">Podsumowanie</div>
       <div class="info-row"><span class="lbl">Pozycji:</span><span class="val">${items.length}</span></div>
       <div class="info-row"><span class="lbl">Łącznie t:</span><span class="val">${totalTons.toFixed(2)} t</span></div>
-      <div class="info-row"><span class="lbl">Wartość:</span><span class="val" style="color:#059669;font-size:12px;">${totalValue.toFixed(2)} ${unit}</span></div>
+      <div class="info-row"><span class="lbl">Wartość:</span><span class="val" style="color:#059669;font-size:12px;">${Math.ceil(totalValue)} ${unit}</span></div>
       <div class="info-row"><span class="lbl">Typy:</span><span class="val">${escapeHtml([...new Set(items.map(i => i.steelType))].join(', '))}</span></div>
     </div>
   </div>
@@ -206,7 +206,7 @@ function buildHtml(
         <td colspan="6" style="text-align:right;text-transform:uppercase;letter-spacing:1px;font-size:10px;">RAZEM:</td>
         <td style="text-align:right;">${totalTons.toFixed(2)} t</td>
         <td style="text-align:right;"></td>
-        <td style="text-align:right;"><span class="badge-total">${totalValue.toFixed(2)} ${unit}</span></td>
+        <td style="text-align:right;"><span class="badge-total">${Math.ceil(totalValue)} ${unit}</span></td>
         <td></td>
       </tr>
     </tfoot>

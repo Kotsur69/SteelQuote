@@ -12,6 +12,7 @@ import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import {
   formatOfferMoney,
+  formatOfferMoneyCeil,
   offerTotalUnit,
   offerCurrency,
   offerRate,
@@ -447,7 +448,7 @@ export default function SeniorPage() {
                       <span>📅 {t.offers.createdAt}: {formatDate(offer.created_at)}</span>
                       <span>📦 {getOfferItemCount(offer)} {t.offers.items}</span>
                       <span className="font-mono text-[var(--accent-hrs)]">
-                        💰 {formatOfferMoney(calculateOfferTotal(offer), offer.offer_data)} {offerTotalUnit(offer.offer_data)}
+                        💰 {formatOfferMoneyCeil(calculateOfferTotal(offer), offer.offer_data)} {offerTotalUnit(offer.offer_data)}
                       </span>
                     </div>
 

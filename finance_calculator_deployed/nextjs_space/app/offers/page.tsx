@@ -12,6 +12,7 @@ import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import {
   formatOfferMoney,
+  formatOfferMoneyCeil,
   offerTotalUnit,
   offerCurrency,
   offerRate,
@@ -582,7 +583,7 @@ export default function OffersPage() {
                         <span>📦 {getOfferItemCount(offer)} {t.offers.items}</span>
                       )}
                       <span className="font-mono text-[var(--accent-hrs)]">
-                        💰 {formatOfferMoney(calculateOfferTotal(offer), offer.offer_data)} {offerTotalUnit(offer.offer_data)}
+                        💰 {formatOfferMoneyCeil(calculateOfferTotal(offer), offer.offer_data)} {offerTotalUnit(offer.offer_data)}
                       </span>
                     </div>
                     {/* Podgląd pozycji: zwinięty = chipsy (pierwsze 3), rozwinięty = pełna tabela z cenami */}
@@ -617,9 +618,9 @@ export default function OffersPage() {
                                       'text-[var(--accent-hdg)]'
                                     }>{item.type}</span>
                                   </td>
-                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{formatOfferMoney(item.finalPrice, offer.offer_data)} {currencySymbol(offerCurrency(offer.offer_data))}</td>
+                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{formatOfferMoneyCeil(item.finalPrice, offer.offer_data)} {currencySymbol(offerCurrency(offer.offer_data))}</td>
                                   <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{item.tons.toFixed(2)}</td>
-                                  <td className="px-2.5 py-1.5 text-right text-[var(--accent-hrs)] font-semibold">{formatOfferMoney(item.totalValue, offer.offer_data)} {offerTotalUnit(offer.offer_data)}</td>
+                                  <td className="px-2.5 py-1.5 text-right text-[var(--accent-hrs)] font-semibold">{formatOfferMoneyCeil(item.totalValue, offer.offer_data)} {offerTotalUnit(offer.offer_data)}</td>
                                 </tr>
                               ))}
                             </tbody>

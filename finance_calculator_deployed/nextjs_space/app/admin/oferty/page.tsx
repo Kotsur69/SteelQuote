@@ -11,6 +11,7 @@ import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import {
   formatOfferMoney,
+  formatOfferMoneyCeil,
   offerTotalUnit,
   offerCurrency,
   offerRate,
@@ -398,7 +399,7 @@ function AdminOffersContent() {
                     </td>
                     <td className="px-4 py-3 text-[var(--text-secondary)] font-mono text-xs">{formatDate(o.created_at)}</td>
                     <td className="px-4 py-3 text-right font-mono text-[var(--accent-hrs)]">
-                      {formatOfferMoney(offerTotal(o), o.offer_data)} {offerTotalUnit(o.offer_data)}
+                      {formatOfferMoneyCeil(offerTotal(o), o.offer_data)} {offerTotalUnit(o.offer_data)}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       <button

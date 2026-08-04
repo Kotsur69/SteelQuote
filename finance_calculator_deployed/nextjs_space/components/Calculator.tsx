@@ -23,6 +23,7 @@ import {
 } from '@/lib/calculatorData';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
+import { pglBaseForType } from '@/lib/currency';
 import { formatWarning } from '@/lib/translations';
 import {
   ClientInfo,
@@ -106,7 +107,7 @@ export default function Calculator() {
     setCurrency,
     rate,
     settings,
-    settingsLoaded,
+    refreshSettings,
     setRateOverride,
     toDisplay,
     fromDisplay,
@@ -121,6 +122,9 @@ export default function Calculator() {
   );
   // Kwoty, które i dziś mają dwa miejsca po przecinku (sumy, ceny).
   const money2 = useCallback((eur: number) => toDisplay(eur).toFixed(2), [toDisplay]);
+  // Cena końcowa: zaokrąglenie W GÓRĘ do pełnej jednostki (decyzja biznesowa — nigdy nie
+  // zaniżać ceny). Tylko dla ceny końcowej, reszta kwot zostaje na money/money2.
+  const moneyCeil = useCallback((eur: number) => String(Math.ceil(toDisplay(eur))), [toDisplay]);
   // Sama waluta, bez "/t" — dla wartości pozycji i sumy zestawienia, które są kwotą
   // całkowitą (cena × tony), a nie ceną jednostkową.
   const currencyUnit = currency === 'PLN' ? 'zł' : '€';
@@ -183,7 +187,7 @@ export default function Calculator() {
   // Summary
   const [pglBase, setPglBase] = useState(645);
   const [marginPct, setMarginPct] = useState(7);
-  const [extra, setExtra] = useState(10);
+  const [extra, setExtra] = useState(0);
   const [transport, setTransport] = useState(20);
   const [tons, setTons] = useState(1);
   
@@ -213,6 +217,7 @@ export default function Calculator() {
   // Client info
   const [clientInfo, setClientInfo] = useState<ClientInfo>(EMPTY_CLIENT_INFO);
   const [showClientInfo, setShowClientInfo] = useState(false);
+  const [contactSaving, setContactSaving] = useState(false);
 
   // Klasy panelu klienta wyciągnięte do stałych. Ten sam długi string powtarzał się
   // przy każdym z ośmiu pól; rozjazd choćby w jednym rozsypywał spójność panelu,
@@ -455,7 +460,11 @@ export default function Calculator() {
   // Select steel type
   const selectType = (type: SteelType) => {
     setCurrentType(type);
-    
+
+    // PGL bazowe jest per-typ (HRS/CR/HDG mają różne ceny wsadu) — resetuje się razem
+    // z resztą pól specyficznych dla typu, tak samo jak grubość/szerokość/gatunek niżej.
+    setPglBase(pglBaseForType(type, settings));
+
     // Reset grade
     const defaultGrades: Record<SteelType, string> = { HRS: 'S235JR+N', CR: 'DC01', HDG: 'DX51D+Z' };
     const defaultName = defaultGrades[type];
@@ -854,15 +863,24 @@ export default function Calculator() {
   // zostać wysłana do klienta albo czeka na akceptację seniora. Dlatego dwa zabezpieczenia:
   //   1. wychodzimy, gdy w URL jest ?edit (sprawdzenie synchroniczne — nie czekamy na fetch),
   //   2. ref pilnuje, że domyślne wejdą najwyżej raz i nie skasują ręcznych zmian handlowca.
+  //
+  // Wołamy refreshSettings() zamiast czytać `settings` z kontekstu wprost: CurrencyProvider
+  // żyje przez cały czas trwania karty i ładuje ustawienia RAZ przy starcie, więc bez tego
+  // wejście na kalkulator po tym, jak admin zmienił PGL/kurs w panelu (nawet w tej samej
+  // karcie, przez nawigację klienta), pokazywałoby starą wartość aż do twardego odświeżenia.
   const defaultsAppliedRef = useRef(false);
   useEffect(() => {
     if (defaultsAppliedRef.current) return;
-    if (!settingsLoaded) return;
     if (searchParams.get('edit')) return;
     defaultsAppliedRef.current = true;
-    setPglBase(settings.pglBase);
-    setTransport(settings.transportBase);
-  }, [settingsLoaded, settings, searchParams]);
+    (async () => {
+      const fresh = await refreshSettings();
+      const s = fresh ?? settings;
+      setPglBase(pglBaseForType(currentType, s));
+      setTransport(s.transportBase);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Save offer function
   const handleSaveOffer = async () => {
@@ -910,7 +928,38 @@ export default function Calculator() {
       setTimeout(() => setSaveMessage(null), 3000);
     }
   };
-  
+
+  // Zapisz kontakt do firmy OD RĘKI, bez zapisywania całej oferty (POST
+  // /api/clients/contacts, reużywa upsertClientFromOffer po stronie backendu).
+  const handleSaveContact = async () => {
+    if (clientInfo.firstName.trim() === '' && clientInfo.lastName.trim() === '') {
+      setSaveMessage({ type: 'error', text: t.client?.contactNameRequired || 'Enter a first or last name' });
+      setTimeout(() => setSaveMessage(null), 3000);
+      return;
+    }
+
+    setContactSaving(true);
+    try {
+      const res = await fetch('/api/clients/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(clientInfo),
+      });
+      if (res.ok) {
+        setSaveMessage({ type: 'success', text: t.client?.contactSaved || 'Contact saved to company directory' });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setSaveMessage({ type: 'error', text: data.error || t.client?.contactSaveFailed || 'Failed to save contact' });
+      }
+    } catch (error) {
+      console.error('Error saving contact:', error);
+      setSaveMessage({ type: 'error', text: t.client?.contactSaveFailed || 'Failed to save contact' });
+    } finally {
+      setContactSaving(false);
+      setTimeout(() => setSaveMessage(null), 3000);
+    }
+  };
+
   // Calculate zestawienie totals
   const zestTotal = zestawienie.reduce((s, i) => s + i.totalValue, 0);
   const zestTons = zestawienie.reduce((s, i) => s + i.tons, 0);
@@ -1286,6 +1335,19 @@ export default function Calculator() {
                   />
                 </div>
               </div>
+
+              {/* Zapis kontaktu OD RĘKI, bez zapisywania całej oferty — kontakt trafia
+                  do wspólnego katalogu firmy (client_contacts) od razu po kliknięciu. */}
+              <button
+                type="button"
+                onClick={handleSaveContact}
+                disabled={contactSaving}
+                className="mt-3 px-4 py-2 bg-[var(--accent-hdg)] text-white rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {contactSaving
+                  ? (t.client?.contactSaving || 'Saving...')
+                  : (t.client?.saveContact || '💾 Save contact to company')}
+              </button>
             </fieldset>
           </div>
         )}
@@ -1879,7 +1941,7 @@ export default function Calculator() {
             {/* Final Price */}
             <div className="flex items-center px-4 py-2 mx-3.5 my-2 rounded bg-[rgba(245,71,90,0.08)] border border-[rgba(245,71,90,0.25)]">
               <span className="flex-1 text-xs text-[var(--text-primary)] font-semibold">{t.summary.finalPrice.toUpperCase()}</span>
-              <span className="font-mono text-base font-bold text-[var(--accent-sum)] min-w-[64px] text-right">{money2(cenaKoncowa)}</span>
+              <span className="font-mono text-base font-bold text-[var(--accent-sum)] min-w-[64px] text-right">{moneyCeil(cenaKoncowa)}</span>
               <span className="text-[10px] text-[var(--accent-sum)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
@@ -1911,7 +1973,7 @@ export default function Calculator() {
           {/* Sum Final */}
           <div className={`flex items-center px-4 py-3 border-t-[1.5px] border-[var(--border-hi)] mt-auto ${isDark ? 'bg-[rgba(0,0,0,0.18)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
             <span className="flex-1 text-[11px] font-bold tracking-widest uppercase text-[var(--accent-sum)]">{isCoilMode ? (language === 'pl' ? 'Suma (Marża)' : 'Total (Margin)') : (language === 'pl' ? 'Suma (Marża + SSC)' : 'Total (Margin + SSC)')}</span>
-            <span className="font-mono text-lg font-semibold text-[var(--accent-sum)]">{money2(cenaKoncowa)}</span>
+            <span className="font-mono text-lg font-semibold text-[var(--accent-sum)]">{moneyCeil(cenaKoncowa)}</span>
             <span className="text-[11px] text-[var(--text-secondary)] font-mono ml-1.5">{symbol}</span>
           </div>
         </div>
@@ -2009,9 +2071,9 @@ export default function Calculator() {
                       <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaHuta)}</td>
                       <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaSSC)}</td>
                       <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.marza)}</td>
-                      <td className="px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{money2(item.finalPrice)} {symbol}</td>
+                      <td className="px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{moneyCeil(item.finalPrice)} {symbol}</td>
                       <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{item.tons.toFixed(2)} {t.common.tons}</td>
-                      <td className="px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{money2(item.totalValue)} {currencyUnit}</td>
+                      <td className="px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{moneyCeil(item.totalValue)} {currencyUnit}</td>
                       <td className="px-3.5 py-2 text-right whitespace-nowrap">
                         <button onClick={() => editItem(item.id)} className="bg-transparent border border-[var(--border)] rounded px-2 py-1 text-[13px] hover:border-[var(--accent-cr)] hover:text-[var(--accent-cr)] transition-colors ml-1" title={t.common.edit}>✏️</button>
                         <button onClick={() => dupItem(item.id)} className="bg-transparent border border-[var(--border)] rounded px-2 py-1 text-[13px] hover:border-[#a78bfa] hover:text-[#a78bfa] transition-colors ml-1" title={t.common.duplicate}>⧉</button>
@@ -2030,7 +2092,7 @@ export default function Calculator() {
               {t.zestawienie.total}
             </span>
             <span className="flex items-baseline gap-1.5">
-              <span className="font-mono text-xl font-bold text-[var(--accent-sum)]">{money2(zestTotal)}</span>
+              <span className="font-mono text-xl font-bold text-[var(--accent-sum)]">{moneyCeil(zestTotal)}</span>
               <span className="font-mono text-[11px] text-[var(--text-secondary)]">{currencyUnit} {language === 'pl' ? 'łącznie' : 'total'}</span>
             </span>
           </div>

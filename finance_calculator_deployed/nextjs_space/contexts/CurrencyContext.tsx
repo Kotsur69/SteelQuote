@@ -22,6 +22,16 @@ interface CurrencyContextType {
   /** Bieżące ustawienia globalne z /api/settings (domyślne PGL i transport dla NOWEJ kalkulacji). */
   settings: AppSettings;
   settingsLoaded: boolean;
+  /**
+   * Pobiera świeże ustawienia z /api/settings i aktualizuje kontekst (dla WSZYSTKICH
+   * konsumentów, nie tylko wywołującego). Kontekst mieszka w Providers na poziomie root
+   * layoutu i żyje przez cały czas trwania karty — nawigacja klienta między stronami go
+   * NIE odmontowuje, więc bez tego admin, który właśnie zmienił PGL/kurs w panelu, i tak
+   * widziałby starą wartość w kalkulatorze aż do twardego odświeżenia karty. Strony, którym
+   * zależy na aktualnym stanie przy każdym wejściu (patrz Calculator.tsx), wołają to same
+   * przy montowaniu zamiast polegać wyłącznie na jednorazowym fetchu poniżej.
+   */
+  refreshSettings: () => Promise<AppSettings | null>;
   /** Nadpisuje kurs kursem zamrożonym w ofercie. null = wróć do bieżącego kursu z ustawień. */
   setRateOverride: (rate: number | null) => void;
   /** EUR -> waluta wyświetlania. */
@@ -46,26 +56,33 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     if (isCurrency(stored)) setCurrencyState(stored);
   }, []);
 
-  // Ustawienia globalne. Błąd (np. wygasła sesja, brak migracji) nie może wywrócić
-  // kalkulatora - zostajemy przy DEFAULT_SETTINGS, które są kopią seeda z migracji 007.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/settings');
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled && data?.settings) setSettings(data.settings as AppSettings);
-      } catch (error) {
-        console.error('Nie udało się pobrać ustawień, używam domyślnych:', error);
-      } finally {
-        if (!cancelled) setSettingsLoaded(true);
+  // Pobiera świeże ustawienia z /api/settings i aktualizuje kontekst. Błąd (np. wygasła
+  // sesja, brak migracji) nie może wywrócić kalkulatora - zostajemy przy tym, co już mamy
+  // (na starcie to DEFAULT_SETTINGS, kopia seeda z migracji 007/011).
+  const refreshSettings = useCallback(async (): Promise<AppSettings | null> => {
+    try {
+      const res = await fetch('/api/settings');
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data?.settings) {
+        setSettings(data.settings as AppSettings);
+        return data.settings as AppSettings;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      return null;
+    } catch (error) {
+      console.error('Nie udało się pobrać ustawień, używam domyślnych:', error);
+      return null;
+    } finally {
+      setSettingsLoaded(true);
+    }
   }, []);
+
+  // Jednorazowy fetch przy starcie karty. Providers żyje przez cały czas trwania karty
+  // i NIE odmontowuje się przy nawigacji klienta między stronami, więc to jedyne miejsce,
+  // gdzie ustawienia ładują się "same z siebie" - potem trzeba jawnie wołać refreshSettings().
+  useEffect(() => {
+    refreshSettings();
+  }, [refreshSettings]);
 
   const setCurrency = useCallback((c: Currency) => {
     setCurrencyState(c);
@@ -84,12 +101,13 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       rate,
       settings,
       settingsLoaded,
+      refreshSettings,
       setRateOverride,
       toDisplay: (eur: number) => toDisplayRaw(eur, rate, currency),
       fromDisplay: (v: number) => fromDisplayRaw(v, rate, currency),
       symbol: currencySymbol(currency),
     }),
-    [currency, setCurrency, rate, settings, settingsLoaded]
+    [currency, setCurrency, rate, settings, settingsLoaded, refreshSettings]
   );
 
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;

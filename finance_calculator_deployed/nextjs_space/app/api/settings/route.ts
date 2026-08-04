@@ -6,12 +6,16 @@ import { DEFAULT_SETTINGS, type AppSettings } from '@/lib/currency';
 // Wiersz z bazy -> kształt dla klienta. NUMERIC wraca z pg jako string, więc parsujemy.
 function rowToSettings(row: {
   eur_pln_rate: string | number;
-  pgl_base: string | number;
+  pgl_base_hrs: string | number;
+  pgl_base_cr: string | number;
+  pgl_base_hdg: string | number;
   transport_base: string | number;
 }): AppSettings {
   return {
     eurPlnRate: Number(row.eur_pln_rate),
-    pglBase: Number(row.pgl_base),
+    pglBaseHrs: Number(row.pgl_base_hrs),
+    pglBaseCr: Number(row.pgl_base_cr),
+    pglBaseHdg: Number(row.pgl_base_hdg),
     transportBase: Number(row.transport_base),
   };
 }
@@ -28,7 +32,7 @@ export async function GET() {
 
   try {
     const result = await pool.query(
-      'SELECT eur_pln_rate, pgl_base, transport_base FROM app_settings WHERE id = 1'
+      'SELECT eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, transport_base FROM app_settings WHERE id = 1'
     );
     // Brak wiersza = migracja 007 nie została puszczona. Nie wywracamy kalkulatora —
     // oddajemy wartości domyślne (identyczne z seedem migracji).
@@ -66,7 +70,8 @@ function parseNumber(
 }
 
 // PATCH - Zmiana ustawień. Tylko admin.
-// Body: { eurPlnRate?, pglBase?, transportBase? } - wysyłamy tylko to, co się zmienia.
+// Body: { eurPlnRate?, pglBaseHrs?, pglBaseCr?, pglBaseHdg?, transportBase? } - wysyłamy
+// tylko to, co się zmienia.
 //
 // Walidacja jest tu krytyczna: literówka w kursie (43 zamiast 4,3) zawyżyłaby KAŻDĄ
 // nową wycenę w PLN dziesięciokrotnie. Baza ma te same CHECK-i jako druga linia obrony.
@@ -80,7 +85,9 @@ export async function PATCH(request: NextRequest) {
 
     const spec = [
       { key: 'eurPlnRate', column: 'eur_pln_rate', label: 'Kurs EUR/PLN', min: 0.0001, max: 100 },
-      { key: 'pglBase', column: 'pgl_base', label: 'PGL bazowe', min: 0, max: 100000 },
+      { key: 'pglBaseHrs', column: 'pgl_base_hrs', label: 'PGL bazowe HRS', min: 0, max: 100000 },
+      { key: 'pglBaseCr', column: 'pgl_base_cr', label: 'PGL bazowe CR', min: 0, max: 100000 },
+      { key: 'pglBaseHdg', column: 'pgl_base_hdg', label: 'PGL bazowe HDG', min: 0, max: 100000 },
       { key: 'transportBase', column: 'transport_base', label: 'Transport bazowy', min: 0, max: 100000 },
     ] as const;
 
@@ -108,7 +115,7 @@ export async function PATCH(request: NextRequest) {
 
     const result = await pool.query(
       `UPDATE app_settings SET ${sets.join(', ')} WHERE id = 1
-       RETURNING eur_pln_rate, pgl_base, transport_base`,
+       RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, transport_base`,
       values
     );
 

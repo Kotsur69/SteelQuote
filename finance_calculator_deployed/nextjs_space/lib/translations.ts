@@ -308,6 +308,11 @@ export interface Translations {
     // już po samym kliknięciu.
     contactSearchPlaceholder: string;
     lookupError: string;
+    saveContact: string;
+    contactSaving: string;
+    contactSaved: string;
+    contactSaveFailed: string;
+    contactNameRequired: string;
   };
 
   // PDF Export
@@ -394,7 +399,9 @@ export interface Translations {
       subtitle: string;
       eurPlnRate: string;
       eurPlnRateHint: string;
-      pglBase: string;
+      pglBaseHrs: string;
+      pglBaseCr: string;
+      pglBaseHdg: string;
       pglBaseHint: string;
       transportBase: string;
       transportBaseHint: string;
@@ -458,6 +465,14 @@ export interface Translations {
     actions: string;
     createdAt: string;
     deletedUser: string;
+    navContacts: string;
+    noContacts: string;
+    confirmDeleteContact: string;
+    contactUpdated: string;
+    contactDeleted: string;
+    addContact: string;
+    editContact: string;
+    person: string;
   };
 }
 
@@ -621,7 +636,7 @@ export const pl: Translations = {
     surface: 'Powierzchnia',
     maxPackWeight: 'Max. waga paczki',
     marking: 'Oznakowanie',
-    edging: 'Brzegi',
+    edging: 'Brzegowanie',
     yieldStrength: 'Granica plastyczności (YS)',
     packaging: 'Rodzaj opakowania',
     packagingDesc: {
@@ -644,7 +659,7 @@ export const pl: Translations = {
     millSurcharges: 'Dopłaty huta',
     inputPrice: 'Cena wsadu',
     margin: 'Marża',
-    extra: 'Extra',
+    extra: 'Dopłata dodatkowa',
     transport: 'Transport',
     sscSurcharges: 'Dopłaty SSC',
     finalPrice: 'Cena końcowa',
@@ -734,6 +749,11 @@ export const pl: Translations = {
     searchPlaceholder: 'Zacznij pisać — podpowiemy z bazy',
     contactSearchPlaceholder: 'Wybierz osobę lub wpisz nową',
     lookupError: 'Nie udało się pobrać podpowiedzi',
+    saveContact: '💾 Zapisz kontakt do firmy',
+    contactSaving: 'Zapisywanie...',
+    contactSaved: 'Kontakt zapisany w katalogu firmy',
+    contactSaveFailed: 'Nie udało się zapisać kontaktu',
+    contactNameRequired: 'Podaj imię lub nazwisko',
   },
 
   pdf: {
@@ -813,8 +833,10 @@ export const pl: Translations = {
       subtitle: 'wartości bazowe i kurs walutowy',
       eurPlnRate: 'Kurs EUR → PLN',
       eurPlnRateHint: 'Ile złotych kosztuje 1 euro (np. 4,30).',
-      pglBase: 'PGL bazowe',
-      pglBaseHint: 'Wartość startowa PGL w nowej kalkulacji. Handlowiec może ją nadpisać.',
+      pglBaseHrs: 'PGL bazowe (HRS)',
+      pglBaseCr: 'PGL bazowe (CR)',
+      pglBaseHdg: 'PGL bazowe (HDG)',
+      pglBaseHint: 'Wartość startowa PGL w nowej kalkulacji dla tego typu stali. Handlowiec może ją nadpisać.',
       transportBase: 'Transport bazowy',
       transportBaseHint: 'Wartość startowa transportu w nowej kalkulacji. Handlowiec może ją nadpisać.',
       save: 'Zapisz ustawienia',
@@ -878,6 +900,14 @@ export const pl: Translations = {
     actions: 'Akcje',
     createdAt: 'Utworzono',
     deletedUser: '— handlowiec usunięty —',
+    navContacts: 'Kontakty',
+    noContacts: 'Brak kontaktów w bazie',
+    confirmDeleteContact: 'Czy na pewno usunąć ten kontakt?',
+    contactUpdated: 'Kontakt zaktualizowany',
+    contactDeleted: 'Kontakt usunięty',
+    addContact: 'Dodaj kontakt',
+    editContact: 'Edytuj kontakt',
+    person: 'Osoba',
   },
 };
 
@@ -1154,6 +1184,11 @@ export const en: Translations = {
     searchPlaceholder: 'Start typing — we will suggest from the database',
     contactSearchPlaceholder: 'Pick a person or type a new one',
     lookupError: 'Could not load suggestions',
+    saveContact: '💾 Save contact to company',
+    contactSaving: 'Saving...',
+    contactSaved: 'Contact saved to company directory',
+    contactSaveFailed: 'Failed to save contact',
+    contactNameRequired: 'Enter a first or last name',
   },
 
   pdf: {
@@ -1233,8 +1268,10 @@ export const en: Translations = {
       subtitle: 'base values and exchange rate',
       eurPlnRate: 'EUR → PLN rate',
       eurPlnRateHint: 'How many zloty one euro costs (e.g. 4.30).',
-      pglBase: 'Base PGL',
-      pglBaseHint: 'Starting PGL value for a new calculation. Salespeople can override it.',
+      pglBaseHrs: 'Base PGL (HRS)',
+      pglBaseCr: 'Base PGL (CR)',
+      pglBaseHdg: 'Base PGL (HDG)',
+      pglBaseHint: 'Starting PGL value for a new calculation of this steel type. Salespeople can override it.',
       transportBase: 'Base transport',
       transportBaseHint: 'Starting transport value for a new calculation. Salespeople can override it.',
       save: 'Save settings',
@@ -1298,6 +1335,14 @@ export const en: Translations = {
     actions: 'Actions',
     createdAt: 'Created',
     deletedUser: '— salesperson deleted —',
+    navContacts: 'Contacts',
+    noContacts: 'No contacts in the database',
+    confirmDeleteContact: 'Are you sure you want to delete this contact?',
+    contactUpdated: 'Contact updated',
+    contactDeleted: 'Contact deleted',
+    addContact: 'Add contact',
+    editContact: 'Edit contact',
+    person: 'Person',
   },
 };
 
@@ -1573,6 +1618,11 @@ export const cs: Translations = {
     searchPlaceholder: 'Začněte psát — napovíme z databáze',
     contactSearchPlaceholder: 'Vyberte osobu nebo zadejte novou',
     lookupError: 'Nepodařilo se načíst návrhy',
+    saveContact: '💾 Uložit kontakt k firmě',
+    contactSaving: 'Ukládání...',
+    contactSaved: 'Kontakt uložen do katalogu firmy',
+    contactSaveFailed: 'Nepodařilo se uložit kontakt',
+    contactNameRequired: 'Zadejte jméno nebo příjmení',
   },
 
   pdf: {
@@ -1652,8 +1702,10 @@ export const cs: Translations = {
       subtitle: 'základní hodnoty a měnový kurz',
       eurPlnRate: 'Kurz EUR → PLN',
       eurPlnRateHint: 'Kolik zlotých stojí 1 euro (např. 4,30).',
-      pglBase: 'Základní PGL',
-      pglBaseHint: 'Výchozí hodnota PGL pro novou kalkulaci. Obchodník ji může přepsat.',
+      pglBaseHrs: 'Základní PGL (HRS)',
+      pglBaseCr: 'Základní PGL (CR)',
+      pglBaseHdg: 'Základní PGL (HDG)',
+      pglBaseHint: 'Výchozí hodnota PGL pro novou kalkulaci tohoto typu oceli. Obchodník ji může přepsat.',
       transportBase: 'Základní doprava',
       transportBaseHint: 'Výchozí hodnota dopravy pro novou kalkulaci. Obchodník ji může přepsat.',
       save: 'Uložit nastavení',
@@ -1717,6 +1769,14 @@ export const cs: Translations = {
     actions: 'Akce',
     createdAt: 'Vytvořeno',
     deletedUser: '— obchodník smazán —',
+    navContacts: 'Kontakty',
+    noContacts: 'V databázi nejsou žádné kontakty',
+    confirmDeleteContact: 'Opravdu chcete smazat tento kontakt?',
+    contactUpdated: 'Kontakt aktualizován',
+    contactDeleted: 'Kontakt smazán',
+    addContact: 'Přidat kontakt',
+    editContact: 'Upravit kontakt',
+    person: 'Osoba',
   },
 };
 
@@ -1992,6 +2052,11 @@ export const de: Translations = {
     searchPlaceholder: 'Tippen Sie los — wir schlagen aus der Datenbank vor',
     contactSearchPlaceholder: 'Person wählen oder neue eingeben',
     lookupError: 'Vorschläge konnten nicht geladen werden',
+    saveContact: '💾 Kontakt zur Firma speichern',
+    contactSaving: 'Speichern...',
+    contactSaved: 'Kontakt im Firmenverzeichnis gespeichert',
+    contactSaveFailed: 'Kontakt konnte nicht gespeichert werden',
+    contactNameRequired: 'Vor- oder Nachname angeben',
   },
 
   pdf: {
@@ -2071,8 +2136,10 @@ export const de: Translations = {
       subtitle: 'Basiswerte und Wechselkurs',
       eurPlnRate: 'Kurs EUR → PLN',
       eurPlnRateHint: 'Wie viele Zloty ein Euro kostet (z. B. 4,30).',
-      pglBase: 'Basis-PGL',
-      pglBaseHint: 'Startwert für PGL in einer neuen Kalkulation. Vertrieb kann ihn überschreiben.',
+      pglBaseHrs: 'Basis-PGL (HRS)',
+      pglBaseCr: 'Basis-PGL (CR)',
+      pglBaseHdg: 'Basis-PGL (HDG)',
+      pglBaseHint: 'Startwert für PGL in einer neuen Kalkulation dieses Stahltyps. Vertrieb kann ihn überschreiben.',
       transportBase: 'Basis-Transport',
       transportBaseHint: 'Startwert für Transport in einer neuen Kalkulation. Vertrieb kann ihn überschreiben.',
       save: 'Einstellungen speichern',
@@ -2136,6 +2203,14 @@ export const de: Translations = {
     actions: 'Aktionen',
     createdAt: 'Erstellt',
     deletedUser: '— Vertriebsmitarbeiter gelöscht —',
+    navContacts: 'Kontakte',
+    noContacts: 'Keine Kontakte in der Datenbank',
+    confirmDeleteContact: 'Diesen Kontakt wirklich löschen?',
+    contactUpdated: 'Kontakt aktualisiert',
+    contactDeleted: 'Kontakt gelöscht',
+    addContact: 'Kontakt hinzufügen',
+    editContact: 'Kontakt bearbeiten',
+    person: 'Person',
   },
 };
 
