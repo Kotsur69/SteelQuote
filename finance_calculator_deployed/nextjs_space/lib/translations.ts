@@ -94,6 +94,8 @@ export interface Translations {
     actions: string;
     noItems: string;
     duplicated: string;
+    needsReviewBadge: string;
+    readyToSendBadge: string;
     deleted: string;
     updated: string;
   };
@@ -197,9 +199,11 @@ export interface Translations {
     title: string;
     subtitle: string;
     pglBase: string;
+    pglBelowBaseWarning: string;
     millSurcharges: string;
     inputPrice: string;
     margin: string;
+    marginBelowMinWarning: string;
     extra: string;
     transport: string;
     sscSurcharges: string;
@@ -405,6 +409,8 @@ export interface Translations {
       pglBaseCr: string;
       pglBaseHdg: string;
       pglBaseHint: string;
+      minMarginPct: string;
+      minMarginPctHint: string;
       transportBase: string;
       transportBaseHint: string;
       save: string;
@@ -576,6 +582,8 @@ export const pl: Translations = {
     actions: 'Akcje',
     noItems: 'Brak pozycji',
     duplicated: 'Oferta skopiowana pomyślnie!',
+    needsReviewBadge: 'Wymaga zatwierdzenia',
+    readyToSendBadge: 'Gotowa do wysyłki',
     deleted: 'Oferta usunięta pomyślnie!',
     updated: 'Oferta zaktualizowana pomyślnie!',
   },
@@ -672,9 +680,11 @@ export const pl: Translations = {
     title: 'Podsumowanie',
     subtitle: 'final pricing',
     pglBase: 'PGL bazowe',
+    pglBelowBaseWarning: 'PGL bazowe poniżej wartości ustawionej w Ustawieniach — ta pozycja będzie wymagać zatwierdzenia',
     millSurcharges: 'Dopłaty huta',
     inputPrice: 'Cena wsadu',
     margin: 'Marża',
+    marginBelowMinWarning: 'Marża poniżej wymaganego minimum — ta pozycja będzie wymagać zatwierdzenia',
     extra: 'Dopłata dodatkowa',
     transport: 'Transport',
     sscSurcharges: 'Dopłaty SSC',
@@ -854,6 +864,8 @@ export const pl: Translations = {
       pglBaseHdg: 'PGL bazowe (HDG)',
       pglBaseHint: 'Wartość startowa PGL w nowej kalkulacji dla tego typu stali. Handlowiec może ją nadpisać.',
       transportBase: 'Transport bazowy',
+      minMarginPct: 'Minimalna marża (%)',
+      minMarginPctHint: 'Poniżej tego progu marża pozycji wymaga zatwierdzenia przez seniora lub admina.',
       transportBaseHint: 'Wartość startowa transportu w nowej kalkulacji. Handlowiec może ją nadpisać.',
       save: 'Zapisz ustawienia',
       saved: 'Ustawienia zapisane.',
@@ -1025,6 +1037,8 @@ export const en: Translations = {
     actions: 'Actions',
     noItems: 'No items',
     duplicated: 'Offer duplicated successfully!',
+    needsReviewBadge: 'Needs approval',
+    readyToSendBadge: 'Ready to send',
     deleted: 'Offer deleted successfully!',
     updated: 'Offer updated successfully!',
   },
@@ -1121,9 +1135,11 @@ export const en: Translations = {
     title: 'Summary',
     subtitle: 'final pricing',
     pglBase: 'PGL base',
+    pglBelowBaseWarning: 'PGL base is below the value set in Settings — this position will require approval',
     millSurcharges: 'Mill surcharges',
     inputPrice: 'Input price',
     margin: 'Margin',
+    marginBelowMinWarning: 'Margin is below the required minimum — this position will require approval',
     extra: 'Extra',
     transport: 'Transport',
     sscSurcharges: 'SSC surcharges',
@@ -1303,6 +1319,8 @@ export const en: Translations = {
       pglBaseHdg: 'Base PGL (HDG)',
       pglBaseHint: 'Starting PGL value for a new calculation of this steel type. Salespeople can override it.',
       transportBase: 'Base transport',
+      minMarginPct: 'Minimum margin (%)',
+      minMarginPctHint: 'Below this margin threshold, a position requires senior or admin approval.',
       transportBaseHint: 'Starting transport value for a new calculation. Salespeople can override it.',
       save: 'Save settings',
       saved: 'Settings saved.',
@@ -1473,6 +1491,8 @@ export const cs: Translations = {
     actions: 'Akce',
     noItems: 'Žádné položky',
     duplicated: 'Nabídka byla úspěšně duplikována!',
+    needsReviewBadge: 'Vyžaduje schválení',
+    readyToSendBadge: 'Připraveno k odeslání',
     deleted: 'Nabídka byla úspěšně smazána!',
     updated: 'Nabídka byla úspěšně aktualizována!',
   },
@@ -1569,9 +1589,11 @@ export const cs: Translations = {
     title: 'Souhrn',
     subtitle: 'konečná cena',
     pglBase: 'Základ PGL',
+    pglBelowBaseWarning: 'Základ PGL je pod hodnotou nastavenou v Nastavení — tato položka bude vyžadovat schválení',
     millSurcharges: 'Hutní příplatky',
     inputPrice: 'Vstupní cena',
     margin: 'Marže',
+    marginBelowMinWarning: 'Marže je pod požadovaným minimem — tato položka bude vyžadovat schválení',
     extra: 'Příplatek',
     transport: 'Doprava',
     sscSurcharges: 'Příplatky SSC',
@@ -1751,6 +1773,8 @@ export const cs: Translations = {
       pglBaseHdg: 'Základní PGL (HDG)',
       pglBaseHint: 'Výchozí hodnota PGL pro novou kalkulaci tohoto typu oceli. Obchodník ji může přepsat.',
       transportBase: 'Základní doprava',
+      minMarginPct: 'Minimální marže (%)',
+      minMarginPctHint: 'Pod touto hranicí marže položka vyžaduje schválení seniorem nebo adminem.',
       transportBaseHint: 'Výchozí hodnota dopravy pro novou kalkulaci. Obchodník ji může přepsat.',
       save: 'Uložit nastavení',
       saved: 'Nastavení uloženo.',
@@ -1921,6 +1945,8 @@ export const de: Translations = {
     actions: 'Aktionen',
     noItems: 'Keine Positionen',
     duplicated: 'Angebot erfolgreich dupliziert!',
+    needsReviewBadge: 'Erfordert Genehmigung',
+    readyToSendBadge: 'Versandbereit',
     deleted: 'Angebot erfolgreich gelöscht!',
     updated: 'Angebot erfolgreich aktualisiert!',
   },
@@ -2017,9 +2043,11 @@ export const de: Translations = {
     title: 'Zusammenfassung',
     subtitle: 'Endpreis',
     pglBase: 'PGL-Basis',
+    pglBelowBaseWarning: 'PGL-Basis liegt unter dem in den Einstellungen festgelegten Wert — diese Position erfordert eine Genehmigung',
     millSurcharges: 'Hüttenzuschläge',
     inputPrice: 'Einsatzpreis',
     margin: 'Marge',
+    marginBelowMinWarning: 'Marge liegt unter dem erforderlichen Minimum — diese Position erfordert eine Genehmigung',
     extra: 'Zuschlag',
     transport: 'Transport',
     sscSurcharges: 'SSC-Zuschläge',
@@ -2199,6 +2227,8 @@ export const de: Translations = {
       pglBaseHdg: 'Basis-PGL (HDG)',
       pglBaseHint: 'Startwert für PGL in einer neuen Kalkulation dieses Stahltyps. Vertrieb kann ihn überschreiben.',
       transportBase: 'Basis-Transport',
+      minMarginPct: 'Mindestmarge (%)',
+      minMarginPctHint: 'Unterhalb dieser Marge erfordert eine Position die Genehmigung durch Senior oder Admin.',
       transportBaseHint: 'Startwert für Transport in einer neuen Kalkulation. Vertrieb kann ihn überschreiben.',
       save: 'Einstellungen speichern',
       saved: 'Einstellungen gespeichert.',

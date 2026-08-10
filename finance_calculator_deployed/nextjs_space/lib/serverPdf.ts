@@ -26,6 +26,7 @@ interface ZestItem {
   sumaSSC?: number;
   isCoil?: boolean;
   coating?: string;
+  notes?: string[];
 }
 
 export interface ServerPdfInput {
@@ -52,6 +53,7 @@ export async function downloadServerPdf(input: ServerPdfInput): Promise<void> {
     length: it.length,
     isCoil: it.isCoil ?? false,
     coating: it.coating ?? '',
+    notes: it.notes ?? [],
     quantity: it.tons,
     pricePerTon: it.finalPrice,
     totalValue: it.totalValue,

@@ -27,6 +27,7 @@ function toForm(s: AppSettings): FormState {
     pglBaseCr: String(s.pglBaseCr),
     pglBaseHdg: String(s.pglBaseHdg),
     transportBase: String(s.transportBase),
+    minMarginPct: String(s.minMarginPct),
   };
 }
 
@@ -84,6 +85,7 @@ export default function AdminSettingsPage() {
           pglBaseCr: form.pglBaseCr,
           pglBaseHdg: form.pglBaseHdg,
           transportBase: form.transportBase,
+          minMarginPct: form.minMarginPct,
         }),
       });
       const data = await res.json();
@@ -142,6 +144,13 @@ export default function AdminSettingsPage() {
       hint: t.admin.settings.transportBaseHint,
       unit: '€/t',
       step: '0.01',
+    },
+    {
+      key: 'minMarginPct',
+      label: t.admin.settings.minMarginPct,
+      hint: t.admin.settings.minMarginPctHint,
+      unit: '%',
+      step: '0.1',
     },
   ];
 

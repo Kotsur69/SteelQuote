@@ -1,24 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
-import { DEFAULT_SETTINGS, type AppSettings } from '@/lib/currency';
-
-// Wiersz z bazy -> kształt dla klienta. NUMERIC wraca z pg jako string, więc parsujemy.
-function rowToSettings(row: {
-  eur_pln_rate: string | number;
-  pgl_base_hrs: string | number;
-  pgl_base_cr: string | number;
-  pgl_base_hdg: string | number;
-  transport_base: string | number;
-}): AppSettings {
-  return {
-    eurPlnRate: Number(row.eur_pln_rate),
-    pglBaseHrs: Number(row.pgl_base_hrs),
-    pglBaseCr: Number(row.pgl_base_cr),
-    pglBaseHdg: Number(row.pgl_base_hdg),
-    transportBase: Number(row.transport_base),
-  };
-}
+import { DEFAULT_SETTINGS, settingsRowToAppSettings, type AppSettings } from '@/lib/currency';
 
 // GET - Globalne ustawienia. Dostępne dla KAŻDEJ zalogowanej roli: junior i senior
 // potrzebują kursu, żeby w ogóle wyświetlić cenę w PLN, a PGL/transport są ich
@@ -32,14 +15,14 @@ export async function GET() {
 
   try {
     const result = await pool.query(
-      'SELECT eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, transport_base FROM app_settings WHERE id = 1'
+      'SELECT eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, transport_base, min_margin_pct FROM app_settings WHERE id = 1'
     );
     // Brak wiersza = migracja 007 nie została puszczona. Nie wywracamy kalkulatora —
     // oddajemy wartości domyślne (identyczne z seedem migracji).
     if (result.rows.length === 0) {
       return NextResponse.json({ settings: DEFAULT_SETTINGS });
     }
-    return NextResponse.json({ settings: rowToSettings(result.rows[0]) });
+    return NextResponse.json({ settings: settingsRowToAppSettings(result.rows[0]) });
   } catch (error) {
     // 42P01 = undefined_table. Zdarza się, gdy kod jest wdrożony, a migracja 007 jeszcze
     // nie puszczona. Kalkulator ma wtedy działać na wartościach domyślnych, a nie sypać
@@ -100,6 +83,7 @@ export async function PATCH(request: NextRequest) {
       { key: 'pglBaseCr', column: 'pgl_base_cr', label: 'PGL bazowe CR', min: 0, max: 100000, steelType: 'CR' },
       { key: 'pglBaseHdg', column: 'pgl_base_hdg', label: 'PGL bazowe HDG', min: 0, max: 100000, steelType: 'HDG' },
       { key: 'transportBase', column: 'transport_base', label: 'Transport bazowy', min: 0, max: 100000, steelType: null },
+      { key: 'minMarginPct', column: 'min_margin_pct', label: 'Minimalna marża', min: 0, max: 100, steelType: null },
     ];
 
     const sets: string[] = [];
@@ -154,7 +138,7 @@ export async function PATCH(request: NextRequest) {
 
       const result = await db.query(
         `UPDATE app_settings SET ${sets.join(', ')} WHERE id = 1
-         RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, transport_base`,
+         RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, transport_base, min_margin_pct`,
         values
       );
 
@@ -171,7 +155,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       await db.query('COMMIT');
-      return NextResponse.json({ settings: rowToSettings(result.rows[0]) });
+      return NextResponse.json({ settings: settingsRowToAppSettings(result.rows[0]) });
     } catch (error) {
       await db.query('ROLLBACK');
       throw error;

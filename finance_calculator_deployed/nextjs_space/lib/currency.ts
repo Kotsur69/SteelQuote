@@ -22,6 +22,9 @@ export interface AppSettings {
   pglBaseCr: number;
   pglBaseHdg: number;
   transportBase: number;
+  // Próg marży (%), poniżej którego oferta wymaga zatwierdzenia przez seniora/admina
+  // (patrz lib/offerReview.ts) — konfigurowalny w Ustawieniach, tak jak PGL bazowe.
+  minMarginPct: number;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -30,7 +33,29 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pglBaseCr: 645,
   pglBaseHdg: 645,
   transportBase: 20,
+  minMarginPct: 7,
 };
+
+// Wiersz app_settings z bazy -> kształt dla klienta. NUMERIC wraca z pg jako string,
+// więc parsujemy. Współdzielone przez /api/settings, /api/offers/[id]/send i
+// /api/offers/[id] (PUT), żeby serwer liczył offerNeedsReview na tych samych wartościach.
+export function settingsRowToAppSettings(row: {
+  eur_pln_rate: string | number;
+  pgl_base_hrs: string | number;
+  pgl_base_cr: string | number;
+  pgl_base_hdg: string | number;
+  transport_base: string | number;
+  min_margin_pct: string | number;
+}): AppSettings {
+  return {
+    eurPlnRate: Number(row.eur_pln_rate),
+    pglBaseHrs: Number(row.pgl_base_hrs),
+    pglBaseCr: Number(row.pgl_base_cr),
+    pglBaseHdg: Number(row.pgl_base_hdg),
+    transportBase: Number(row.transport_base),
+    minMarginPct: Number(row.min_margin_pct),
+  };
+}
 
 // PGL bazowe dla aktualnie wybranego typu stali w kalkulatorze.
 export function pglBaseForType(type: SteelType, settings: AppSettings): number {

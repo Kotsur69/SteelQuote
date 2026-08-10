@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     const result = await pool.query(
       `SELECT o.id, o.offer_name, o.display_name, o.offer_data, o.status, o.user_id,
               o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at,
-              o.rejection_reason, o.sent_at,
+              o.rejection_reason, o.sent_at, o.root_offer_id, o.version_number,
               u.full_name AS owner_name, u.email AS owner_email,
               r.full_name AS reviewer_name, r.email AS reviewer_email
        FROM offers o

@@ -6,11 +6,16 @@ import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import Navigation from '@/components/Navigation';
 import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
+import { attachNotesToZestawienie } from '@/lib/itemNotes';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
 import { useHighContrast } from '@/lib/useHighContrast';
 import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
+import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
+import { offerNeedsReview } from '@/lib/offerReview';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import type { ItemInputs } from '@/lib/calculatorData';
 import {
   formatOfferMoney,
   formatOfferMoneyCeil,
@@ -33,7 +38,7 @@ interface OfferData {
   transport: number;
   zestawienie: Array<{
     id: number;
-    type: string;
+    type: 'HRS' | 'CR' | 'HDG';
     grade: string;
     thickness: number;
     width: number;
@@ -45,6 +50,9 @@ interface OfferData {
     tons: number;
     totalValue: number;
     pgl: number;
+    // Marża pozycji (inputs.marginPct) — potrzebna do wyliczenia offerNeedsReview
+    // (lib/offerReview.ts). Starsze pozycje sprzed tej funkcji mogą jej nie mieć.
+    inputs?: ItemInputs;
   }>;
   // Client info
   clientInfo?: ClientInfo;
@@ -95,10 +103,13 @@ interface Offer {
   sent_at?: string | null;
   created_at: string;
   updated_at: string;
+  root_offer_id: number | null;
+  version_number: number;
 }
 
 export default function OffersPage() {
   const { t, language } = useLanguage();
+  const { settings } = useCurrency();
   const router = useRouter();
   const [isDark, setIsDark] = useDarkMode();
   const [highContrast, setHighContrast] = useHighContrast();
@@ -110,6 +121,8 @@ export default function OffersPage() {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   // Która oferta ma rozwinięty podgląd pozycji (z cenami). null = wszystkie zwinięte.
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  // Której oferty (root id) ma rozwiniętą listę poprzednich wersji. null = wszystkie zwinięte.
+  const [expandedVersionsId, setExpandedVersionsId] = useState<number | null>(null);
   // Sortowanie listy ofert.
   const [sortKey, setSortKey] = useState<'date' | 'name' | 'value' | 'status'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -255,7 +268,7 @@ export default function OffersPage() {
         offerName: offer.display_name,
         offerId: offer.id,
         clientInfo: normalizeClientInfo(offer.offer_data.clientInfo),
-        zestawienie: offer.offer_data.zestawienie || [],
+        zestawienie: attachNotesToZestawienie(offer.offer_data.zestawienie || [], t, language),
         createdAt: offer.created_at,
         // Waluta i kurs z SAMEJ oferty - PDF ma wyjść taki, jaki widział handlowiec,
         // niezależnie od tego, co admin ustawił później.
@@ -328,6 +341,10 @@ export default function OffersPage() {
     });
   }, [offers, sortKey, sortDir]);
 
+  // Grupowanie: każda oferta-korzeń wraz ze swoimi wersjami (offer_30, offer_30.1, ...).
+  // Kolejność grup podąża za sortedOffers - grupa pojawia się tam, gdzie jej korzeń.
+  const offerGroups = useMemo(() => groupOffersByVersion(sortedOffers), [sortedOffers]);
+
   // Kolor badge'a statusu — spójny z akcentami tej strony (CSS custom properties).
   const statusBadgeClass = (status: OfferStatus): string => {
     switch (status) {
@@ -344,6 +361,11 @@ export default function OffersPage() {
         return 'border-[var(--border-hi)] text-[var(--text-secondary)] bg-[rgba(125,136,170,0.10)]';
     }
   };
+
+  // Czy oferta wymaga zatwierdzenia seniora/admina zamiast bezpośredniej wysyłki przez
+  // juniora — patrz lib/offerReview.ts. Liczone na bieżących Ustawieniach (mogą się
+  // różnić od tych z chwili dodania pozycji), tak samo jak serwer w /api/offers/[id]/send.
+  const needsReview = (offer: Offer) => offerNeedsReview(offer.offer_data.zestawienie, settings);
 
   // Uprawnienia do akcji na jednej ofercie, zależne od roli i statusu.
   const perms = (offer: Offer) => {
@@ -363,7 +385,7 @@ export default function OffersPage() {
       canSend:
         isOwner &&
         ((isReviewer && (s === 'draft' || s === 'approved')) ||
-          (role === 'junior' && s === 'approved')),
+          (role === 'junior' && (s === 'approved' || (s === 'draft' && !needsReview(offer))))),
       // Senior i admin recenzują cudze oferty oczekujące na weryfikację.
       canReview: isReviewer && !isOwner && s === 'pending_review',
     };
@@ -555,12 +577,13 @@ export default function OffersPage() {
           </div>
         ) : (
           <div className="divide-y divide-[var(--border)]">
-            {sortedOffers.map((offer) => {
+            {offerGroups.map(({ primary: offer, history: versions }) => {
               const p = perms(offer);
               return (
               <div
                 key={offer.id}
-                className={`p-4 hover:bg-[rgba(255,255,255,0.02)] transition-colors ${
+                onClick={() => { if (p.canEdit) handleEdit(offer.id); }}
+                className={`p-4 transition-colors ${p.canEdit ? 'cursor-pointer' : ''} hover:bg-[rgba(255,255,255,0.02)] ${
                   highContrast ? 'hover:bg-[rgba(0,0,0,0.10)]' : !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
                 }`}
               >
@@ -575,12 +598,25 @@ export default function OffersPage() {
                       >
                         {t.offerStatus[offer.status]}
                       </span>
+                      {/* Tylko draft ma dwie ścieżki (wysyłka wprost albo przez zatwierdzenie) —
+                          badge tłumaczy, dlaczego przycisk Wyślij jest lub nie jest dostępny. */}
+                      {offer.status === 'draft' && (
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border ${
+                            needsReview(offer)
+                              ? 'border-[var(--accent-hrs)] text-[var(--accent-hrs)] bg-[rgba(232,160,32,0.12)]'
+                              : 'border-[var(--accent-hdg)] text-[var(--accent-hdg)] bg-[rgba(46,204,113,0.12)]'
+                          }`}
+                        >
+                          {needsReview(offer) ? t.offers.needsReviewBadge : t.offers.readyToSendBadge}
+                        </span>
+                      )}
                     </div>
                     {/* Stały numer oferty pod nazwą — dyskretny, nazwa zostaje najważniejsza.
                         Pokazujemy ZAWSZE, także gdy oferta nie ma nazwy własnej i tytułem jest
                         już "offer_19" — numer ma być w tym samym miejscu w KAŻDYM wierszu. */}
                     <p className="mt-0.5 text-[10px] font-mono text-[var(--text-secondary)] opacity-60">
-                      offer_{offer.id}
+                      {offerNumberLabel(offer)}
                     </p>
                     {/* Właściciel oferty — istotne dla seniora recenzującego cudze oferty */}
                     {!perms(offer).isOwner && (
@@ -601,7 +637,7 @@ export default function OffersPage() {
                       {/* Klik na liczbę pozycji rozwija/zwija pełną listę z cenami. */}
                       {getOfferItemCount(offer) > 0 ? (
                         <button
-                          onClick={() => setExpandedId(expandedId === offer.id ? null : offer.id)}
+                          onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === offer.id ? null : offer.id); }}
                           className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
                           title={language === 'pl' ? 'Pokaż/ukryj pozycje' : 'Show/hide items'}
                         >
@@ -671,7 +707,7 @@ export default function OffersPage() {
                           ))}
                           {offer.offer_data.zestawienie.length > 3 && (
                             <button
-                              onClick={() => setExpandedId(offer.id)}
+                              onClick={(e) => { e.stopPropagation(); setExpandedId(offer.id); }}
                               className="px-2 py-1 rounded text-[10px] font-mono text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                             >
                               +{offer.offer_data.zestawienie.length - 3} {language === 'pl' ? 'więcej' : 'more'}
@@ -683,7 +719,7 @@ export default function OffersPage() {
                   </div>
                   
                   {/* Action buttons */}
-                  <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+                  <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleExportExcel(offer)}
                       disabled={!offer.offer_data.zestawienie || offer.offer_data.zestawienie.length === 0}
@@ -781,6 +817,77 @@ export default function OffersPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Poprzednie wersje tej oferty (offer_X.1, offer_X.2, ...) - zwinięte domyślnie,
+                    żeby częste edycje nie zaśmiecały listy. */}
+                {versions.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setExpandedVersionsId(expandedVersionsId === offer.id ? null : offer.id); }}
+                      className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    >
+                      🕓 {versions.length} {versions.length === 1
+                        ? (language === 'pl' ? 'poprzednia wersja' : 'previous version')
+                        : (language === 'pl' ? 'poprzednie wersje' : 'previous versions')}
+                      <span className="text-[8px]">{expandedVersionsId === offer.id ? '▲' : '▼'}</span>
+                    </button>
+                    {expandedVersionsId === offer.id && (
+                      <div className="mt-2 space-y-1.5 pl-3 border-l-2 border-[var(--border)]">
+                        {versions.map((v) => {
+                          const vp = perms(v);
+                          return (
+                            <div
+                              key={v.id}
+                              onClick={() => { if (vp.canEdit) handleEdit(v.id); }}
+                              className={`flex items-center justify-between gap-3 flex-wrap text-xs bg-[var(--bg-panel)] rounded px-2.5 py-1.5 ${vp.canEdit ? 'cursor-pointer hover:bg-[rgba(255,255,255,0.03)]' : ''}`}
+                            >
+                              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                <span className="font-mono text-[var(--text-secondary)]">{offerNumberLabel(v)}</span>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold uppercase tracking-wider border ${statusBadgeClass(v.status)}`}
+                                >
+                                  {t.offerStatus[v.status]}
+                                </span>
+                                <span className="text-[var(--text-muted)]">{formatDate(v.created_at)}</span>
+                                <span className="font-mono text-[var(--accent-hrs)]">
+                                  💰 {formatOfferMoneyCeil(calculateOfferTotal(v), v.offer_data)} {offerTotalUnit(v.offer_data)}
+                                </span>
+                              </div>
+                              <div className="flex gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                {vp.canEdit && (
+                                  <button
+                                    onClick={() => handleEdit(v.id)}
+                                    className="px-2 py-1 text-[10px] rounded border border-[var(--accent-cr)] text-[var(--accent-cr)] hover:bg-[rgba(59,142,245,0.1)] transition-colors"
+                                    title={t.offers.editOffer}
+                                  >
+                                    ✏️
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleExportPDF(v)}
+                                  disabled={!v.offer_data.zestawienie || v.offer_data.zestawienie.length === 0}
+                                  className="px-2 py-1 text-[10px] rounded border border-[#2ecc71] text-[#2ecc71] hover:bg-[rgba(46,204,113,0.1)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  title={t.pdf?.exportPdf || 'Export PDF'}
+                                >
+                                  📄
+                                </button>
+                                {vp.canDelete && (
+                                  <button
+                                    onClick={() => handleDelete(v.id)}
+                                    className="px-2 py-1 text-[10px] rounded border border-[var(--accent-sum)] text-[var(--accent-sum)] hover:bg-[rgba(245,71,90,0.1)] transition-colors"
+                                    title={t.offers.deleteOffer}
+                                  >
+                                    🗑️
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               );
             })}

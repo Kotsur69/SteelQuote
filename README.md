@@ -31,7 +31,19 @@ through a server-side Abacus.ai-hosted rendering endpoint
   managing accounts, clients, and all offers
 - Admin/senior can approve, reject, or edit offers awaiting review directly
   from their panels, and send approved offers to the client; quick-filter
-  tabs (awaiting review / awaiting send / reviewed by me / all)
+  tabs (awaiting review / awaiting send / reviewed by me / all). A junior can
+  now send an offer straight from draft, skipping approval, when every line
+  item's margin and base PGL are at or above the admin-configured minimums —
+  the offers list shows a "ready to send" / "needs approval" badge on drafts,
+  and the calculator warns inline on any line item below threshold. Otherwise
+  the offer still goes through the full approval path
+- Clicking an offer's row on My Offers / senior / admin panels (not just its
+  action buttons) opens it for editing. Editing an already-saved offer no
+  longer overwrites it in place: if anything actually changed, the save
+  creates a new version (`offer_<id>.1`, `offer_<id>.2`, ...), and prior
+  versions stay visible under a collapsed "previous versions" list on the same
+  card. An approved offer whose edited version again needs approval reverts to
+  "pending review" instead of inheriting a stale approval
 - Calculator page for HRS / CR / HDG pricing with live totals; clicking a line
   item's row (not just its pencil icon) opens it for editing
 - EUR/PLN currency switch (all roles) — EUR is the single source of truth
@@ -58,7 +70,9 @@ through a server-side Abacus.ai-hosted rendering endpoint
   stored/intermediate values stay unrounded. Every change to a base PGL price is
   logged (steel type, old/new value, who, when) in an admin-only history table,
   downloadable as `.xlsx`; HRS/CR/HDG get a consistent color per type (orange/
-  blue/green) throughout the settings panel
+  blue/green) throughout the settings panel. Admin settings also has a
+  "Minimum margin %" threshold, used together with base PGL to decide whether
+  a junior can send an offer directly (see above)
 - Admin dashboard tiles (offers by status, active salespeople, total offers)
   link straight to the offers list pre-filtered to that status, or to the
   salespeople panel
@@ -69,8 +83,11 @@ through a server-side Abacus.ai-hosted rendering endpoint
   Postgres, with client info attached; optional offer name with an automatic
   `offer_<id>` fallback shown consistently across all offer lists; search by
   name, fallback name, or raw ID; sortable "My Offers" list (date/name/value/status)
-- PDF export of an offer, plus Excel (`.xlsx`) export in KTS/GPAO column
-  format for both the calculator summary and individual offers
+- PDF export of an offer — the Remarks column lists every selected mill and
+  processing (SSC) surcharge for each line item (thickness tolerance,
+  certificate, coating, protection, packaging, surface, finish, weld,
+  marking, edging, labels, etc.) — plus Excel (`.xlsx`) export in KTS/GPAO
+  column format for both the calculator summary and individual offers
 - Four languages: PL / EN / CS / DE
 
 **Setup:**
@@ -92,6 +109,8 @@ psql "$DATABASE_URL" -f migrations/010_create_client_contacts.sql
 psql "$DATABASE_URL" -f migrations/011_split_pgl_base_by_type.sql
 psql "$DATABASE_URL" -f migrations/012_resync_client_contacts.sql
 psql "$DATABASE_URL" -f migrations/013_create_pgl_price_history.sql
+psql "$DATABASE_URL" -f migrations/014_add_min_margin_pct.sql
+psql "$DATABASE_URL" -f migrations/015_offer_versions.sql
 npm run dev
 ```
 

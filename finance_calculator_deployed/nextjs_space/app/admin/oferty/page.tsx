@@ -1,14 +1,17 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Fragment, Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
+import { attachNotesToZestawienie } from '@/lib/itemNotes';
+import type { ItemInputs } from '@/lib/calculatorData';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
+import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
 import {
   formatOfferMoney,
   formatOfferMoneyCeil,
@@ -40,6 +43,8 @@ interface AdminOffer {
   reviewed_at?: string | null;
   rejection_reason?: string | null;
   created_at: string;
+  root_offer_id: number | null;
+  version_number: number;
 }
 
 interface UserOption { id: number; email: string; full_name: string | null; }
@@ -57,7 +62,7 @@ function statusBadgeClass(status: OfferStatus): string {
 }
 
 function AdminOffersContent() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -100,6 +105,8 @@ function AdminOffersContent() {
   const [rejectComment, setRejectComment] = useState('');
   const [rejectError, setRejectError] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Której rodziny ofert (id najnowszej wersji) ma rozwiniętą historię poprzednich wersji.
+  const [expandedVersionsKey, setExpandedVersionsKey] = useState<number | null>(null);
 
   // Szukanie po nazwie własnej, nazwie zastępczej ("offer_30") albo numerze oferty.
   // Filtruje baza (?q=) — ta sama fraza działa tak samo jak w /offers i /senior.
@@ -158,6 +165,10 @@ function AdminOffersContent() {
 
   const offerTotal = (o: AdminOffer) =>
     (o.offer_data.zestawienie || []).reduce((sum, it) => sum + it.totalValue, 0);
+
+  // Grupowanie: najnowsza wersja każdej rodziny jako wiersz w tabeli, starsze (w tym
+  // oryginał) pod rozwijanym "poprzednie wersje" — patrz lib/offerVersions.ts.
+  const offerGroups = groupOffersByVersion(offers);
 
   const handleEdit = (offerId: number) => {
     router.push(`/calculator?edit=${offerId}`);
@@ -257,7 +268,9 @@ function AdminOffersContent() {
         offerName: o.display_name,
         offerId: o.id,
         clientInfo: normalizeClientInfo(o.offer_data.clientInfo),
-        zestawienie: (o.offer_data.zestawienie as never) || [],
+        // offer_data.zestawienie jest tu celowo słabo otypowane (tylko totalValue) — resztę
+        // pól (w tym `inputs` do budowy Uwagi) dostarcza faktyczny JSON z bazy w runtime.
+        zestawienie: (attachNotesToZestawienie((o.offer_data.zestawienie || []) as { type?: string; inputs?: ItemInputs }[], t, language) as never),
         createdAt: o.created_at,
         // Waluta i kurs z SAMEJ oferty, nie z bieżących ustawień.
         currency: offerCurrency(o.offer_data),
@@ -374,15 +387,31 @@ function AdminOffersContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
-                {offers.map((o) => (
-                  <tr key={o.id}>
+                {offerGroups.map(({ primary: o, history }) => (
+                  <Fragment key={o.id}>
+                  <tr
+                    onClick={() => { if (o.status !== 'sent') handleEdit(o.id); }}
+                    className={o.status !== 'sent' ? 'cursor-pointer hover:bg-[rgba(255,255,255,0.02)]' : ''}
+                  >
                     <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
                       {o.display_name}
                       {/* Stały numer oferty pod nazwą — dyskretny, pokazywany ZAWSZE, żeby stał
                           w każdym wierszu tabeli w tym samym miejscu. */}
                       <span className="block mt-0.5 text-[10px] font-mono font-normal text-[var(--text-secondary)] opacity-60">
-                        offer_{o.id}
+                        {offerNumberLabel(o)}
                       </span>
+                      {history.length > 0 && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setExpandedVersionsKey(expandedVersionsKey === o.id ? null : o.id); }}
+                          className="block mt-1 text-[10px] font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                        >
+                          🕓 {history.length} {history.length === 1
+                            ? (language === 'pl' ? 'poprzednia wersja' : 'previous version')
+                            : (language === 'pl' ? 'poprzednie wersje' : 'previous versions')}
+                          {' '}
+                          <span className="text-[8px]">{expandedVersionsKey === o.id ? '▲' : '▼'}</span>
+                        </button>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-[11px] text-[var(--text-secondary)] font-mono">
                       {o.owner_name || o.owner_email || t.admin.deletedUser}
@@ -401,7 +430,7 @@ function AdminOffersContent() {
                     <td className="px-4 py-3 text-right font-mono text-[var(--accent-hrs)]">
                       {formatOfferMoneyCeil(offerTotal(o), o.offer_data)} {offerTotalUnit(o.offer_data)}
                     </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <td className="px-4 py-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleExportExcel(o)}
                         disabled={!o.offer_data.zestawienie || o.offer_data.zestawienie.length === 0}
@@ -456,6 +485,55 @@ function AdminOffersContent() {
                       )}
                     </td>
                   </tr>
+                  {history.length > 0 && expandedVersionsKey === o.id && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-2 bg-[var(--bg-panel)]">
+                        <div className="space-y-1.5 pl-3 border-l-2 border-[var(--border)]">
+                          {history.map((v) => (
+                            <div
+                              key={v.id}
+                              onClick={() => { if (v.status !== 'sent') handleEdit(v.id); }}
+                              className={`flex items-center justify-between gap-3 flex-wrap text-xs ${v.status !== 'sent' ? 'cursor-pointer hover:bg-[rgba(255,255,255,0.03)]' : ''}`}
+                            >
+                              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                                <span className="font-mono text-[var(--text-secondary)]">{offerNumberLabel(v)}</span>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider border ${statusBadgeClass(v.status)}`}
+                                >
+                                  {t.offerStatus[v.status]}
+                                </span>
+                                <span className="text-[var(--text-secondary)]">
+                                  {v.owner_name || v.owner_email || t.admin.deletedUser}
+                                </span>
+                                <span className="text-[var(--text-muted)]">{formatDate(v.created_at)}</span>
+                                <span className="font-mono text-[var(--accent-hrs)]">
+                                  💰 {formatOfferMoneyCeil(offerTotal(v), v.offer_data)} {offerTotalUnit(v.offer_data)}
+                                </span>
+                              </div>
+                              <div className="flex gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                {v.status !== 'sent' && (
+                                  <button
+                                    onClick={() => handleEdit(v.id)}
+                                    className="px-2 py-1 text-[10px] rounded border border-[var(--accent-cr)] text-[var(--accent-cr)] hover:bg-[rgba(59,142,245,0.1)] transition-colors"
+                                  >
+                                    ✏️
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleExportPDF(v)}
+                                  disabled={!v.offer_data.zestawienie || v.offer_data.zestawienie.length === 0}
+                                  className="px-2 py-1 text-[10px] rounded border border-[#2ecc71] text-[#2ecc71] hover:bg-[rgba(46,204,113,0.1)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  📄
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

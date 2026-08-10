@@ -6,11 +6,13 @@ import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import Navigation from '@/components/Navigation';
 import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
+import { attachNotesToZestawienie } from '@/lib/itemNotes';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
 import { useHighContrast } from '@/lib/useHighContrast';
 import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
+import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
 import {
   formatOfferMoney,
   formatOfferMoneyCeil,
@@ -59,10 +61,12 @@ interface Offer {
   sent_at?: string | null;
   created_at: string;
   updated_at: string;
+  root_offer_id: number | null;
+  version_number: number;
 }
 
 export default function SeniorPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const [isDark, setIsDark] = useDarkMode();
   const [highContrast, setHighContrast] = useHighContrast();
@@ -72,6 +76,8 @@ export default function SeniorPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<FilterTab>('pending');
   const [role, setRole] = useState<string | null>(null);
+  // Której rodziny ofert (klucz z groupOffersByVersion) ma rozwiniętą historię wersji.
+  const [expandedVersionsKey, setExpandedVersionsKey] = useState<number | null>(null);
 
   // Reject modal state
   const [rejectModalOfferId, setRejectModalOfferId] = useState<number | null>(null);
@@ -218,7 +224,7 @@ export default function SeniorPage() {
         offerName: offer.display_name,
         offerId: offer.id,
         clientInfo: normalizeClientInfo(offer.offer_data.clientInfo),
-        zestawienie: offer.offer_data.zestawienie || [],
+        zestawienie: attachNotesToZestawienie(offer.offer_data.zestawienie || [], t, language),
         createdAt: offer.created_at,
         // Waluta i kurs z SAMEJ oferty - starszy widzi i wysyła dokładnie to, co wycenił handlowiec.
         currency: offerCurrency(offer.offer_data),
@@ -264,6 +270,10 @@ export default function SeniorPage() {
     if (activeTab === 'reviewed') return o.status === 'approved' || o.status === 'rejected';
     return true;
   });
+
+  // Grupowanie: najnowsza wersja każdej rodziny jako karta na liście, starsze (w tym
+  // oryginał) pod rozwijanym "poprzednie wersje" - patrz lib/offerVersions.ts.
+  const offerGroups = groupOffersByVersion(filteredOffers);
 
   const pendingCount = offers.filter((o) => o.status === 'pending_review').length;
   const awaitingSendCount = offers.filter((o) => o.status === 'approved').length;
@@ -415,7 +425,7 @@ export default function SeniorPage() {
           </div>
         ) : (
           <div className="divide-y divide-[var(--border)]">
-            {filteredOffers.map((offer) => (
+            {offerGroups.map(({ primary: offer, history }) => (
               <div
                 key={offer.id}
                 className={`p-4 hover:bg-[rgba(255,255,255,0.02)] transition-colors ${
@@ -442,7 +452,7 @@ export default function SeniorPage() {
                         oferta nie ma nazwy własnej), żeby numer stał w każdym wierszu w tym
                         samym miejscu. */}
                     <p className="mt-0.5 text-[10px] font-mono text-[var(--text-secondary)] opacity-60">
-                      offer_{offer.id}
+                      {offerNumberLabel(offer)}
                     </p>
 
                     {/* Author */}
@@ -562,6 +572,63 @@ export default function SeniorPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Poprzednie wersje tej oferty (offer_X.1, offer_X.2, ...) — zwinięte
+                    domyślnie, żeby częste edycje nie zaśmiecały kolejki. */}
+                {history.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                    <button
+                      onClick={() => setExpandedVersionsKey(expandedVersionsKey === offer.id ? null : offer.id)}
+                      className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    >
+                      🕓 {history.length} {history.length === 1
+                        ? (language === 'pl' ? 'poprzednia wersja' : 'previous version')
+                        : (language === 'pl' ? 'poprzednie wersje' : 'previous versions')}
+                      <span className="text-[8px]">{expandedVersionsKey === offer.id ? '▲' : '▼'}</span>
+                    </button>
+                    {expandedVersionsKey === offer.id && (
+                      <div className="mt-2 space-y-1.5 pl-3 border-l-2 border-[var(--border)]">
+                        {history.map((v) => (
+                          <div
+                            key={v.id}
+                            className="flex items-center justify-between gap-3 flex-wrap text-xs bg-[var(--bg-panel)] rounded px-2.5 py-1.5"
+                          >
+                            <div className="flex items-center gap-2 flex-wrap min-w-0">
+                              <span className="font-mono text-[var(--text-secondary)]">{offerNumberLabel(v)}</span>
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold uppercase tracking-wider border ${statusBadgeClass(v.status)}`}
+                              >
+                                {t.offerStatus[v.status]}
+                              </span>
+                              <span className="text-[var(--text-muted)]">{formatDate(v.created_at)}</span>
+                              <span className="font-mono text-[var(--accent-hrs)]">
+                                💰 {formatOfferMoneyCeil(calculateOfferTotal(v), v.offer_data)} {offerTotalUnit(v.offer_data)}
+                              </span>
+                            </div>
+                            <div className="flex gap-1.5 flex-shrink-0">
+                              {v.status === 'pending_review' && (
+                                <button
+                                  onClick={() => handleEdit(v.id)}
+                                  className="px-2 py-1 text-[10px] rounded border border-[var(--accent-cr)] text-[var(--accent-cr)] hover:bg-[rgba(59,142,245,0.1)] transition-colors"
+                                  title={t.senior.editInCalculator}
+                                >
+                                  ✏️
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleExportPDF(v)}
+                                disabled={!v.offer_data.zestawienie || v.offer_data.zestawienie.length === 0}
+                                className="px-2 py-1 text-[10px] rounded border border-[#2ecc71] text-[#2ecc71] hover:bg-[rgba(46,204,113,0.1)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                📄
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>

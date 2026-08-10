@@ -20,7 +20,16 @@ import {
   SCRAP_CONSTANT,
   SteelType,
   Grade,
+  ItemInputs,
+  CERT_OPTIONS,
+  CR_PROTECTION_OPTIONS,
+  HDG_PROTECTION_OPTIONS,
+  SSC_MAX_WEIGHT_OPTIONS,
+  SSC_PACKING_OPTIONS,
+  getHutaSscToggleOptions,
 } from '@/lib/calculatorData';
+import { attachNotesToZestawienie } from '@/lib/itemNotes';
+import { offerNumberLabel } from '@/lib/offerVersions';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
 import { pglBaseForType } from '@/lib/currency';
@@ -39,42 +48,6 @@ import { downloadServerPdf } from '@/lib/serverPdf';
 import { exportZestawienieToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
 import { useHighContrast } from '@/lib/useHighContrast';
-
-// Pełny zestaw wejść (przełączników dopłat) dla pojedynczej pozycji zestawienia.
-// Bez tego edycja pozycji nie potrafi odtworzyć jej ceny — patrz editItem().
-interface ItemInputs {
-  selectedGrade: Grade | null;
-  tolThick: number;
-  tolThickIdx: number;
-  cert: number;
-  selectedCoating: string;
-  crZabezp: number;
-  crOpak: number;
-  crOpakIdx: number;
-  crPowierz: number;
-  crWykon: number;
-  crWykonIdx: number;
-  crZgrzew: number;
-  hdgZabezp: number;
-  hdgZabezpIdx: number;
-  hdgOpak: number;
-  hdgOpakIdx: number;
-  hdgPowierz: number;
-  hdgWykon: number;
-  hdgZgrzew: number;
-  sscLenTol: number;
-  sscFlatness: number;
-  sscSurface: number;
-  sscMaxWeight: number;
-  sscMarking: number;
-  sscEdging: number;
-  sscPacking: number;
-  sscPackingIdx: number;
-  sscLabels: number;
-  marginPct: number;
-  extra: number;
-  transport: number;
-}
 
 interface ZestawienieItem {
   id: number;
@@ -792,11 +765,14 @@ export default function Calculator() {
     setPdfLoading(true);
     setSaveMessage({ type: 'success', text: language === 'pl' ? 'Generuję PDF...' : 'Generating PDF...' });
     try {
+      // Uwagi w PDF odtwarzamy z zapisanych `inputs` pozycji, w bieżącym języku UI
+      // (nie w języku, w którym pozycję dodano — użytkownik może przełączyć język przed eksportem).
+      const zestawienieWithNotes = attachNotesToZestawienie(zestawienie, t, language);
       await downloadServerPdf({
         offerName: currentOfferName || saveOfferName || '',
         offerId: currentOfferId,
         clientInfo,
-        zestawienie,
+        zestawienie: zestawienieWithNotes,
         // Kurs zamrożony w ofercie (albo bieżący, jeśli oferta jeszcze nie zapisana).
         // Serwer przelicza kwoty tym kursem, więc PDF wygenerowany po zmianie kursu przez
         // admina pokazuje dokładnie te kwoty, które klient dostał przy wysyłce.
@@ -905,6 +881,11 @@ export default function Calculator() {
       
       if (res.ok) {
         const { offer } = await res.json();
+        // Zapis edytowanej oferty z realną zmianą danych wraca z NOWYM id (nowa wersja,
+        // np. offer_30 -> offer_30.1) — oryginał zostaje nietknięty. URL trzeba przestawić
+        // na nowe id, inaczej odświeżenie strony wróciłoby do poprzedniej wersji.
+        const isNewVersion = currentOfferId !== null && offer.id !== currentOfferId;
+        const urlNeedsUpdate = !currentOfferId || isNewVersion;
         setCurrentOfferId(offer.id);
         setCurrentOfferName(offer.display_name);
         setCurrentOfferRawName(offer.offer_name ?? '');
@@ -914,9 +895,16 @@ export default function Calculator() {
         setRateOverride(offerData.eurPlnRate);
         setShowSaveModal(false);
         setSaveOfferName('');
-        setSaveMessage({ type: 'success', text: currentOfferId ? (t.offers?.updated || 'Updated!') : (t.offers?.saved || 'Saved!') });
+        setSaveMessage({
+          type: 'success',
+          text: isNewVersion
+            ? (language === 'pl'
+                ? `Zapisano jako nową wersję: ${offerNumberLabel(offer)}`
+                : `Saved as new version: ${offerNumberLabel(offer)}`)
+            : currentOfferId ? (t.offers?.updated || 'Updated!') : (t.offers?.saved || 'Saved!'),
+        });
         // Update URL without full navigation
-        if (!currentOfferId) {
+        if (urlNeedsUpdate) {
           router.replace(`/calculator?edit=${offer.id}`, { scroll: false });
         }
       } else {
@@ -1016,75 +1004,8 @@ export default function Calculator() {
     '--accent-sum': '#f5475a',
   };
 
-  // Localized toggle options
-  const getLocalizedOptions = {
-    lengthTolerance: [
-      { label: t.toggles.normal, value: 0 },
-      { label: t.toggles.lessThan5mm, value: 8 }
-    ],
-    flatness: [
-      { label: t.toggles.enStandard, value: 0 },
-      { label: t.toggles.laser13, value: 13 },
-      { label: t.toggles.customerSpec, value: 8 }
-    ],
-    surface: [
-      { label: t.toggles.normal, value: 0 },
-      { label: t.toggles.improved, value: 10 }
-    ],
-    marking: [
-      { label: t.toggles.none, value: 0 },
-      { label: t.toggles.engraved, value: 5 },
-      { label: t.toggles.marker, value: 3 }
-    ],
-    edging: [
-      { label: t.common.no, value: 0 },
-      { label: t.common.yes, value: 18 }
-    ],
-    labels: [
-      { label: t.toggles.none, value: 0 },
-      { label: language === 'pl' ? 'Koperta plast.' : 'Plastic env.', value: 0.5 }
-    ],
-    crPackaging: [
-      { label: t.toggles.noPaper, value: 0 },
-      { label: t.toggles.paperPlastic, value: 5 },
-      { label: t.toggles.seaTransport, value: 5 }
-    ],
-    crSurface: [
-      { label: t.toggles.surfaceA, value: 0 },
-      { label: t.toggles.surfaceB, value: 40 }
-    ],
-    crFinish: [
-      { label: t.toggles.normalFinish, value: 0 },
-      { label: t.toggles.rough, value: 10 },
-      { label: t.toggles.glossy, value: 25 },
-      { label: t.toggles.semiGlossy, value: 10 }
-    ],
-    crWeld: [
-      { label: t.toggles.allowed, value: -3 },
-      { label: t.toggles.notAllowed, value: 5 },
-      { label: t.toggles.other, value: 0 }
-    ],
-    hdgPackaging: [
-      { label: t.toggles.noPaper, value: 0 },
-      { label: t.toggles.paperPlastic, value: 5 },
-      { label: t.toggles.seaTransport, value: 5 },
-      { label: t.toggles.paperPlasticCE, value: 0 }
-    ],
-    hdgSurface: [
-      { label: t.toggles.surfaceMA, value: 0 },
-      { label: t.toggles.surfaceMB, value: 35 },
-      { label: t.toggles.surfaceMC, value: 20 }
-    ],
-    hdgFinish: [
-      { label: t.toggles.standard, value: 0 },
-      { label: t.toggles.bright, value: 15 }
-    ],
-    hdgWeld: [
-      { label: t.toggles.allowed, value: -3 },
-      { label: t.toggles.notAllowed, value: 5 },
-      { label: t.toggles.other, value: 0 }
-    ],
-  };
+  // Localized toggle options (współdzielone z lib/itemNotes.ts do odtworzenia opisu pozycji w PDF)
+  const getLocalizedOptions = getHutaSscToggleOptions(t, language);
 
   return (
     <div 
@@ -1639,11 +1560,7 @@ export default function Calculator() {
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.certificate}</span>
               <ToggleGroup
-                options={[
-                  { label: '2.2', value: 0 },
-                  { label: '3.1', value: 5 },
-                  { label: '3.2', value: 10 },
-                ]}
+                options={CERT_OPTIONS}
                 value={cert}
                 onChange={setCert}
               />
@@ -1693,7 +1610,7 @@ export default function Calculator() {
               <>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.protection}</span>
-                  <ToggleGroup options={[{label:'O',value:0},{label:'U',value:3},{label:'A',value:5}]} value={crZabezp} onChange={setCrZabezp} />
+                  <ToggleGroup options={CR_PROTECTION_OPTIONS} value={crZabezp} onChange={setCrZabezp} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(crZabezp)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
@@ -1729,7 +1646,7 @@ export default function Calculator() {
               <>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.protection}</span>
-                  <ToggleGroup options={[{label:'O',value:2},{label:'EO',value:2},{label:'S',value:20},{label:'CE',value:0}]} value={hdgZabezp} selectedIdx={hdgZabezpIdx} onChangeIdx={(v, idx) => { setHdgZabezp(v); setHdgZabezpIdx(idx); }} />
+                  <ToggleGroup options={HDG_PROTECTION_OPTIONS} value={hdgZabezp} selectedIdx={hdgZabezpIdx} onChangeIdx={(v, idx) => { setHdgZabezp(v); setHdgZabezpIdx(idx); }} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(hdgZabezp)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
@@ -1814,7 +1731,7 @@ export default function Calculator() {
             {/* Max Weight */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.maxPackWeight}</span>
-              <ToggleGroup options={[{label:'<1T',value:20},{label:'1–1,5T',value:10},{label:'1,5–2,25T',value:7.5},{label:'2,2–2,5T',value:5},{label:'2,5–3,5T',value:0},{label:'>3,5T',value:-3}]} value={sscMaxWeight} onChange={setSscMaxWeight} />
+              <ToggleGroup options={SSC_MAX_WEIGHT_OPTIONS} value={sscMaxWeight} onChange={setSscMaxWeight} />
               <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscMaxWeight)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -1847,7 +1764,7 @@ export default function Calculator() {
             {/* Packing */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.packaging}</span>
-              <ToggleGroup options={[{label:'S01',value:0,title:t.ssc.packagingDesc.S01},{label:'S03',value:10,title:t.ssc.packagingDesc.S03},{label:'S12',value:5,title:t.ssc.packagingDesc.S12},{label:'S13',value:10,title:t.ssc.packagingDesc.S13},{label:'SB2',value:23,title:t.ssc.packagingDesc.SB2},{label:'SB3',value:29,title:t.ssc.packagingDesc.SB3}]} value={sscPacking} selectedIdx={sscPackingIdx} onChangeIdx={(v, idx) => { setSscPacking(v); setSscPackingIdx(idx); }} />
+              <ToggleGroup options={SSC_PACKING_OPTIONS.map((o, idx) => ({ ...o, title: [t.ssc.packagingDesc.S01, t.ssc.packagingDesc.S03, t.ssc.packagingDesc.S12, t.ssc.packagingDesc.S13, t.ssc.packagingDesc.SB2, t.ssc.packagingDesc.SB3][idx] }))} value={sscPacking} selectedIdx={sscPackingIdx} onChangeIdx={(v, idx) => { setSscPacking(v); setSscPackingIdx(idx); }} />
               <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscPacking)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -1890,16 +1807,24 @@ export default function Calculator() {
           
           <div className="flex-1 py-2">
             {/* PGL Base */}
-            <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
-              <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.pglBase}</span>
-              <NumericField
-                value={moneyInput(pglBase)}
-                onChange={v => setPglBase(fromDisplay(v))}
-                min="0"
-                className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[110px] focus:border-[var(--accent-cr)] outline-none
-                  ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-              />
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
+            <div className="px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
+              <div className="flex items-center">
+                <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.pglBase}</span>
+                <NumericField
+                  value={moneyInput(pglBase)}
+                  onChange={v => setPglBase(fromDisplay(v))}
+                  min="0"
+                  className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[110px] focus:border-[var(--accent-cr)] outline-none
+                    ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                />
+                <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
+              </div>
+              {/* Poniżej bazy z Ustawień -> ta pozycja będzie wymagać zatwierdzenia (patrz lib/offerReview.ts) */}
+              {pglBase < pglBaseForType(currentType, settings) && (
+                <p className="mt-1 text-[10px] text-[var(--accent-hrs)]">
+                  ⚠️ {t.summary.pglBelowBaseWarning} ({moneyInput(pglBaseForType(currentType, settings))} {symbol})
+                </p>
+              )}
             </div>
             
             {/* Wsad Price */}
@@ -1912,17 +1837,25 @@ export default function Calculator() {
             <div className="h-px bg-[var(--border)] mx-4 my-1" />
             
             {/* Margin % */}
-            <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
-              <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.margin} %</span>
-              <NumericField
-                value={marginPct}
-                onChange={setMarginPct}
-                min="0"
-                step="0.1"
-                className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
-                  ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-              />
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">%</span>
+            <div className="px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
+              <div className="flex items-center">
+                <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.margin} %</span>
+                <NumericField
+                  value={marginPct}
+                  onChange={setMarginPct}
+                  min="0"
+                  step="0.1"
+                  className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
+                    ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                />
+                <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">%</span>
+              </div>
+              {/* Poniżej minimum z Ustawień -> ta pozycja będzie wymagać zatwierdzenia (patrz lib/offerReview.ts) */}
+              {marginPct < settings.minMarginPct && (
+                <p className="mt-1 text-[10px] text-[var(--accent-hrs)]">
+                  ⚠️ {t.summary.marginBelowMinWarning} ({settings.minMarginPct}%)
+                </p>
+              )}
             </div>
             
             {/* Margin Calculated */}

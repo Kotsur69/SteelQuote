@@ -1,3 +1,5 @@
+import type { Translations } from './translations';
+
 // Grade Tables
 export const GRADE_TABLE_HRS = [
   { name: "16Mo3", value: 176 },
@@ -647,3 +649,154 @@ export const SCRAP_CONSTANT = 10;
 
 export type SteelType = 'HRS' | 'CR' | 'HDG';
 export type Grade = { name: string; value: number };
+
+// Pełny zestaw wejść (przełączników dopłat) dla pojedynczej pozycji zestawienia.
+// Bez tego edycja pozycji nie potrafi odtworzyć jej ceny — patrz Calculator.editItem().
+// Wspólny z lib/itemNotes.ts, które z tych samych danych odtwarza opis pozycji do PDF.
+export interface ItemInputs {
+  selectedGrade: Grade | null;
+  tolThick: number;
+  tolThickIdx: number;
+  cert: number;
+  selectedCoating: string;
+  crZabezp: number;
+  crOpak: number;
+  crOpakIdx: number;
+  crPowierz: number;
+  crWykon: number;
+  crWykonIdx: number;
+  crZgrzew: number;
+  hdgZabezp: number;
+  hdgZabezpIdx: number;
+  hdgOpak: number;
+  hdgOpakIdx: number;
+  hdgPowierz: number;
+  hdgWykon: number;
+  hdgZgrzew: number;
+  sscLenTol: number;
+  sscFlatness: number;
+  sscSurface: number;
+  sscMaxWeight: number;
+  sscMarking: number;
+  sscEdging: number;
+  sscPacking: number;
+  sscPackingIdx: number;
+  sscLabels: number;
+  marginPct: number;
+  extra: number;
+  transport: number;
+}
+
+// Opcje dopłat, których etykiety NIE zależą od języka UI (kody/skróty branżowe).
+export const CERT_OPTIONS = [
+  { label: '2.2', value: 0 },
+  { label: '3.1', value: 5 },
+  { label: '3.2', value: 10 },
+];
+
+export const CR_PROTECTION_OPTIONS = [
+  { label: 'O', value: 0 },
+  { label: 'U', value: 3 },
+  { label: 'A', value: 5 },
+];
+
+// Zawiera zduplikowane value (O=2, EO=2) — dopasowanie po indeksie (hdgZabezpIdx), nie po value.
+export const HDG_PROTECTION_OPTIONS = [
+  { label: 'O', value: 2 },
+  { label: 'EO', value: 2 },
+  { label: 'S', value: 20 },
+  { label: 'CE', value: 0 },
+];
+
+export const SSC_MAX_WEIGHT_OPTIONS = [
+  { label: '<1T', value: 20 },
+  { label: '1–1,5T', value: 10 },
+  { label: '1,5–2,25T', value: 7.5 },
+  { label: '2,2–2,5T', value: 5 },
+  { label: '2,5–3,5T', value: 0 },
+  { label: '>3,5T', value: -3 },
+];
+
+// Etykiety opakowania SSC (kody S01..SB3) — bez opisu (title), który jest tylko podpowiedzią w UI.
+export const SSC_PACKING_OPTIONS = [
+  { label: 'S01', value: 0 },
+  { label: 'S03', value: 10 },
+  { label: 'S12', value: 5 },
+  { label: 'S13', value: 10 },
+  { label: 'SB2', value: 23 },
+  { label: 'SB3', value: 29 },
+];
+
+// Opcje dopłat lokalizowane wg języka UI — współdzielone przez Calculator.tsx (renderowanie
+// przełączników) i lib/itemNotes.ts (odtworzenie wybranych opcji do PDF), żeby etykiety
+// nigdy nie rozjechały się między widokiem a eksportem.
+export function getHutaSscToggleOptions(t: Translations, language: string) {
+  return {
+    lengthTolerance: [
+      { label: t.toggles.normal, value: 0 },
+      { label: t.toggles.lessThan5mm, value: 8 },
+    ],
+    flatness: [
+      { label: t.toggles.enStandard, value: 0 },
+      { label: t.toggles.laser13, value: 13 },
+      { label: t.toggles.customerSpec, value: 8 },
+    ],
+    surface: [
+      { label: t.toggles.normal, value: 0 },
+      { label: t.toggles.improved, value: 10 },
+    ],
+    marking: [
+      { label: t.toggles.none, value: 0 },
+      { label: t.toggles.engraved, value: 5 },
+      { label: t.toggles.marker, value: 3 },
+    ],
+    edging: [
+      { label: t.common.no, value: 0 },
+      { label: t.common.yes, value: 18 },
+    ],
+    labels: [
+      { label: t.toggles.none, value: 0 },
+      { label: language === 'pl' ? 'Koperta plast.' : 'Plastic env.', value: 0.5 },
+    ],
+    crPackaging: [
+      { label: t.toggles.noPaper, value: 0 },
+      { label: t.toggles.paperPlastic, value: 5 },
+      { label: t.toggles.seaTransport, value: 5 },
+    ],
+    crSurface: [
+      { label: t.toggles.surfaceA, value: 0 },
+      { label: t.toggles.surfaceB, value: 40 },
+    ],
+    crFinish: [
+      { label: t.toggles.normalFinish, value: 0 },
+      { label: t.toggles.rough, value: 10 },
+      { label: t.toggles.glossy, value: 25 },
+      { label: t.toggles.semiGlossy, value: 10 },
+    ],
+    crWeld: [
+      { label: t.toggles.allowed, value: -3 },
+      { label: t.toggles.notAllowed, value: 5 },
+      { label: t.toggles.other, value: 0 },
+    ],
+    hdgPackaging: [
+      { label: t.toggles.noPaper, value: 0 },
+      { label: t.toggles.paperPlastic, value: 5 },
+      { label: t.toggles.seaTransport, value: 5 },
+      { label: t.toggles.paperPlasticCE, value: 0 },
+    ],
+    hdgSurface: [
+      { label: t.toggles.surfaceMA, value: 0 },
+      { label: t.toggles.surfaceMB, value: 35 },
+      { label: t.toggles.surfaceMC, value: 20 },
+    ],
+    hdgFinish: [
+      { label: t.toggles.standard, value: 0 },
+      { label: t.toggles.bright, value: 15 },
+    ],
+    hdgWeld: [
+      { label: t.toggles.allowed, value: -3 },
+      { label: t.toggles.notAllowed, value: 5 },
+      { label: t.toggles.other, value: 0 },
+    ],
+  };
+}

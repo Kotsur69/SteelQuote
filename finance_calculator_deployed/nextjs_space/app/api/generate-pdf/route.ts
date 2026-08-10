@@ -29,6 +29,7 @@ interface OrderItem {
   length: number;
   isCoil: boolean;
   coating: string;
+  notes?: string[];
   quantity: number;
   pricePerTon: number;
   totalValue: number;
@@ -84,6 +85,9 @@ function buildHtml(
   const rows = items.map((item, idx) => {
     const dims = `${item.thickness} × ${item.width}${!item.isCoil ? ` × ${item.length}` : ''}`;
     const typeClass = item.steelType === 'HRS' ? '#3b82f6' : item.steelType === 'CR' ? '#8b5cf6' : '#10b981';
+    const notesHtml = (item.notes ?? [])
+      .map(n => `<span style="display:inline-block;background:#f1f5f9;border-radius:3px;padding:1px 5px;margin:1px 2px 1px 0;white-space:nowrap;">${escapeHtml(n)}</span>`)
+      .join('');
     return `
       <tr>
         <td style="text-align:center;font-weight:600;">${idx + 1}</td>
@@ -98,7 +102,7 @@ function buildHtml(
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.quantity.toFixed(2)}</td>
         <td style="text-align:right;font-family:'Courier New',monospace;font-weight:600;">${Math.ceil(item.pricePerTon * fx)}</td>
         <td style="text-align:right;font-family:'Courier New',monospace;">${Math.ceil(item.pricePerTon * item.quantity * fx)}</td>
-        <td style="font-size:10px;color:#64748b;"></td>
+        <td style="font-size:8px;color:#64748b;line-height:1.5;">${notesHtml}</td>
       </tr>`;
   }).join('');
 
@@ -186,16 +190,16 @@ function buildHtml(
   <table>
     <thead>
       <tr>
-        <th style="width:35px;text-align:center;">Nr</th>
+        <th style="width:30px;text-align:center;">Nr</th>
         <th style="text-align:left;">Gatunek / Opis</th>
-        <th style="text-align:center;width:55px;">Typ</th>
-        <th style="text-align:right;width:65px;">Grub. mm</th>
-        <th style="text-align:right;width:65px;">Szer. mm</th>
-        <th style="text-align:right;width:65px;">Dł. mm</th>
-        <th style="text-align:right;width:60px;">Ilość t</th>
-        <th style="text-align:right;width:75px;">Cena ${unit}/t</th>
-        <th style="text-align:right;width:85px;">Wartość ${unit}</th>
-        <th style="width:90px;">Uwagi</th>
+        <th style="text-align:center;width:45px;">Typ</th>
+        <th style="text-align:right;width:55px;">Grub. mm</th>
+        <th style="text-align:right;width:55px;">Szer. mm</th>
+        <th style="text-align:right;width:55px;">Dł. mm</th>
+        <th style="text-align:right;width:50px;">Ilość t</th>
+        <th style="text-align:right;width:65px;">Cena ${unit}/t</th>
+        <th style="text-align:right;width:75px;">Wartość ${unit}</th>
+        <th style="width:250px;">Uwagi</th>
       </tr>
     </thead>
     <tbody>
