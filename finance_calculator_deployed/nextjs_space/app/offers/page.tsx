@@ -38,7 +38,7 @@ interface OfferData {
   transport: number;
   zestawienie: Array<{
     id: number;
-    type: 'HRS' | 'CR' | 'HDG';
+    type: 'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | 'ZM';
     grade: string;
     thickness: number;
     width: number;
@@ -407,6 +407,9 @@ export default function OffersPage() {
     '--accent-hrs': '#7a4a00',
     '--accent-cr': '#0b3d91',
     '--accent-hdg': '#0b6b2c',
+    '--accent-pickled': '#8a1a4a',
+    '--accent-teardrop': '#0e6270',
+    '--accent-zm': '#3d2f8f',
     '--accent-sum': '#9c0b1e',
   } : isDark ? {
     '--bg': '#0f1117',
@@ -422,6 +425,9 @@ export default function OffersPage() {
     '--accent-hrs': '#e8a020',
     '--accent-cr': '#3b8ef5',
     '--accent-hdg': '#2ecc71',
+    '--accent-pickled': '#e0499a',
+    '--accent-teardrop': '#22c1d6',
+    '--accent-zm': '#8b7cf6',
     '--accent-sum': '#f5475a',
   } : {
     '--bg': '#eef0f6',
@@ -437,6 +443,9 @@ export default function OffersPage() {
     '--accent-hrs': '#e8a020',
     '--accent-cr': '#3b8ef5',
     '--accent-hdg': '#2ecc71',
+    '--accent-pickled': '#e0499a',
+    '--accent-teardrop': '#22c1d6',
+    '--accent-zm': '#8b7cf6',
     '--accent-sum': '#f5475a',
   };
 
@@ -677,11 +686,14 @@ export default function OffersPage() {
                                     </span>
                                   </td>
                                   <td className="px-2.5 py-1.5 text-center">
-                                    <span className={
-                                      item.type === 'HRS' ? 'text-[var(--accent-hrs)]' :
-                                      item.type === 'CR' ? 'text-[var(--accent-cr)]' :
-                                      'text-[var(--accent-hdg)]'
-                                    }>{item.type}</span>
+                                    <span className={{
+                                      HRS: 'text-[var(--accent-hrs)]',
+                                      CR: 'text-[var(--accent-cr)]',
+                                      HDG: 'text-[var(--accent-hdg)]',
+                                      PICKLED: 'text-[var(--accent-pickled)]',
+                                      TEARDROP: 'text-[var(--accent-teardrop)]',
+                                      ZM: 'text-[var(--accent-zm)]',
+                                    }[item.type]}>{item.type}</span>
                                   </td>
                                   <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{formatOfferMoneyCeil(item.finalPrice, offer.offer_data)} {currencySymbol(offerCurrency(offer.offer_data))}</td>
                                   <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{item.tons.toFixed(2)}</td>
@@ -696,11 +708,14 @@ export default function OffersPage() {
                           {offer.offer_data.zestawienie.slice(0, 3).map((item, idx) => (
                             <span
                               key={idx}
-                              className={`px-2 py-1 rounded text-[10px] font-mono border ${
-                                item.type === 'HRS' ? 'border-[var(--accent-hrs)] text-[var(--accent-hrs)] bg-[rgba(232,160,32,0.08)]' :
-                                item.type === 'CR' ? 'border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)]' :
-                                'border-[var(--accent-hdg)] text-[var(--accent-hdg)] bg-[rgba(46,204,113,0.08)]'
-                              }`}
+                              className={`px-2 py-1 rounded text-[10px] font-mono border ${{
+                                HRS: 'border-[var(--accent-hrs)] text-[var(--accent-hrs)] bg-[rgba(232,160,32,0.08)]',
+                                CR: 'border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)]',
+                                HDG: 'border-[var(--accent-hdg)] text-[var(--accent-hdg)] bg-[rgba(46,204,113,0.08)]',
+                                PICKLED: 'border-[var(--accent-pickled)] text-[var(--accent-pickled)] bg-[rgba(224,73,154,0.08)]',
+                                TEARDROP: 'border-[var(--accent-teardrop)] text-[var(--accent-teardrop)] bg-[rgba(34,193,214,0.08)]',
+                                ZM: 'border-[var(--accent-zm)] text-[var(--accent-zm)] bg-[rgba(139,124,246,0.08)]',
+                              }[item.type]}`}
                             >
                               {item.type} {item.thickness}×{item.width}×{item.length} {item.grade}
                             </span>

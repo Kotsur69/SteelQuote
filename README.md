@@ -1,8 +1,8 @@
 # SteelQuote
 
 A web app for steel sales teams: calculate pricing (mill surcharges, processing
-costs, margin, transport) for HRS, CR, and HDG steel in real time, save the
-result as an offer, and export it to PDF for a client.
+costs, margin, transport) for HRS, CR, HDG, PICKLED, TEARDROP, and ZM (Magnelis)
+steel in real time, save the result as an offer, and export it to PDF for a client.
 
 ![HRS pricing defaults](screenshot_hrs_defaults.png)
 ![CR pricing defaults](screenshot_cr_defaults.png)
@@ -44,8 +44,9 @@ through a server-side Abacus.ai-hosted rendering endpoint
   versions stay visible under a collapsed "previous versions" list on the same
   card. An approved offer whose edited version again needs approval reverts to
   "pending review" instead of inheriting a stale approval
-- Calculator page for HRS / CR / HDG pricing with live totals; clicking a line
-  item's row (not just its pencil icon) opens it for editing
+- Calculator page for HRS / CR / HDG / PICKLED / TEARDROP / ZM (Magnelis) pricing
+  with live totals; clicking a line item's row (not just its pencil icon) opens
+  it for editing
 - EUR/PLN currency switch (all roles) — EUR is the single source of truth
   internally, PLN is a display/input layer; an offer freezes the exchange
   rate it was saved with, so changing the rate later never rewrites a saved,
@@ -64,13 +65,13 @@ through a server-side Abacus.ai-hosted rendering endpoint
   picking one fills surname, phone, and e-mail. The admin Clients panel can also
   manage a company's contacts directly — expand, edit, add, or delete any of them
   without leaving the panel
-- Base PGL configured per steel type (HRS/CR/HDG) instead of one shared value.
-  Final unit price, line totals, and the calculator/offer-list/PDF summaries all
-  round up to the nearest currency unit (never undercharge); the underlying
-  stored/intermediate values stay unrounded. Every change to a base PGL price is
-  logged (steel type, old/new value, who, when) in an admin-only history table,
-  downloadable as `.xlsx`; HRS/CR/HDG get a consistent color per type (orange/
-  blue/green) throughout the settings panel. Admin settings also has a
+- Base PGL configured per steel type (all six: HRS/CR/HDG/PICKLED/TEARDROP/ZM)
+  instead of one shared value. Final unit price, line totals, and the
+  calculator/offer-list/PDF summaries all round up to the nearest currency unit
+  (never undercharge); the underlying stored/intermediate values stay unrounded.
+  Every change to a base PGL price is logged (steel type, old/new value, who,
+  when) in an admin-only history table, downloadable as `.xlsx`; each steel type
+  gets a consistent color throughout the settings panel. Admin settings also has a
   "Minimum margin %" threshold, used together with base PGL to decide whether
   a junior can send an offer directly (see above)
 - Admin dashboard tiles (offers by status, active salespeople, total offers)
@@ -111,6 +112,8 @@ psql "$DATABASE_URL" -f migrations/012_resync_client_contacts.sql
 psql "$DATABASE_URL" -f migrations/013_create_pgl_price_history.sql
 psql "$DATABASE_URL" -f migrations/014_add_min_margin_pct.sql
 psql "$DATABASE_URL" -f migrations/015_offer_versions.sql
+psql "$DATABASE_URL" -f migrations/016_add_pgl_base_new_types.sql
+psql "$DATABASE_URL" -f migrations/017_widen_pgl_price_history_steel_type.sql
 npm run dev
 ```
 

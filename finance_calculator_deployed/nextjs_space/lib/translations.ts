@@ -133,6 +133,12 @@ export interface Translations {
     HRS_full: string;
     CR_full: string;
     HDG_full: string;
+    PICKLED: string;
+    TEARDROP: string;
+    ZM: string;
+    PICKLED_full: string;
+    TEARDROP_full: string;
+    ZM_full: string;
   };
   
   // Input parameters
@@ -164,6 +170,8 @@ export interface Translations {
     surface: string;
     surfaceFinish: string;
     weld: string;
+    pickling: string;
+    teardropSurcharge: string;
     sum: string;
     unavailable: string;
   };
@@ -408,6 +416,9 @@ export interface Translations {
       pglBaseHrs: string;
       pglBaseCr: string;
       pglBaseHdg: string;
+      pglBasePickled: string;
+      pglBaseTeardrop: string;
+      pglBaseZm: string;
       pglBaseHint: string;
       minMarginPct: string;
       minMarginPctHint: string;
@@ -610,7 +621,7 @@ export const pl: Translations = {
     highContrastOn: 'Normalny widok',
     highContrastOff: 'Wysoki kontrast',
   },
-  
+
   steelTypes: {
     HRS: 'HRS',
     CR: 'CR',
@@ -618,6 +629,12 @@ export const pl: Translations = {
     HRS_full: 'Hot Rolled Steel',
     CR_full: 'Cold Rolled Steel',
     HDG_full: 'Hot Dip Galvanized',
+    PICKLED: 'HRS Trawiona',
+    TEARDROP: 'ŁEZKA',
+    ZM: 'ZM',
+    PICKLED_full: 'Trawiona',
+    TEARDROP_full: 'Blacha łezkowa',
+    ZM_full: 'Magnelis',
   },
   
   inputs: {
@@ -647,6 +664,8 @@ export const pl: Translations = {
     surface: 'Powierzchnia',
     surfaceFinish: 'Wykończenie pow.',
     weld: 'Zgrzew',
+    pickling: 'Trawienie',
+    teardropSurcharge: 'Dopłata Łezka',
     sum: 'SUMA Huta',
     unavailable: '— (niedostępne)',
   },
@@ -862,6 +881,9 @@ export const pl: Translations = {
       pglBaseHrs: 'PGL bazowe (HRS)',
       pglBaseCr: 'PGL bazowe (CR)',
       pglBaseHdg: 'PGL bazowe (HDG)',
+      pglBasePickled: 'PGL bazowe (PICKLED)',
+      pglBaseTeardrop: 'PGL bazowe (TEARDROP)',
+      pglBaseZm: 'PGL bazowe (ZM)',
       pglBaseHint: 'Wartość startowa PGL w nowej kalkulacji dla tego typu stali. Handlowiec może ją nadpisać.',
       transportBase: 'Transport bazowy',
       minMarginPct: 'Minimalna marża (%)',
@@ -1065,7 +1087,7 @@ export const en: Translations = {
     highContrastOn: 'Normal View',
     highContrastOff: 'High Contrast',
   },
-  
+
   steelTypes: {
     HRS: 'HRS',
     CR: 'CR',
@@ -1073,6 +1095,12 @@ export const en: Translations = {
     HRS_full: 'Hot Rolled Steel',
     CR_full: 'Cold Rolled Steel',
     HDG_full: 'Hot Dip Galvanized',
+    PICKLED: 'PICKLED',
+    TEARDROP: 'TEARDROP',
+    ZM: 'ZM',
+    PICKLED_full: 'Hot Rolled Pickled',
+    TEARDROP_full: 'Teardrop',
+    ZM_full: 'Zinc-Magnesium',
   },
   
   inputs: {
@@ -1102,6 +1130,8 @@ export const en: Translations = {
     surface: 'Surface',
     surfaceFinish: 'Surface finish',
     weld: 'Weld',
+    pickling: 'Pickling',
+    teardropSurcharge: 'Teardrop Surcharge',
     sum: 'TOTAL Mill',
     unavailable: '— (unavailable)',
   },
@@ -1314,6 +1344,9 @@ export const en: Translations = {
       subtitle: 'base values and exchange rate',
       eurPlnRate: 'EUR → PLN rate',
       eurPlnRateHint: 'How many zloty one euro costs (e.g. 4.30).',
+      pglBasePickled: 'Base PGL (PICKLED)',
+      pglBaseTeardrop: 'Base PGL (TEARDROP)',
+      pglBaseZm: 'Base PGL (ZM)',
       pglBaseHrs: 'Base PGL (HRS)',
       pglBaseCr: 'Base PGL (CR)',
       pglBaseHdg: 'Base PGL (HDG)',
@@ -1527,6 +1560,12 @@ export const cs: Translations = {
     HRS_full: 'Za tepla válcovaná ocel',
     CR_full: 'Za studena válcovaná ocel',
     HDG_full: 'Žárově pozinkovaná ocel',
+    PICKLED: 'PICKLED',
+    TEARDROP: 'TEARDROP',
+    ZM: 'ZM',
+    PICKLED_full: 'Mořená za tepla',
+    TEARDROP_full: 'Slzičkový plech',
+    ZM_full: 'Zinek-hořčík',
   },
 
   inputs: {
@@ -1556,6 +1595,8 @@ export const cs: Translations = {
     surface: 'Povrch',
     surfaceFinish: 'Úprava povrchu',
     weld: 'Svar',
+    pickling: 'Moření',
+    teardropSurcharge: 'Příplatek Slzička',
     sum: 'CELKEM huť',
     unavailable: '— (nedostupné)',
   },
@@ -1768,6 +1809,9 @@ export const cs: Translations = {
       subtitle: 'základní hodnoty a měnový kurz',
       eurPlnRate: 'Kurz EUR → PLN',
       eurPlnRateHint: 'Kolik zlotých stojí 1 euro (např. 4,30).',
+      pglBasePickled: 'Základní PGL (PICKLED)',
+      pglBaseTeardrop: 'Základní PGL (TEARDROP)',
+      pglBaseZm: 'Základní PGL (ZM)',
       pglBaseHrs: 'Základní PGL (HRS)',
       pglBaseCr: 'Základní PGL (CR)',
       pglBaseHdg: 'Základní PGL (HDG)',
@@ -1981,6 +2025,12 @@ export const de: Translations = {
     HRS_full: 'Warmgewalzter Stahl',
     CR_full: 'Kaltgewalzter Stahl',
     HDG_full: 'Feuerverzinkter Stahl',
+    PICKLED: 'PICKLED',
+    TEARDROP: 'TEARDROP',
+    ZM: 'ZM',
+    PICKLED_full: 'Gebeizter Warmwalzstahl',
+    TEARDROP_full: 'Tränenblech',
+    ZM_full: 'Zink-Magnesium',
   },
 
   inputs: {
@@ -2010,6 +2060,8 @@ export const de: Translations = {
     surface: 'Oberfläche',
     surfaceFinish: 'Oberflächenausführung',
     weld: 'Schweißnaht',
+    pickling: 'Beizen',
+    teardropSurcharge: 'Tränenblech-Zuschlag',
     sum: 'GESAMT Hütte',
     unavailable: '— (nicht verfügbar)',
   },
@@ -2222,6 +2274,9 @@ export const de: Translations = {
       subtitle: 'Basiswerte und Wechselkurs',
       eurPlnRate: 'Kurs EUR → PLN',
       eurPlnRateHint: 'Wie viele Zloty ein Euro kostet (z. B. 4,30).',
+      pglBasePickled: 'Basis-PGL (PICKLED)',
+      pglBaseTeardrop: 'Basis-PGL (TEARDROP)',
+      pglBaseZm: 'Basis-PGL (ZM)',
       pglBaseHrs: 'Basis-PGL (HRS)',
       pglBaseCr: 'Basis-PGL (CR)',
       pglBaseHdg: 'Basis-PGL (HDG)',

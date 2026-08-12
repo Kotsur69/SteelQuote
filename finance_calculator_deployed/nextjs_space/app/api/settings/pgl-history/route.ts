@@ -4,7 +4,7 @@ import { requireRole } from '@/lib/rbac';
 
 export interface PglPriceHistoryEntry {
   id: number;
-  steelType: 'HRS' | 'CR' | 'HDG';
+  steelType: 'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | 'ZM';
   oldPrice: number;
   newPrice: number;
   changedByName: string | null;

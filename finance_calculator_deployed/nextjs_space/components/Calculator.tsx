@@ -9,12 +9,21 @@ import {
   DIMENSION_MATRIX_HRS,
   DIMENSION_MATRIX_CR,
   DIMENSION_MATRIX_HDG,
+  DIMENSION_MATRIX_PICKLED,
+  DIMENSION_MATRIX_TEARDROP,
+  DIMENSION_MATRIX_ZM,
   MIN_THICKNESS_HRS,
   MIN_THICKNESS_CR,
   MIN_THICKNESS_HDG,
+  MIN_THICKNESS_PICKLED,
+  MIN_THICKNESS_TEARDROP,
+  MIN_THICKNESS_ZM,
   COATING_MATRIX_HDG,
+  COATING_MATRIX_ZM,
   LENGTH_SURCHARGE_HRS,
   BASE_SURCHARGE_CR_HDG,
+  PICKLING_SURCHARGE,
+  TEARDROP_FLAT_SURCHARGE,
   TOL_THICK_OPTIONS,
   YIELD_GRADES,
   SCRAP_CONSTANT,
@@ -24,6 +33,7 @@ import {
   CERT_OPTIONS,
   CR_PROTECTION_OPTIONS,
   HDG_PROTECTION_OPTIONS,
+  ZM_PROTECTION_OPTIONS,
   SSC_MAX_WEIGHT_OPTIONS,
   SSC_PACKING_OPTIONS,
   getHutaSscToggleOptions,
@@ -147,7 +157,15 @@ export default function Calculator() {
   const [hdgPowierz, setHdgPowierz] = useState(0);
   const [hdgWykon, setHdgWykon] = useState(0);
   const [hdgZgrzew, setHdgZgrzew] = useState(-3);
-  
+
+  // ZM specific (Magnelis) — bez osobnego "wykonania", tylko 4 grupy dopłat
+  const [zmZabezp, setZmZabezp] = useState(0);
+  const [zmZabezpIdx, setZmZabezpIdx] = useState(2); // CE (value 0)
+  const [zmOpak, setZmOpak] = useState(5);
+  const [zmOpakIdx, setZmOpakIdx] = useState(1); // paperPlastic
+  const [zmPowierz, setZmPowierz] = useState(0);
+  const [zmZgrzew, setZmZgrzew] = useState(-3);
+
   // SSC surcharges
   const [sscLenTol, setSscLenTol] = useState(0);
   const [sscFlatness, setSscFlatness] = useState(0);
@@ -246,14 +264,20 @@ export default function Calculator() {
     switch (currentType) {
       case 'CR': return DIMENSION_MATRIX_CR;
       case 'HDG': return DIMENSION_MATRIX_HDG;
+      case 'PICKLED': return DIMENSION_MATRIX_PICKLED;
+      case 'TEARDROP': return DIMENSION_MATRIX_TEARDROP;
+      case 'ZM': return DIMENSION_MATRIX_ZM;
       default: return DIMENSION_MATRIX_HRS;
     }
   }, [currentType]);
-  
+
   const activeMinThickness = useMemo(() => {
     switch (currentType) {
       case 'CR': return MIN_THICKNESS_CR;
       case 'HDG': return MIN_THICKNESS_HDG;
+      case 'PICKLED': return MIN_THICKNESS_PICKLED;
+      case 'TEARDROP': return MIN_THICKNESS_TEARDROP;
+      case 'ZM': return MIN_THICKNESS_ZM;
       default: return MIN_THICKNESS_HRS;
     }
   }, [currentType]);
@@ -281,14 +305,22 @@ export default function Calculator() {
     return null;
   }, [activeMinThickness]);
   
-  // Get coating surcharge for HDG
-  const getCoatingSurcharge = useCallback((th: number, coating: string): number | null => {
-    for (const row of COATING_MATRIX_HDG) {
+  // Get coating surcharge for HDG or ZM (matrix wybierana wg aktywnego typu)
+  const getCoatingSurcharge = useCallback((th: number, coating: string, matrix: typeof COATING_MATRIX_HDG | typeof COATING_MATRIX_ZM): number | null => {
+    for (const row of matrix) {
       const thRange = row.th as { min: number; max: number };
       if (th >= thRange.min && th <= thRange.max) {
         const val = row[coating];
         return typeof val === 'number' ? val : null;
       }
+    }
+    return null;
+  }, []);
+
+  // Trawienie (PICKLED) — dopłata zależna wyłącznie od grubości.
+  const getPicklingSurcharge = useCallback((th: number): number | null => {
+    for (const row of PICKLING_SURCHARGE) {
+      if (th >= row.thicknessMin && th <= row.thicknessMax) return row.value;
     }
     return null;
   }, []);
@@ -360,16 +392,26 @@ export default function Calculator() {
     return formatWarning(t.warnings.widthOutOfRange, { width });
   }, [dimSurcharge, thickness, width, minTh, activeDimensionMatrix, t.warnings]);
   
-  // Calculate coating surcharge for HDG
+  // Calculate coating surcharge for HDG or ZM
   const coatingSurcharge = useMemo(() => {
-    if (currentType !== 'HDG') return 0;
-    return getCoatingSurcharge(thickness, selectedCoating) || 0;
+    if (currentType === 'HDG') return getCoatingSurcharge(thickness, selectedCoating, COATING_MATRIX_HDG) || 0;
+    if (currentType === 'ZM') return getCoatingSurcharge(thickness, selectedCoating, COATING_MATRIX_ZM) || 0;
+    return 0;
   }, [currentType, thickness, selectedCoating, getCoatingSurcharge]);
-  
+
+  // Trawienie — tylko PICKLED, zależne wyłącznie od grubości (nie toggle, jak dimSurcharge)
+  const picklingSurcharge = useMemo(() => {
+    if (currentType !== 'PICKLED') return 0;
+    return getPicklingSurcharge(thickness) || 0;
+  }, [currentType, thickness, getPicklingSurcharge]);
+
+  // Dopłata Łezka — stała, tylko TEARDROP
+  const teardropSurcharge = currentType === 'TEARDROP' ? TEARDROP_FLAT_SURCHARGE : 0;
+
   // Calculate base surcharge
   const baseSurchargeRaw = useMemo(() => {
     if (isCoilMode) return null;
-    if (currentType === 'HRS') {
+    if (currentType === 'HRS' || currentType === 'PICKLED' || currentType === 'TEARDROP') {
       return getBaseLengthSurchargeHRS(thickness, length);
     }
     return getBaseSurchargeCRHDG(thickness, width);
@@ -392,18 +434,23 @@ export default function Calculator() {
   const sumaHuta = useMemo(() => {
     const effectiveDim = dimSurcharge !== null ? dimSurcharge : 0;
     const gradeSurcharge = selectedGrade ? selectedGrade.value : 0;
-    
+
     let crExtra = 0;
     if (currentType === 'CR') {
       crExtra = crZabezp + crOpak + crPowierz + crWykon + crZgrzew;
     } else if (currentType === 'HDG') {
       crExtra = hdgZabezp + hdgOpak + hdgPowierz + hdgWykon + hdgZgrzew;
+    } else if (currentType === 'ZM') {
+      crExtra = zmZabezp + zmOpak + zmPowierz + zmZgrzew;
     }
-    
-    return 0 + effectiveDim + gradeSurcharge + tolThick + cert + coatingSurcharge + crExtra;
+
+    return 0 + effectiveDim + gradeSurcharge + tolThick + cert + coatingSurcharge + crExtra
+      + picklingSurcharge + teardropSurcharge;
   }, [dimSurcharge, selectedGrade, tolThick, cert, coatingSurcharge, currentType,
       crZabezp, crOpak, crPowierz, crWykon, crZgrzew,
-      hdgZabezp, hdgOpak, hdgPowierz, hdgWykon, hdgZgrzew]);
+      hdgZabezp, hdgOpak, hdgPowierz, hdgWykon, hdgZgrzew,
+      zmZabezp, zmOpak, zmPowierz, zmZgrzew,
+      picklingSurcharge, teardropSurcharge]);
   
   // Calculate SSC sum
   const sumaSSC = useMemo(() => {
@@ -441,40 +488,50 @@ export default function Calculator() {
     setPglBase(pglBaseForType(type, settings));
 
     // Reset grade
-    const defaultGrades: Record<SteelType, string> = { HRS: 'S235JR+N', CR: 'DC01', HDG: 'DX51D+Z' };
+    const defaultGrades: Record<SteelType, string | null> = {
+      HRS: 'S235JR+N', CR: 'DC01', HDG: 'DX51D+Z',
+      PICKLED: 'S235JR+N', TEARDROP: null, ZM: 'DX51D+ZM',
+    };
     const defaultName = defaultGrades[type];
-    const defaultEntry = GRADE_TABLES[type].find(g => 
-      g.name.replace(/\s/g, '').toLowerCase() === defaultName.replace(/\s/g, '').toLowerCase()
-    ) || GRADE_TABLES[type][0];
-    
-    if (defaultEntry) {
-      setGradeInput(defaultEntry.name);
-      setSelectedGrade(defaultEntry);
-    }
-    
+    const defaultEntry = defaultName
+      ? GRADE_TABLES[type].find(g =>
+          g.name.replace(/\s/g, '').toLowerCase() === defaultName.replace(/\s/g, '').toLowerCase()
+        ) || GRADE_TABLES[type][0] || null
+      : null;
+
+    setGradeInput(defaultEntry ? defaultEntry.name : '');
+    setSelectedGrade(defaultEntry);
+
     // Set default dimensions per steel type
-    if (type === 'HRS') {
+    if (type === 'HRS' || type === 'PICKLED') {
       setThickness(4);
       setWidth(1500);
       setLength(3000);
-      setSscSurface(10); // Improved = default for HRS
+      setSscSurface(10); // Improved = default for HRS/PICKLED
     } else if (type === 'CR') {
       setThickness(1.5);
       setWidth(1500);
       setLength(3000);
       setSscSurface(0);
-    } else if (type === 'HDG') {
+    } else if (type === 'HDG' || type === 'ZM') {
       setThickness(2);
       setWidth(1500);
       setLength(3000);
       setSscSurface(0);
+    } else if (type === 'TEARDROP') {
+      // Matryca TEARDROP jest aliasem HRS (min. grubość 1.60mm przy 1500mm) — domyślne
+      // 1.5mm dawałoby fałszywe ostrzeżenie "za mała grubość" od razu po wyborze zakładki.
+      setThickness(4);
+      setWidth(1500);
+      setLength(3000);
+      setSscSurface(0);
     }
-    
+
     // Reset tolerances
     setTolThick(0);
     setTolThickIdx(0);
-    setCert(type === 'CR' ? 0 : 5);
-    
+    setCert(type === 'CR' || type === 'ZM' ? 0 : 5);
+
     // Reset SSC options to defaults
     setSscLenTol(0);
     setSscFlatness(0);
@@ -484,7 +541,7 @@ export default function Calculator() {
     setSscPacking(0);
     setSscPackingIdx(0); // S01
     setSscLabels(0);
-    
+
     // Reset coating for HDG
     if (type === 'HDG') {
       setSelectedCoating('Z275');
@@ -496,7 +553,7 @@ export default function Calculator() {
       setHdgWykon(0);
       setHdgZgrzew(-3);
     }
-    
+
     // Reset CR-specific
     if (type === 'CR') {
       setCrZabezp(0);
@@ -506,6 +563,17 @@ export default function Calculator() {
       setCrWykon(0);
       setCrWykonIdx(0); // normalFinish
       setCrZgrzew(-3);
+    }
+
+    // Reset ZM-specific (protection/packaging/surface/weld + coating)
+    if (type === 'ZM') {
+      setSelectedCoating('ZM120');
+      setZmZabezp(0);
+      setZmZabezpIdx(2); // CE
+      setZmOpak(5);
+      setZmOpakIdx(1); // paperPlastic
+      setZmPowierz(0);
+      setZmZgrzew(-3);
     }
   };
   
@@ -573,7 +641,7 @@ export default function Calculator() {
       totalValue: Math.round(cenaKoncowa * tons * 100) / 100,
       pgl: pglBase,
       isCoil: isCoilMode,
-      coating: currentType === 'HDG' ? selectedCoating : undefined,
+      coating: (currentType === 'HDG' || currentType === 'ZM') ? selectedCoating : undefined,
       inputs: {
         selectedGrade,
         tolThick, tolThickIdx,
@@ -581,6 +649,7 @@ export default function Calculator() {
         selectedCoating,
         crZabezp, crOpak, crOpakIdx, crPowierz, crWykon, crWykonIdx, crZgrzew,
         hdgZabezp, hdgZabezpIdx, hdgOpak, hdgOpakIdx, hdgPowierz, hdgWykon, hdgZgrzew,
+        zmZabezp, zmZabezpIdx, zmOpak, zmOpakIdx, zmPowierz, zmZgrzew,
         sscLenTol, sscFlatness, sscSurface, sscMaxWeight, sscMarking, sscEdging,
         sscPacking, sscPackingIdx, sscLabels,
         marginPct, extra, transport,
@@ -627,6 +696,9 @@ export default function Calculator() {
       setHdgZabezp(inp.hdgZabezp); setHdgZabezpIdx(inp.hdgZabezpIdx);
       setHdgOpak(inp.hdgOpak); setHdgOpakIdx(inp.hdgOpakIdx);
       setHdgPowierz(inp.hdgPowierz); setHdgWykon(inp.hdgWykon); setHdgZgrzew(inp.hdgZgrzew);
+      setZmZabezp(inp.zmZabezp); setZmZabezpIdx(inp.zmZabezpIdx);
+      setZmOpak(inp.zmOpak); setZmOpakIdx(inp.zmOpakIdx);
+      setZmPowierz(inp.zmPowierz); setZmZgrzew(inp.zmZgrzew);
       setSscLenTol(inp.sscLenTol); setSscFlatness(inp.sscFlatness); setSscSurface(inp.sscSurface);
       setSscMaxWeight(inp.sscMaxWeight); setSscMarking(inp.sscMarking); setSscEdging(inp.sscEdging);
       setSscPacking(inp.sscPacking); setSscPackingIdx(inp.sscPackingIdx); setSscLabels(inp.sscLabels);
@@ -678,6 +750,7 @@ export default function Calculator() {
     selectedCoating,
     crZabezp, crOpak, crOpakIdx, crPowierz, crWykon, crWykonIdx, crZgrzew,
     hdgZabezp, hdgZabezpIdx, hdgOpak, hdgOpakIdx, hdgPowierz, hdgWykon, hdgZgrzew,
+    zmZabezp, zmZabezpIdx, zmOpak, zmOpakIdx, zmPowierz, zmZgrzew,
     sscLenTol, sscFlatness, sscSurface,
     sscMaxWeight, sscMarking, sscEdging,
     sscPacking, sscPackingIdx, sscLabels,
@@ -720,6 +793,12 @@ export default function Calculator() {
     if (data.hdgPowierz !== undefined) setHdgPowierz(data.hdgPowierz);
     if (data.hdgWykon !== undefined) setHdgWykon(data.hdgWykon);
     if (data.hdgZgrzew !== undefined) setHdgZgrzew(data.hdgZgrzew);
+    if (data.zmZabezp !== undefined) setZmZabezp(data.zmZabezp);
+    if (data.zmZabezpIdx !== undefined) setZmZabezpIdx(data.zmZabezpIdx);
+    if (data.zmOpak !== undefined) setZmOpak(data.zmOpak);
+    if (data.zmOpakIdx !== undefined) setZmOpakIdx(data.zmOpakIdx);
+    if (data.zmPowierz !== undefined) setZmPowierz(data.zmPowierz);
+    if (data.zmZgrzew !== undefined) setZmZgrzew(data.zmZgrzew);
     if (data.sscLenTol !== undefined) setSscLenTol(data.sscLenTol);
     if (data.sscFlatness !== undefined) setSscFlatness(data.sscFlatness);
     if (data.sscSurface !== undefined) setSscSurface(data.sscSurface);
@@ -986,6 +1065,9 @@ export default function Calculator() {
     '--accent-hrs': '#e8a020',
     '--accent-cr': '#3b8ef5',
     '--accent-hdg': '#2ecc71',
+    '--accent-pickled': '#e0499a',
+    '--accent-teardrop': '#22c1d6',
+    '--accent-zm': '#8b7cf6',
     '--accent-sum': '#f5475a',
   } : {
     '--bg': '#eef0f6',
@@ -1001,6 +1083,9 @@ export default function Calculator() {
     '--accent-hrs': '#e8a020',
     '--accent-cr': '#3b8ef5',
     '--accent-hdg': '#2ecc71',
+    '--accent-pickled': '#e0499a',
+    '--accent-teardrop': '#22c1d6',
+    '--accent-zm': '#8b7cf6',
     '--accent-sum': '#f5475a',
   };
 
@@ -1307,34 +1392,35 @@ export default function Calculator() {
         )}
       </div>
 
-      {/* Steel Type Selector */}
-      <div className="flex gap-2.5 mb-6">
-        {(['HRS', 'CR', 'HDG'] as SteelType[]).map(type => {
-          const labels = { 
-            HRS: t.steelTypes.HRS_full, 
-            CR: t.steelTypes.CR_full, 
-            HDG: t.steelTypes.HDG_full 
+      {/* Steel Type Selector — 2 rzędy po 3 (HRS/CR/HDG, PICKLED/TEARDROP/ZM), nie 6 obok siebie */}
+      <div className="grid grid-cols-3 gap-2.5 mb-6">
+        {(['HRS', 'CR', 'HDG', 'PICKLED', 'TEARDROP', 'ZM'] as SteelType[]).map(type => {
+          // Jawna mapa stylów per typ — Tailwind JIT wymaga literalnych klas, nie
+          // interpolowanych stringów z nazwą typu.
+          const style: Record<SteelType, { active: string; underline: string }> = {
+            HRS: { active: 'bg-[rgba(232,160,32,0.08)] border-[var(--accent-hrs)] text-[var(--accent-hrs)]', underline: 'bg-[var(--accent-hrs)]' },
+            CR: { active: 'bg-[rgba(59,142,245,0.08)] border-[var(--accent-cr)] text-[var(--accent-cr)]', underline: 'bg-[var(--accent-cr)]' },
+            HDG: { active: 'bg-[rgba(46,204,113,0.08)] border-[var(--accent-hdg)] text-[var(--accent-hdg)]', underline: 'bg-[var(--accent-hdg)]' },
+            PICKLED: { active: 'bg-[rgba(224,73,154,0.08)] border-[var(--accent-pickled)] text-[var(--accent-pickled)]', underline: 'bg-[var(--accent-pickled)]' },
+            TEARDROP: { active: 'bg-[rgba(34,193,214,0.08)] border-[var(--accent-teardrop)] text-[var(--accent-teardrop)]', underline: 'bg-[var(--accent-teardrop)]' },
+            ZM: { active: 'bg-[rgba(139,124,246,0.08)] border-[var(--accent-zm)] text-[var(--accent-zm)]', underline: 'bg-[var(--accent-zm)]' },
           };
           const activeClass = currentType === type
-            ? type === 'HRS' ? 'bg-[rgba(232,160,32,0.08)] border-[var(--accent-hrs)] text-[var(--accent-hrs)]'
-            : type === 'CR' ? 'bg-[rgba(59,142,245,0.08)] border-[var(--accent-cr)] text-[var(--accent-cr)]'
-            : 'bg-[rgba(46,204,113,0.08)] border-[var(--accent-hdg)] text-[var(--accent-hdg)]'
+            ? style[type].active
             : 'bg-[var(--bg-panel)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]';
-          
+
           return (
             <button
               key={type}
               onClick={() => selectType(type)}
-              className={`flex-1 py-3.5 px-5 rounded-md font-mono text-[15px] font-semibold tracking-widest border-[1.5px] transition-all relative overflow-hidden ${activeClass}`}
+              className={`py-3.5 px-5 rounded-md font-mono text-[15px] font-semibold tracking-widest border-[1.5px] transition-all relative overflow-hidden ${activeClass}`}
             >
-              {type}
+              {t.steelTypes[type]}
               <span className="block text-[11px] font-normal tracking-wider opacity-70 mt-0.5">
-                {labels[type]}
+                {t.steelTypes[`${type}_full` as keyof typeof t.steelTypes]}
               </span>
               {currentType === type && (
-                <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${
-                  type === 'HRS' ? 'bg-[var(--accent-hrs)]' : type === 'CR' ? 'bg-[var(--accent-cr)]' : 'bg-[var(--accent-hdg)]'
-                }`} />
+                <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${style[type].underline}`} />
               )}
             </button>
           );
@@ -1568,12 +1654,15 @@ export default function Calculator() {
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
-            {/* Coating (HDG only) */}
-            {currentType === 'HDG' && (
+            {/* Coating (HDG i ZM — różne klasy powłoki) */}
+            {(currentType === 'HDG' || currentType === 'ZM') && (
               <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                 <span className="flex-shrink-0 text-xs text-[var(--text-secondary)]">{t.huta.coating}</span>
                 <div className="toggle-group flex flex-wrap gap-[2px] justify-end ml-2 flex-1 min-w-0">
-                  {['Z100','Z140','Z200','Z225','Z275','Z350','Z450','Z600','Z725','Z800'].map(c => (
+                  {(currentType === 'ZM'
+                    ? ['ZM70','ZM90','ZM120','ZM175','ZM195','ZM200','ZM250','ZM310','ZM430']
+                    : ['Z100','Z140','Z200','Z225','Z275','Z350','Z450','Z600','Z725','Z800']
+                  ).map(c => (
                     <button
                       key={c}
                       onClick={() => setSelectedCoating(c)}
@@ -1676,8 +1765,60 @@ export default function Calculator() {
                 </div>
               </>
             )}
+
+            {/* Trawienie (PICKLED only) — zależne wyłącznie od grubości, jak dimSurcharge */}
+            {currentType === 'PICKLED' && (
+              <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
+                <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.pickling}</span>
+                <span className={`font-mono text-[13px] font-medium min-w-[64px] text-right ${picklingSurcharge === 0 ? 'text-[var(--accent-sum)]' : 'text-[var(--text-value)]'}`}>
+                  {money(picklingSurcharge)}
+                </span>
+                <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
+              </div>
+            )}
+
+            {/* Dopłata Łezka (TEARDROP only) — stała, nie toggle */}
+            {currentType === 'TEARDROP' && (
+              <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
+                <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.teardropSurcharge}</span>
+                <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">
+                  {money(teardropSurcharge)}
+                </span>
+                <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
+              </div>
+            )}
+
+            {/* ZM specific fields — 4 grupy dopłat, bez osobnego "wykonania" jak CR/HDG */}
+            {currentType === 'ZM' && (
+              <>
+                <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
+                  <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.protection}</span>
+                  <ToggleGroup options={ZM_PROTECTION_OPTIONS} value={zmZabezp} selectedIdx={zmZabezpIdx} onChangeIdx={(v, idx) => { setZmZabezp(v); setZmZabezpIdx(idx); }} />
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(zmZabezp)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
+                </div>
+                <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
+                  <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.packaging}</span>
+                  <ToggleGroup options={getLocalizedOptions.zmPackaging} value={zmOpak} selectedIdx={zmOpakIdx} onChangeIdx={(v, idx) => { setZmOpak(v); setZmOpakIdx(idx); }} />
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(zmOpak)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
+                </div>
+                <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
+                  <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.surface} (ZM)</span>
+                  <ToggleGroup options={getLocalizedOptions.zmSurface} value={zmPowierz} onChange={setZmPowierz} />
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(zmPowierz)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
+                </div>
+                <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
+                  <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.weld}</span>
+                  <ToggleGroup options={getLocalizedOptions.zmWeld} value={zmZgrzew} onChange={setZmZgrzew} />
+                  <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(zmZgrzew)}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
+                </div>
+              </>
+            )}
           </div>
-          
+
           {/* Sum Huta */}
           <div className={`flex items-center px-4 py-3 border-t-[1.5px] border-[var(--border-hi)] mt-auto ${highContrast ? 'bg-[#e0e0e0]' : isDark ? 'bg-[rgba(0,0,0,0.18)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
             <span className="flex-1 text-[11px] font-bold tracking-widest uppercase text-[var(--accent-hrs)]">{t.huta.sum}</span>
@@ -2032,9 +2173,14 @@ export default function Calculator() {
                       </td>
                       <td className="px-3.5 py-2 text-center">
                         <span className={`inline-block font-mono text-[10px] font-bold px-2 py-0.5 rounded tracking-wider
-                          ${item.type === 'HRS' ? 'bg-[rgba(232,160,32,0.12)] text-[var(--accent-hrs)]' : 
-                            item.type === 'CR' ? 'bg-[rgba(59,142,245,0.12)] text-[var(--accent-cr)]' : 
-                            'bg-[rgba(46,204,113,0.12)] text-[var(--accent-hdg)]'}`}>
+                          ${{
+                            HRS: 'bg-[rgba(232,160,32,0.12)] text-[var(--accent-hrs)]',
+                            CR: 'bg-[rgba(59,142,245,0.12)] text-[var(--accent-cr)]',
+                            HDG: 'bg-[rgba(46,204,113,0.12)] text-[var(--accent-hdg)]',
+                            PICKLED: 'bg-[rgba(224,73,154,0.12)] text-[var(--accent-pickled)]',
+                            TEARDROP: 'bg-[rgba(34,193,214,0.12)] text-[var(--accent-teardrop)]',
+                            ZM: 'bg-[rgba(139,124,246,0.12)] text-[var(--accent-zm)]',
+                          }[item.type]}`}>
                           {item.type}
                         </span>
                       </td>

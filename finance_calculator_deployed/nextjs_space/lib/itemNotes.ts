@@ -7,6 +7,7 @@ import {
   CERT_OPTIONS,
   CR_PROTECTION_OPTIONS,
   HDG_PROTECTION_OPTIONS,
+  ZM_PROTECTION_OPTIONS,
   SSC_MAX_WEIGHT_OPTIONS,
   SSC_PACKING_OPTIONS,
   getHutaSscToggleOptions,
@@ -40,7 +41,7 @@ export function buildItemNotes(
   push(t.huta.thicknessTolerance, byIdx(TOL_THICK_OPTIONS[type], inputs.tolThickIdx));
   push(t.huta.certificate, byValue(CERT_OPTIONS, inputs.cert));
 
-  if (type === 'HDG' && inputs.selectedCoating) {
+  if ((type === 'HDG' || type === 'ZM') && inputs.selectedCoating) {
     lines.push(`${t.huta.coating}: ${inputs.selectedCoating}`);
   }
 
@@ -58,6 +59,14 @@ export function buildItemNotes(
     push(t.huta.surface, byValue(opts.hdgSurface, inputs.hdgPowierz));
     push(t.huta.surfaceFinish, byValue(opts.hdgFinish, inputs.hdgWykon));
     push(t.huta.weld, byValue(opts.hdgWeld, inputs.hdgZgrzew));
+  }
+
+  // ZM: bez osobnego "wykonania" (finish) — tylko 4 grupy dopłat, jak w Calculator.tsx
+  if (type === 'ZM') {
+    push(t.huta.protection, byIdx(ZM_PROTECTION_OPTIONS, inputs.zmZabezpIdx));
+    push(t.huta.packaging, byIdx(opts.zmPackaging, inputs.zmOpakIdx));
+    push(t.huta.surface, byValue(opts.zmSurface, inputs.zmPowierz));
+    push(t.huta.weld, byValue(opts.zmWeld, inputs.zmZgrzew));
   }
 
   // SSC (processing) — wspólne dla wszystkich typów

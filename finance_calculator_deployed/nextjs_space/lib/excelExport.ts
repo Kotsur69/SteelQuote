@@ -19,6 +19,9 @@ const GROUP_BY_TYPE: Record<SteelType, string> = {
   HRS: 'HRS',
   CR: 'CR',
   HDG: 'HDG',
+  PICKLED: 'PICKLED',
+  TEARDROP: 'TEARDROP',
+  ZM: 'ZM',
 };
 
 const SHAPE_SHEET = 'SH';   // arkusz (z przykładu)
@@ -111,6 +114,7 @@ export interface ExcelItemInputs {
   sscMaxWeight?: number;
   crZgrzew?: number;
   hdgZgrzew?: number;
+  zmZgrzew?: number;
 }
 
 export interface ExcelExportItem {
@@ -124,11 +128,12 @@ export interface ExcelExportItem {
   inputs?: ExcelItemInputs;
 }
 
-// Zgrzew: dla CR/HDG z przełącznika, dla HRS domyślnie jak w przykładzie.
+// Zgrzew: dla CR/HDG/ZM z przełącznika, dla pozostałych typów domyślnie jak w przykładzie.
 function weldText(item: ExcelExportItem): string {
   const v =
     item.type === 'CR' ? item.inputs?.crZgrzew
     : item.type === 'HDG' ? item.inputs?.hdgZgrzew
+    : item.type === 'ZM' ? item.inputs?.zmZgrzew
     : undefined;
   if (v === -3) return 'ZGRZEW DOZWOLONY';
   if (v === 0) return 'ZGRZEW INNY'; // 'other' — ZGADYWANE
@@ -151,7 +156,7 @@ function buildRow(item: ExcelExportItem): (string | number)[] {
   const pCode = PACKING_CODES[pIdx] ?? 'S01';
   const pDesc = PACKING_DESC[pCode] ?? '';
   const maxW = MAXWEIGHT_T_BY_VALUE[item.inputs?.sscMaxWeight ?? 0] ?? 3.0;
-  const coating = item.type === 'HDG' ? (item.inputs?.selectedCoating || item.coating || '') : '';
+  const coating = (item.type === 'HDG' || item.type === 'ZM') ? (item.inputs?.selectedCoating || item.coating || '') : '';
   const atest = ATEST_BY_CERT[item.inputs?.cert ?? 5] ?? '3.1 EN 10204';
   const edging = (item.inputs?.sscEdging ?? 0) === 0 ? 'N' : 'T';
 

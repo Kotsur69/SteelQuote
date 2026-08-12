@@ -15,7 +15,7 @@ export async function GET() {
 
   try {
     const result = await pool.query(
-      'SELECT eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, transport_base, min_margin_pct FROM app_settings WHERE id = 1'
+      'SELECT eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, pgl_base_pickled, pgl_base_teardrop, pgl_base_zm, transport_base, min_margin_pct FROM app_settings WHERE id = 1'
     );
     // Brak wiersza = migracja 007 nie została puszczona. Nie wywracamy kalkulatora —
     // oddajemy wartości domyślne (identyczne z seedem migracji).
@@ -54,7 +54,7 @@ function parseNumber(
 
 // PGL-owe kolumny, dla których zmiana wartości jest logowana do pgl_price_history
 // (migracja 013) — eurPlnRate/transportBase nie mają odpowiednika steel_type, więc null.
-type SteelType = 'HRS' | 'CR' | 'HDG';
+type SteelType = 'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | 'ZM';
 
 // PATCH - Zmiana ustawień. Tylko admin.
 // Body: { eurPlnRate?, pglBaseHrs?, pglBaseCr?, pglBaseHdg?, transportBase? } - wysyłamy
@@ -82,6 +82,9 @@ export async function PATCH(request: NextRequest) {
       { key: 'pglBaseHrs', column: 'pgl_base_hrs', label: 'PGL bazowe HRS', min: 0, max: 100000, steelType: 'HRS' },
       { key: 'pglBaseCr', column: 'pgl_base_cr', label: 'PGL bazowe CR', min: 0, max: 100000, steelType: 'CR' },
       { key: 'pglBaseHdg', column: 'pgl_base_hdg', label: 'PGL bazowe HDG', min: 0, max: 100000, steelType: 'HDG' },
+      { key: 'pglBasePickled', column: 'pgl_base_pickled', label: 'PGL bazowe PICKLED', min: 0, max: 100000, steelType: 'PICKLED' },
+      { key: 'pglBaseTeardrop', column: 'pgl_base_teardrop', label: 'PGL bazowe TEARDROP', min: 0, max: 100000, steelType: 'TEARDROP' },
+      { key: 'pglBaseZm', column: 'pgl_base_zm', label: 'PGL bazowe ZM', min: 0, max: 100000, steelType: 'ZM' },
       { key: 'transportBase', column: 'transport_base', label: 'Transport bazowy', min: 0, max: 100000, steelType: null },
       { key: 'minMarginPct', column: 'min_margin_pct', label: 'Minimalna marża', min: 0, max: 100, steelType: null },
     ];
@@ -119,7 +122,7 @@ export async function PATCH(request: NextRequest) {
       // Stare wartości PGL PRZED zapisem, zablokowane FOR UPDATE — inaczej równoległy PATCH
       // mógłby wstawić log historii z już nieaktualnym "starym" stanem (patrz migracja 013).
       const before = await db.query(
-        'SELECT pgl_base_hrs, pgl_base_cr, pgl_base_hdg FROM app_settings WHERE id = 1 FOR UPDATE'
+        'SELECT pgl_base_hrs, pgl_base_cr, pgl_base_hdg, pgl_base_pickled, pgl_base_teardrop, pgl_base_zm FROM app_settings WHERE id = 1 FOR UPDATE'
       );
 
       if (before.rows.length === 0) {
@@ -134,11 +137,14 @@ export async function PATCH(request: NextRequest) {
         pgl_base_hrs: Number(before.rows[0].pgl_base_hrs),
         pgl_base_cr: Number(before.rows[0].pgl_base_cr),
         pgl_base_hdg: Number(before.rows[0].pgl_base_hdg),
+        pgl_base_pickled: Number(before.rows[0].pgl_base_pickled),
+        pgl_base_teardrop: Number(before.rows[0].pgl_base_teardrop),
+        pgl_base_zm: Number(before.rows[0].pgl_base_zm),
       };
 
       const result = await db.query(
         `UPDATE app_settings SET ${sets.join(', ')} WHERE id = 1
-         RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, transport_base, min_margin_pct`,
+         RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, pgl_base_pickled, pgl_base_teardrop, pgl_base_zm, transport_base, min_margin_pct`,
         values
       );
 

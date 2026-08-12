@@ -8,11 +8,14 @@ import type { PglPriceHistoryEntry } from '@/app/api/settings/pgl-history/route'
 import { exportPglHistoryToExcel } from '@/lib/pglHistoryExport';
 
 // Spójna paleta per typ stali w całym panelu (te same zmienne, co w Calculatorze):
-// HRS = pomarańczowy, CR = niebieski, HDG = zielony.
-const STEEL_TYPE_COLOR: Record<'HRS' | 'CR' | 'HDG', string> = {
+// HRS = pomarańczowy, CR = niebieski, HDG = zielony, PICKLED = różowy, TEARDROP = cyjan, ZM = fiolet.
+const STEEL_TYPE_COLOR: Record<'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | 'ZM', string> = {
   HRS: 'var(--accent-hrs)',
   CR: 'var(--accent-cr)',
   HDG: 'var(--accent-hdg)',
+  PICKLED: 'var(--accent-pickled)',
+  TEARDROP: 'var(--accent-teardrop)',
+  ZM: 'var(--accent-zm)',
 };
 
 // Pola trzymamy jako string, a nie number: pole musi pozwolić wpisać "4," albo wyczyścić
@@ -26,6 +29,9 @@ function toForm(s: AppSettings): FormState {
     pglBaseHrs: String(s.pglBaseHrs),
     pglBaseCr: String(s.pglBaseCr),
     pglBaseHdg: String(s.pglBaseHdg),
+    pglBasePickled: String(s.pglBasePickled),
+    pglBaseTeardrop: String(s.pglBaseTeardrop),
+    pglBaseZm: String(s.pglBaseZm),
     transportBase: String(s.transportBase),
     minMarginPct: String(s.minMarginPct),
   };
@@ -84,6 +90,9 @@ export default function AdminSettingsPage() {
           pglBaseHrs: form.pglBaseHrs,
           pglBaseCr: form.pglBaseCr,
           pglBaseHdg: form.pglBaseHdg,
+          pglBasePickled: form.pglBasePickled,
+          pglBaseTeardrop: form.pglBaseTeardrop,
+          pglBaseZm: form.pglBaseZm,
           transportBase: form.transportBase,
           minMarginPct: form.minMarginPct,
         }),
@@ -137,6 +146,30 @@ export default function AdminSettingsPage() {
       unit: '€/t',
       step: '0.01',
       color: STEEL_TYPE_COLOR.HDG,
+    },
+    {
+      key: 'pglBasePickled',
+      label: t.admin.settings.pglBasePickled,
+      hint: t.admin.settings.pglBaseHint,
+      unit: '€/t',
+      step: '0.01',
+      color: STEEL_TYPE_COLOR.PICKLED,
+    },
+    {
+      key: 'pglBaseTeardrop',
+      label: t.admin.settings.pglBaseTeardrop,
+      hint: t.admin.settings.pglBaseHint,
+      unit: '€/t',
+      step: '0.01',
+      color: STEEL_TYPE_COLOR.TEARDROP,
+    },
+    {
+      key: 'pglBaseZm',
+      label: t.admin.settings.pglBaseZm,
+      hint: t.admin.settings.pglBaseHint,
+      unit: '€/t',
+      step: '0.01',
+      color: STEEL_TYPE_COLOR.ZM,
     },
     {
       key: 'transportBase',

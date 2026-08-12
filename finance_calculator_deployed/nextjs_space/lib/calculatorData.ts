@@ -211,10 +211,74 @@ export const GRADE_TABLE_HDG = [
   { name: "H220D+Z", value: 16 },
 ];
 
+// Grade table for PICKLED (HRS Trawiona) — dane klienta, sierpień 2026.
+export const GRADE_TABLE_PICKLED = [
+  { name: "C15E", value: 49 },
+  { name: "S355J2+N-CAT_B", value: 57 },
+  { name: "S355J2W+N", value: 175 },
+  { name: "S240 CLAS", value: 25 },
+  { name: "Durabor® 22MnB5", value: 132 },
+  { name: "C45E", value: 84 },
+  { name: "S235J2+AR-CAT_A", value: 19 },
+  { name: "S235J2+N-CAT_A", value: 24 },
+  { name: "S235J2+N-CAT_B", value: 24 },
+  { name: "S235JR+AR", value: 9 },
+  { name: "S235JR+AR-CAT_A", value: 9 },
+  { name: "S235JR+N", value: 24 },
+  { name: "S235JR+N-CAT_A", value: 24 },
+  { name: "S235JR+N-CAT_B", value: 24 },
+  { name: "S235JRC+AR-CAT_A", value: 24 },
+  { name: "S235JRC+N", value: 39 },
+  { name: "S235JRC+N-CAT_A", value: 29 },
+  { name: "S275J2+N", value: 40 },
+  { name: "S275JR+AR", value: 20 },
+  { name: "S275JR+AR-CAT_A", value: 20 },
+  { name: "S275JR+N", value: 40 },
+  { name: "S275JR+N-CAT_A", value: 40 },
+  { name: "S355J0+AR", value: 47 },
+  { name: "S355J0+AR-CAT_B", value: 47 },
+  { name: "S355J2+AR-CAT_A", value: 35 },
+  { name: "S355J2+N", value: 47 },
+  { name: "S355J2+N-CAT_A", value: 57 },
+  { name: "S355J2C+N", value: 72 },
+  { name: "S355J2C+N_NEWAG", value: 80 },
+  { name: "S355J2C+N-CAT_A (57)", value: 57 },
+  { name: "S355J2C+N-CAT_A (72)", value: 72 },
+  { name: "S355JR+AR", value: 42 },
+  { name: "S355JR+AR-CAT_A", value: 25 },
+  { name: "S355JR+AR-CAT_B", value: 42 },
+  { name: "S355JR+N-CAT_A", value: 57 },
+  { name: "SAPH 440", value: 80 },
+];
+
+// Grade table for ZM (Magnelis, powłoka ZnAlMg wg EN 10346) — dane klienta, sierpień 2026.
+export const GRADE_TABLE_ZM = [
+  { name: "S220GD+ZM", value: 3 },
+  { name: "S250GD+ZM", value: 8 },
+  { name: "S280GD+ZM", value: 18 },
+  { name: "S320GD+ZM", value: 26 },
+  { name: "S350GD+ZM", value: 43 },
+  { name: "S550GD-HyPer+ZM (AFCS-EN10346)", value: 103 },
+  { name: "S550GD-HyPer+ZM (AM FCE)", value: 103 },
+  { name: "HX340LAD+ZM", value: 53 },
+  { name: "HX420LAD+ZM", value: 83 },
+  { name: "HX500LAD+ZM", value: 103 },
+  { name: "DX51D+ZM", value: 2 },
+  { name: "DX52D+ZM-MA", value: 27 },
+  { name: "DX54D+ZM", value: 92 },
+];
+
+// TEARDROP (Łezka) nie ma na razie gatunków — decyzja usera 2026-08-12: brak selektora
+// gatunku, dopłata gatunkowa = 0 dla tego typu, dopóki klient nie poda tabeli.
+export const GRADE_TABLE_TEARDROP: { name: string; value: number }[] = [];
+
 export const GRADE_TABLES = {
   HRS: GRADE_TABLE_HRS,
   CR: GRADE_TABLE_CR,
   HDG: GRADE_TABLE_HDG,
+  PICKLED: GRADE_TABLE_PICKLED,
+  TEARDROP: GRADE_TABLE_TEARDROP,
+  ZM: GRADE_TABLE_ZM,
 };
 
 // Dimension Surcharge Matrix HRS
@@ -555,6 +619,251 @@ export const MIN_THICKNESS_HDG = [
   { widthMin: 1500, widthMax: 1850, minThickness: 0.40 },
 ];
 
+// Dimension Surcharge Matrix PICKLED (HRS Trawiona) — dane klienta, sierpień 2026.
+// Dostępne cieńsze przedziały niż HRS w kilku szerokościach (patrz MIN_THICKNESS_PICKLED).
+export const DIMENSION_MATRIX_PICKLED = [
+  { thicknessMin: 1.00, thicknessMax: 1.09, widthMin: 800, widthMax: 899, value: 100 },
+  { thicknessMin: 1.00, thicknessMax: 1.09, widthMin: 900, widthMax: 1099, value: 85 },
+  { thicknessMin: 1.00, thicknessMax: 1.09, widthMin: 1100, widthMax: 1499, value: 80 },
+  { thicknessMin: 1.10, thicknessMax: 1.19, widthMin: 800, widthMax: 899, value: 95 },
+  { thicknessMin: 1.10, thicknessMax: 1.19, widthMin: 900, widthMax: 1099, value: 80 },
+  { thicknessMin: 1.10, thicknessMax: 1.19, widthMin: 1100, widthMax: 1499, value: 75 },
+  { thicknessMin: 1.20, thicknessMax: 1.29, widthMin: 800, widthMax: 899, value: 85 },
+  { thicknessMin: 1.20, thicknessMax: 1.29, widthMin: 900, widthMax: 1099, value: 70 },
+  { thicknessMin: 1.20, thicknessMax: 1.29, widthMin: 1100, widthMax: 1499, value: 60 },
+  { thicknessMin: 1.30, thicknessMax: 1.34, widthMin: 800, widthMax: 899, value: 75 },
+  { thicknessMin: 1.30, thicknessMax: 1.34, widthMin: 900, widthMax: 1099, value: 60 },
+  { thicknessMin: 1.30, thicknessMax: 1.34, widthMin: 1100, widthMax: 1499, value: 55 },
+  { thicknessMin: 1.30, thicknessMax: 1.34, widthMin: 1500, widthMax: 1549, value: 55 },
+  { thicknessMin: 1.35, thicknessMax: 1.39, widthMin: 800, widthMax: 899, value: 70 },
+  { thicknessMin: 1.35, thicknessMax: 1.39, widthMin: 900, widthMax: 1099, value: 60 },
+  { thicknessMin: 1.35, thicknessMax: 1.39, widthMin: 1100, widthMax: 1499, value: 55 },
+  { thicknessMin: 1.35, thicknessMax: 1.39, widthMin: 1500, widthMax: 1549, value: 55 },
+  { thicknessMin: 1.40, thicknessMax: 1.49, widthMin: 800, widthMax: 899, value: 65 },
+  { thicknessMin: 1.40, thicknessMax: 1.49, widthMin: 900, widthMax: 1099, value: 55 },
+  { thicknessMin: 1.40, thicknessMax: 1.49, widthMin: 1100, widthMax: 1499, value: 50 },
+  { thicknessMin: 1.40, thicknessMax: 1.49, widthMin: 1500, widthMax: 1549, value: 50 },
+  { thicknessMin: 1.50, thicknessMax: 1.59, widthMin: 600, widthMax: 799, value: 107 },
+  { thicknessMin: 1.50, thicknessMax: 1.59, widthMin: 800, widthMax: 899, value: 54 },
+  { thicknessMin: 1.50, thicknessMax: 1.59, widthMin: 900, widthMax: 1099, value: 49 },
+  { thicknessMin: 1.50, thicknessMax: 1.59, widthMin: 1100, widthMax: 1499, value: 45 },
+  { thicknessMin: 1.50, thicknessMax: 1.59, widthMin: 1500, widthMax: 1549, value: 45 },
+  { thicknessMin: 1.50, thicknessMax: 1.59, widthMin: 1550, widthMax: 1599, value: 45 },
+  { thicknessMin: 1.50, thicknessMax: 1.59, widthMin: 1600, widthMax: 1849, value: 45 },
+  { thicknessMin: 1.60, thicknessMax: 1.69, widthMin: 600, widthMax: 799, value: 97 },
+  { thicknessMin: 1.60, thicknessMax: 1.69, widthMin: 800, widthMax: 899, value: 44 },
+  { thicknessMin: 1.60, thicknessMax: 1.69, widthMin: 900, widthMax: 1099, value: 43 },
+  { thicknessMin: 1.60, thicknessMax: 1.69, widthMin: 1100, widthMax: 1499, value: 40 },
+  { thicknessMin: 1.60, thicknessMax: 1.69, widthMin: 1500, widthMax: 1549, value: 40 },
+  { thicknessMin: 1.60, thicknessMax: 1.69, widthMin: 1600, widthMax: 1849, value: 40 },
+  { thicknessMin: 1.70, thicknessMax: 1.79, widthMin: 600, widthMax: 799, value: 80 },
+  { thicknessMin: 1.70, thicknessMax: 1.79, widthMin: 800, widthMax: 899, value: 44 },
+  { thicknessMin: 1.70, thicknessMax: 1.79, widthMin: 900, widthMax: 1099, value: 39 },
+  { thicknessMin: 1.70, thicknessMax: 1.79, widthMin: 1100, widthMax: 1499, value: 35 },
+  { thicknessMin: 1.70, thicknessMax: 1.79, widthMin: 1500, widthMax: 1549, value: 35 },
+  { thicknessMin: 1.70, thicknessMax: 1.79, widthMin: 1600, widthMax: 1849, value: 35 },
+  { thicknessMin: 1.80, thicknessMax: 1.99, widthMin: 600, widthMax: 799, value: 72 },
+  { thicknessMin: 1.80, thicknessMax: 1.99, widthMin: 800, widthMax: 899, value: 39 },
+  { thicknessMin: 1.80, thicknessMax: 1.99, widthMin: 900, widthMax: 1099, value: 35 },
+  { thicknessMin: 1.80, thicknessMax: 1.99, widthMin: 1100, widthMax: 1499, value: 30 },
+  { thicknessMin: 1.80, thicknessMax: 1.99, widthMin: 1500, widthMax: 1549, value: 30 },
+  { thicknessMin: 1.80, thicknessMax: 1.99, widthMin: 1600, widthMax: 1849, value: 32 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 600, widthMax: 799, value: 61 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 800, widthMax: 899, value: 34 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 900, widthMax: 1099, value: 28 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1100, widthMax: 1499, value: 24 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1500, widthMax: 1549, value: 24 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1550, widthMax: 1599, value: 28 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1600, widthMax: 1849, value: 28 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1850, widthMax: 2049, value: 35 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 600, widthMax: 799, value: 59 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 800, widthMax: 899, value: 29 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 900, widthMax: 1099, value: 25 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 1100, widthMax: 1499, value: 21 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 1500, widthMax: 1549, value: 21 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 1550, widthMax: 1599, value: 21 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 1600, widthMax: 1849, value: 21 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 1850, widthMax: 2049, value: 30 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 2050, widthMax: 9999, value: 38 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 600, widthMax: 799, value: 53 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 800, widthMax: 899, value: 29 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 900, widthMax: 1099, value: 23 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 1100, widthMax: 1499, value: 19 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 1500, widthMax: 1549, value: 19 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 1550, widthMax: 1599, value: 21 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 1600, widthMax: 1849, value: 21 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 1850, widthMax: 2049, value: 28 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 2050, widthMax: 9999, value: 36 },
+  { thicknessMin: 4.00, thicknessMax: 6.00, widthMin: 600, widthMax: 799, value: 53 },
+  { thicknessMin: 4.00, thicknessMax: 6.00, widthMin: 800, widthMax: 899, value: 24 },
+  { thicknessMin: 4.00, thicknessMax: 6.00, widthMin: 900, widthMax: 1099, value: 20 },
+  { thicknessMin: 4.00, thicknessMax: 6.00, widthMin: 1100, widthMax: 1499, value: 17 },
+  { thicknessMin: 4.00, thicknessMax: 6.00, widthMin: 1500, widthMax: 1549, value: 17 },
+  { thicknessMin: 4.00, thicknessMax: 6.00, widthMin: 1550, widthMax: 1599, value: 19 },
+  { thicknessMin: 4.00, thicknessMax: 6.00, widthMin: 1600, widthMax: 1849, value: 19 },
+  { thicknessMin: 4.00, thicknessMax: 6.00, widthMin: 1850, widthMax: 2049, value: 28 },
+  { thicknessMin: 4.00, thicknessMax: 6.00, widthMin: 2050, widthMax: 9999, value: 36 },
+  { thicknessMin: 6.01, thicknessMax: 7.99, widthMin: 600, widthMax: 799, value: 93 },
+  { thicknessMin: 6.01, thicknessMax: 7.99, widthMin: 800, widthMax: 899, value: 64 },
+  { thicknessMin: 6.01, thicknessMax: 7.99, widthMin: 900, widthMax: 1099, value: 60 },
+  { thicknessMin: 6.01, thicknessMax: 7.99, widthMin: 1100, widthMax: 1499, value: 57 },
+  { thicknessMin: 6.01, thicknessMax: 7.99, widthMin: 1500, widthMax: 1549, value: 57 },
+  { thicknessMin: 6.01, thicknessMax: 7.99, widthMin: 1550, widthMax: 1599, value: 59 },
+  { thicknessMin: 6.01, thicknessMax: 7.99, widthMin: 1600, widthMax: 1849, value: 59 },
+  { thicknessMin: 6.01, thicknessMax: 7.99, widthMin: 1850, widthMax: 2049, value: 68 },
+  { thicknessMin: 6.01, thicknessMax: 7.99, widthMin: 2050, widthMax: 9999, value: 76 },
+  { thicknessMin: 8.00, thicknessMax: 9.99, widthMin: 600, widthMax: 799, value: 95 },
+  { thicknessMin: 8.00, thicknessMax: 9.99, widthMin: 800, widthMax: 899, value: 69 },
+  { thicknessMin: 8.00, thicknessMax: 9.99, widthMin: 900, widthMax: 1099, value: 65 },
+  { thicknessMin: 8.00, thicknessMax: 9.99, widthMin: 1100, widthMax: 1499, value: 61 },
+  { thicknessMin: 8.00, thicknessMax: 9.99, widthMin: 1500, widthMax: 1549, value: 60 },
+  { thicknessMin: 8.00, thicknessMax: 9.99, widthMin: 1550, widthMax: 1599, value: 61 },
+  { thicknessMin: 8.00, thicknessMax: 9.99, widthMin: 1600, widthMax: 1849, value: 62 },
+  { thicknessMin: 8.00, thicknessMax: 9.99, widthMin: 1850, widthMax: 2049, value: 68 },
+  { thicknessMin: 8.00, thicknessMax: 9.99, widthMin: 2050, widthMax: 9999, value: 78 },
+  { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 600, widthMax: 799, value: 97 },
+  { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 800, widthMax: 899, value: 74 },
+  { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 900, widthMax: 1099, value: 68 },
+  { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 1100, widthMax: 1499, value: 63 },
+  { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 1500, widthMax: 1549, value: 63 },
+  { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 1550, widthMax: 1599, value: 64 },
+  { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 1600, widthMax: 1849, value: 65 },
+  { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 1850, widthMax: 2049, value: 68 },
+  { thicknessMin: 10.00, thicknessMax: 11.99, widthMin: 2050, widthMax: 9999, value: 78 },
+  { thicknessMin: 12.00, thicknessMax: 12.99, widthMin: 600, widthMax: 799, value: 99 },
+  { thicknessMin: 12.00, thicknessMax: 12.99, widthMin: 800, widthMax: 899, value: 74 },
+  { thicknessMin: 12.00, thicknessMax: 12.99, widthMin: 900, widthMax: 1099, value: 68 },
+  { thicknessMin: 12.00, thicknessMax: 12.99, widthMin: 1100, widthMax: 1499, value: 65 },
+  { thicknessMin: 12.00, thicknessMax: 12.99, widthMin: 1500, widthMax: 1549, value: 65 },
+  { thicknessMin: 12.00, thicknessMax: 12.99, widthMin: 1550, widthMax: 1599, value: 65 },
+  { thicknessMin: 12.00, thicknessMax: 12.99, widthMin: 1600, widthMax: 1849, value: 65 },
+  { thicknessMin: 12.00, thicknessMax: 12.99, widthMin: 1850, widthMax: 2049, value: 70 },
+  { thicknessMin: 12.00, thicknessMax: 12.99, widthMin: 2050, widthMax: 9999, value: 78 },
+  { thicknessMin: 13.00, thicknessMax: 14.99, widthMin: 600, widthMax: 799, value: 229 },
+  { thicknessMin: 13.00, thicknessMax: 14.99, widthMin: 800, widthMax: 899, value: 204 },
+  { thicknessMin: 13.00, thicknessMax: 14.99, widthMin: 900, widthMax: 1099, value: 198 },
+  { thicknessMin: 13.00, thicknessMax: 14.99, widthMin: 1100, widthMax: 1499, value: 195 },
+  { thicknessMin: 13.00, thicknessMax: 14.99, widthMin: 1500, widthMax: 1549, value: 195 },
+  { thicknessMin: 13.00, thicknessMax: 14.99, widthMin: 1550, widthMax: 1599, value: 195 },
+  { thicknessMin: 13.00, thicknessMax: 14.99, widthMin: 1600, widthMax: 1849, value: 195 },
+  { thicknessMin: 13.00, thicknessMax: 14.99, widthMin: 1850, widthMax: 2049, value: 200 },
+  { thicknessMin: 13.00, thicknessMax: 14.99, widthMin: 2050, widthMax: 9999, value: 208 },
+  { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 600, widthMax: 799, value: 231 },
+  { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 800, widthMax: 899, value: 208 },
+  { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 900, widthMax: 1099, value: 210 },
+  { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 1100, widthMax: 1499, value: 200 },
+  { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 1500, widthMax: 1549, value: 200 },
+  { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 1550, widthMax: 1599, value: 195 },
+  { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 1600, widthMax: 1849, value: 195 },
+  { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 1850, widthMax: 2049, value: 205 },
+  { thicknessMin: 15.00, thicknessMax: 19.99, widthMin: 2050, widthMax: 9999, value: 210 },
+  { thicknessMin: 20.00, thicknessMax: 25.00, widthMin: 600, widthMax: 799, value: 234 },
+  { thicknessMin: 20.00, thicknessMax: 25.00, widthMin: 800, widthMax: 899, value: 218 },
+  { thicknessMin: 20.00, thicknessMax: 25.00, widthMin: 900, widthMax: 1099, value: 220 },
+  { thicknessMin: 20.00, thicknessMax: 25.00, widthMin: 1100, widthMax: 1499, value: 210 },
+  { thicknessMin: 20.00, thicknessMax: 25.00, widthMin: 1500, widthMax: 1549, value: 210 },
+  { thicknessMin: 20.00, thicknessMax: 25.00, widthMin: 1550, widthMax: 1599, value: 205 },
+  { thicknessMin: 20.00, thicknessMax: 25.00, widthMin: 1600, widthMax: 1849, value: 205 },
+  { thicknessMin: 20.00, thicknessMax: 25.00, widthMin: 1850, widthMax: 2049, value: 215 },
+  { thicknessMin: 20.00, thicknessMax: 25.00, widthMin: 2050, widthMax: 9999, value: 215 },
+];
+
+export const MIN_THICKNESS_PICKLED = [
+  { widthMin: 600, widthMax: 799, minThickness: 1.50 },
+  { widthMin: 800, widthMax: 899, minThickness: 1.00 },
+  { widthMin: 900, widthMax: 1099, minThickness: 1.00 },
+  { widthMin: 1100, widthMax: 1499, minThickness: 1.00 },
+  { widthMin: 1500, widthMax: 1549, minThickness: 1.30 },
+  { widthMin: 1550, widthMax: 1599, minThickness: 2.00 },
+  { widthMin: 1600, widthMax: 1849, minThickness: 1.50 },
+  { widthMin: 1850, widthMax: 2049, minThickness: 2.00 },
+  { widthMin: 2050, widthMax: 9999, minThickness: 2.50 },
+];
+
+// TEARDROP (Łezka) — matryca dopłat wymiarowych klienta jest liczbowo identyczna z HRS,
+// więc aliasujemy zamiast duplikować ~90 wierszy (zero ryzyka błędu przepisania).
+export const DIMENSION_MATRIX_TEARDROP = DIMENSION_MATRIX_HRS;
+export const MIN_THICKNESS_TEARDROP = MIN_THICKNESS_HRS;
+
+// Dimension Surcharge Matrix ZM (Magnelis) — dane klienta, sierpień 2026.
+// Szerokości 600-699 i 700-799 nigdy nie mają wartości w danych klienta — Magnelis
+// praktycznie niedostępny poniżej 800mm (potwierdzone z userem, nie luka w danych).
+export const DIMENSION_MATRIX_ZM = [
+  { thicknessMin: 0.50, thicknessMax: 0.54, widthMin: 800, widthMax: 899, value: 109 },
+  { thicknessMin: 0.50, thicknessMax: 0.54, widthMin: 900, widthMax: 1099, value: 89 },
+  { thicknessMin: 0.50, thicknessMax: 0.54, widthMin: 1100, widthMax: 1299, value: 81 },
+  { thicknessMin: 0.50, thicknessMax: 0.54, widthMin: 1300, widthMax: 1499, value: 81 },
+  { thicknessMin: 0.50, thicknessMax: 0.54, widthMin: 1500, widthMax: 1850, value: 81 },
+  { thicknessMin: 0.55, thicknessMax: 0.59, widthMin: 800, widthMax: 899, value: 103 },
+  { thicknessMin: 0.55, thicknessMax: 0.59, widthMin: 900, widthMax: 1099, value: 88 },
+  { thicknessMin: 0.55, thicknessMax: 0.59, widthMin: 1100, widthMax: 1299, value: 78 },
+  { thicknessMin: 0.55, thicknessMax: 0.59, widthMin: 1300, widthMax: 1499, value: 78 },
+  { thicknessMin: 0.55, thicknessMax: 0.59, widthMin: 1500, widthMax: 1850, value: 78 },
+  { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 800, widthMax: 899, value: 87 },
+  { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 900, widthMax: 1099, value: 76 },
+  { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 1100, widthMax: 1299, value: 68 },
+  { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 1300, widthMax: 1499, value: 68 },
+  { thicknessMin: 0.60, thicknessMax: 0.69, widthMin: 1500, widthMax: 1850, value: 68 },
+  { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 800, widthMax: 899, value: 81 },
+  { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 900, widthMax: 1099, value: 72 },
+  { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 1100, widthMax: 1299, value: 61 },
+  { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 1300, widthMax: 1499, value: 61 },
+  { thicknessMin: 0.70, thicknessMax: 0.79, widthMin: 1500, widthMax: 1850, value: 61 },
+  { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 800, widthMax: 899, value: 75 },
+  { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 900, widthMax: 1099, value: 66 },
+  { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 1100, widthMax: 1299, value: 56 },
+  { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 1300, widthMax: 1499, value: 56 },
+  { thicknessMin: 0.80, thicknessMax: 0.89, widthMin: 1500, widthMax: 1850, value: 56 },
+  { thicknessMin: 0.90, thicknessMax: 0.99, widthMin: 800, widthMax: 899, value: 70 },
+  { thicknessMin: 0.90, thicknessMax: 0.99, widthMin: 900, widthMax: 1099, value: 60 },
+  { thicknessMin: 0.90, thicknessMax: 0.99, widthMin: 1100, widthMax: 1299, value: 51 },
+  { thicknessMin: 0.90, thicknessMax: 0.99, widthMin: 1300, widthMax: 1499, value: 51 },
+  { thicknessMin: 0.90, thicknessMax: 0.99, widthMin: 1500, widthMax: 1850, value: 51 },
+  { thicknessMin: 1.00, thicknessMax: 1.24, widthMin: 800, widthMax: 899, value: 63 },
+  { thicknessMin: 1.00, thicknessMax: 1.24, widthMin: 900, widthMax: 1099, value: 53 },
+  { thicknessMin: 1.00, thicknessMax: 1.24, widthMin: 1100, widthMax: 1299, value: 48 },
+  { thicknessMin: 1.00, thicknessMax: 1.24, widthMin: 1300, widthMax: 1499, value: 48 },
+  { thicknessMin: 1.00, thicknessMax: 1.24, widthMin: 1500, widthMax: 1850, value: 48 },
+  { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 800, widthMax: 899, value: 57 },
+  { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 900, widthMax: 1099, value: 45 },
+  { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 1100, widthMax: 1299, value: 40 },
+  { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 1300, widthMax: 1499, value: 40 },
+  { thicknessMin: 1.25, thicknessMax: 1.49, widthMin: 1500, widthMax: 1850, value: 40 },
+  { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 800, widthMax: 899, value: 51 },
+  { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 900, widthMax: 1099, value: 38 },
+  { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 1100, widthMax: 1299, value: 34 },
+  { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 1300, widthMax: 1499, value: 34 },
+  { thicknessMin: 1.50, thicknessMax: 1.99, widthMin: 1500, widthMax: 1850, value: 34 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 800, widthMax: 899, value: 38 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 900, widthMax: 1099, value: 28 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1100, widthMax: 1299, value: 22 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1300, widthMax: 1499, value: 22 },
+  { thicknessMin: 2.00, thicknessMax: 2.49, widthMin: 1500, widthMax: 1850, value: 22 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 800, widthMax: 899, value: 38 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 900, widthMax: 1099, value: 27 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 1100, widthMax: 1299, value: 22 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 1300, widthMax: 1499, value: 22 },
+  { thicknessMin: 2.50, thicknessMax: 2.99, widthMin: 1500, widthMax: 1850, value: 22 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 800, widthMax: 899, value: 37 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 900, widthMax: 1099, value: 24 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 1100, widthMax: 1299, value: 19 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 1300, widthMax: 1499, value: 18 },
+  { thicknessMin: 3.00, thicknessMax: 3.99, widthMin: 1500, widthMax: 1850, value: 18 },
+  { thicknessMin: 5.00, thicknessMax: 99.00, widthMin: 800, widthMax: 899, value: 35 },
+  { thicknessMin: 5.00, thicknessMax: 99.00, widthMin: 900, widthMax: 1099, value: 22 },
+  { thicknessMin: 5.00, thicknessMax: 99.00, widthMin: 1100, widthMax: 1299, value: 18 },
+  { thicknessMin: 5.00, thicknessMax: 99.00, widthMin: 1300, widthMax: 1499, value: 16 },
+  { thicknessMin: 5.00, thicknessMax: 99.00, widthMin: 1500, widthMax: 1850, value: 16 },
+];
+
+export const MIN_THICKNESS_ZM = [
+  { widthMin: 800, widthMax: 899, minThickness: 0.50 },
+  { widthMin: 900, widthMax: 1099, minThickness: 0.50 },
+  { widthMin: 1100, widthMax: 1299, minThickness: 0.50 },
+  { widthMin: 1300, widthMax: 1499, minThickness: 0.50 },
+  { widthMin: 1500, widthMax: 1850, minThickness: 0.50 },
+];
+
 // Coating Matrix for HDG
 interface CoatingRow {
   th: { min: number; max: number };
@@ -596,6 +905,37 @@ export const COATING_MATRIX_HDG: CoatingRow[] = [
   { th: { min: 5.00, max: 99.0 }, Z100: 2, Z140: 5, Z200: 9, Z225: 10, Z275: 16, Z350: 17, Z450: 26, Z600: 33, Z725: 45, Z800: 52 },
 ];
 
+// Coating Matrix for ZM (Magnelis) — klasy powłoki ZM70..ZM430, dane klienta sierpień 2026.
+interface CoatingRowZM {
+  th: { min: number; max: number };
+  ZM70: number | null;
+  ZM90: number | null;
+  ZM120: number | null;
+  ZM175: number | null;
+  ZM195: number | null;
+  ZM200: number | null;
+  ZM250: number | null;
+  ZM310: number | null;
+  ZM430: number | null;
+  [key: string]: { min: number; max: number } | number | null;
+}
+
+export const COATING_MATRIX_ZM: CoatingRowZM[] = [
+  { th: { min: 0.50, max: 0.54 }, ZM70: 41, ZM90: 58, ZM120: 79, ZM175: 128, ZM195: 152, ZM200: 155, ZM250: 184, ZM310: null, ZM430: null },
+  { th: { min: 0.55, max: 0.59 }, ZM70: 34, ZM90: 52, ZM120: 70, ZM175: 112, ZM195: 138, ZM200: 133, ZM250: 165, ZM310: null, ZM430: null },
+  { th: { min: 0.60, max: 0.69 }, ZM70: 30, ZM90: 43, ZM120: 61, ZM175: 94, ZM195: 126, ZM200: 111, ZM250: 140, ZM310: 170, ZM430: 273 },
+  { th: { min: 0.70, max: 0.79 }, ZM70: 25, ZM90: 35, ZM120: 53, ZM175: 79, ZM195: 107, ZM200: 99, ZM250: 125, ZM310: 149, ZM430: 237 },
+  { th: { min: 0.80, max: 0.89 }, ZM70: 23, ZM90: 34, ZM120: 47, ZM175: 68, ZM195: 94, ZM200: 87, ZM250: 112, ZM310: 136, ZM430: 209 },
+  { th: { min: 0.90, max: 0.99 }, ZM70: 21, ZM90: 25, ZM120: 42, ZM175: 62, ZM195: 85, ZM200: 76, ZM250: 99, ZM310: 119, ZM430: 191 },
+  { th: { min: 1.00, max: 1.24 }, ZM70: 18, ZM90: 25, ZM120: 36, ZM175: 54, ZM195: 74, ZM200: 64, ZM250: 90, ZM310: 106, ZM430: 179 },
+  { th: { min: 1.25, max: 1.49 }, ZM70: 16, ZM90: 17, ZM120: 31, ZM175: 44, ZM195: 65, ZM200: 59, ZM250: 76, ZM310: 91, ZM430: 134 },
+  { th: { min: 1.50, max: 1.99 }, ZM70: 14, ZM90: 17, ZM120: 24, ZM175: 39, ZM195: 54, ZM200: 50, ZM250: 66, ZM310: 78, ZM430: 118 },
+  { th: { min: 2.00, max: 2.49 }, ZM70: 13, ZM90: 15, ZM120: 21, ZM175: 31, ZM195: 43, ZM200: 43, ZM250: 58, ZM310: 62, ZM430: 97 },
+  { th: { min: 2.50, max: 2.99 }, ZM70: 13, ZM90: 14, ZM120: 18, ZM175: 25, ZM195: 39, ZM200: 38, ZM250: 47, ZM310: 51, ZM430: 88 },
+  { th: { min: 3.00, max: 3.99 }, ZM70: 13, ZM90: 14, ZM120: 15, ZM175: 22, ZM195: 32, ZM200: 31, ZM250: 35, ZM310: 38, ZM430: 80 },
+  { th: { min: 5.00, max: 99.0 }, ZM70: 13, ZM90: 13, ZM120: 14, ZM175: 19, ZM195: 29, ZM200: 24, ZM250: 26, ZM310: 30, ZM430: 74 },
+];
+
 // Length surcharge matrix for HRS
 export const LENGTH_SURCHARGE_HRS = [
   { thMin: 1.50, thMax: 1.99, l1: 67, l2: 56, l3: 42, l4: 47, l5: 52 },
@@ -614,6 +954,21 @@ export const BASE_SURCHARGE_CR_HDG = [
   { thMin: 1.50, thMax: 2.50, w1: 79, w2: 73, w3: 63, w4: 48, w5: 60 },
   { thMin: 2.51, thMax: 3.00, w1: 87, w2: 81, w3: 71, w4: 56, w5: 68 },
 ];
+
+// Dopłata za trawienie (pickling), unikalna dla PICKLED — zależy WYŁĄCZNIE od grubości,
+// nie od szerokości. Dane klienta, sierpień 2026.
+export const PICKLING_SURCHARGE = [
+  { thicknessMin: 1.20, thicknessMax: 1.24, value: 60 },
+  { thicknessMin: 1.25, thicknessMax: 1.49, value: 50 },
+  { thicknessMin: 1.50, thicknessMax: 1.99, value: 43 },
+  { thicknessMin: 2.00, thicknessMax: 6.34, value: 30 },
+  { thicknessMin: 6.35, thicknessMax: 7.99, value: 40 },
+  { thicknessMin: 8.00, thicknessMax: 13.00, value: 70 },
+];
+
+// Dopłata Łezka (TEARDROP) — stała, zawsze doliczana dla tego typu, niezależna od
+// grubości/szerokości. Dane klienta, sierpień 2026.
+export const TEARDROP_FLAT_SURCHARGE = 30;
 
 // Tolerance options
 export const TOL_THICK_OPTIONS = {
@@ -636,6 +991,25 @@ export const TOL_THICK_OPTIONS = {
     { label: '1/3 EN', value: 20 },
     { label: '1/4 EN', value: 20 },
   ],
+  // PICKLED i TEARDROP: dane klienta identyczne co do wartości z HRS — aliasujemy.
+  PICKLED: [
+    { label: '3/4 EN', value: 0 },
+    { label: '1/2', value: 5 },
+    { label: '1/3', value: 15 },
+    { label: '1/4', value: 25 },
+  ],
+  TEARDROP: [
+    { label: '3/4 EN', value: 0 },
+    { label: '1/2', value: 5 },
+    { label: '1/3', value: 15 },
+    { label: '1/4', value: 25 },
+  ],
+  // ZM: świadomie tylko 3 poziomy (potwierdzone z userem — nie brakujący fragment zrzutu).
+  ZM: [
+    { label: 'Normalna', value: 0 },
+    { label: 'Specjalna', value: 5 },
+    { label: '1/2 EN', value: 10 },
+  ],
 };
 
 // Yield strength grades that require surcharge
@@ -647,7 +1021,7 @@ export const YIELD_GRADES = [
 
 export const SCRAP_CONSTANT = 10;
 
-export type SteelType = 'HRS' | 'CR' | 'HDG';
+export type SteelType = 'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | 'ZM';
 export type Grade = { name: string; value: number };
 
 // Pełny zestaw wejść (przełączników dopłat) dla pojedynczej pozycji zestawienia.
@@ -673,6 +1047,12 @@ export interface ItemInputs {
   hdgPowierz: number;
   hdgWykon: number;
   hdgZgrzew: number;
+  zmZabezp: number;
+  zmZabezpIdx: number;
+  zmOpak: number;
+  zmOpakIdx: number;
+  zmPowierz: number;
+  zmZgrzew: number;
   sscLenTol: number;
   sscFlatness: number;
   sscSurface: number;
@@ -705,6 +1085,14 @@ export const HDG_PROTECTION_OPTIONS = [
   { label: 'O', value: 2 },
   { label: 'EO', value: 2 },
   { label: 'S', value: 20 },
+  { label: 'CE', value: 0 },
+];
+
+// ZM: zduplikowane value (O=2, EO=2) jak w HDG, ale bez poziomu "S" — dopasowanie po
+// indeksie (zmZabezpIdx). Kody bez opisu, tak samo jak CR/HDG — decyzja usera 2026-08-12.
+export const ZM_PROTECTION_OPTIONS = [
+  { label: 'O', value: 2 },
+  { label: 'EO', value: 2 },
   { label: 'CE', value: 0 },
 ];
 
@@ -794,6 +1182,24 @@ export function getHutaSscToggleOptions(t: Translations, language: string) {
       { label: t.toggles.bright, value: 15 },
     ],
     hdgWeld: [
+      { label: t.toggles.allowed, value: -3 },
+      { label: t.toggles.notAllowed, value: 5 },
+      { label: t.toggles.other, value: 0 },
+    ],
+    // ZM: te same opcje/etykiety co hdgPackaging i crWeld/hdgWeld (wartości klienta się
+    // pokrywają) — bez nowych kluczy tłumaczeń. Brak osobnego "wykonania/finish" dla ZM
+    // (tabela klienta ma 4 grupy dopłat, nie 5) — decyzja usera 2026-08-12.
+    zmPackaging: [
+      { label: t.toggles.noPaper, value: 0 },
+      { label: t.toggles.paperPlastic, value: 5 },
+      { label: t.toggles.seaTransport, value: 5 },
+      { label: t.toggles.paperPlasticCE, value: 0 },
+    ],
+    zmSurface: [
+      { label: t.toggles.surfaceA, value: 0 },
+      { label: t.toggles.surfaceB, value: 20 },
+    ],
+    zmWeld: [
       { label: t.toggles.allowed, value: -3 },
       { label: t.toggles.notAllowed, value: 5 },
       { label: t.toggles.other, value: 0 },

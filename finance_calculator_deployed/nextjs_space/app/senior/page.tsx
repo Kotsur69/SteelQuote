@@ -284,7 +284,8 @@ export default function SeniorPage() {
         '--bg-input': '#ffffff', '--border': '#000000', '--border-hi': '#000000',
         '--text-primary': '#000000', '--text-secondary': '#1a1a1a', '--text-muted': '#333333',
         '--text-value': '#000000', '--accent-hrs': '#7a4a00', '--accent-cr': '#0b3d91',
-        '--accent-hdg': '#0b6b2c', '--accent-sum': '#9c0b1e',
+        '--accent-hdg': '#0b6b2c', '--accent-pickled': '#8a1a4a', '--accent-teardrop': '#0e6270',
+        '--accent-zm': '#3d2f8f', '--accent-sum': '#9c0b1e',
       }
     : isDark
     ? {
@@ -292,14 +293,16 @@ export default function SeniorPage() {
         '--bg-input': '#141720', '--border': '#2a3048', '--border-hi': '#3d4a70',
         '--text-primary': '#e8ecf5', '--text-secondary': '#7b88aa', '--text-muted': '#4a536b',
         '--text-value': '#c8d4f0', '--accent-hrs': '#e8a020', '--accent-cr': '#3b8ef5',
-        '--accent-hdg': '#2ecc71', '--accent-sum': '#f5475a',
+        '--accent-hdg': '#2ecc71', '--accent-pickled': '#e0499a', '--accent-teardrop': '#22c1d6',
+        '--accent-zm': '#8b7cf6', '--accent-sum': '#f5475a',
       }
     : {
         '--bg': '#eef0f6', '--bg-panel': '#e2e6f0', '--bg-card': '#ffffff',
         '--bg-input': '#f4f5fa', '--border': '#b8c0d8', '--border-hi': '#7e90c0',
         '--text-primary': '#0d1220', '--text-secondary': '#2e3a5c', '--text-muted': '#6b789a',
         '--text-value': '#141e3a', '--accent-hrs': '#e8a020', '--accent-cr': '#3b8ef5',
-        '--accent-hdg': '#2ecc71', '--accent-sum': '#f5475a',
+        '--accent-hdg': '#2ecc71', '--accent-pickled': '#e0499a', '--accent-teardrop': '#22c1d6',
+        '--accent-zm': '#8b7cf6', '--accent-sum': '#f5475a',
       };
 
   return (
@@ -489,13 +492,14 @@ export default function SeniorPage() {
                         {offer.offer_data.zestawienie.slice(0, 3).map((item, idx) => (
                           <span
                             key={idx}
-                            className={`px-2 py-1 rounded text-[10px] font-mono border ${
-                              item.type === 'HRS'
-                                ? 'border-[var(--accent-hrs)] text-[var(--accent-hrs)] bg-[rgba(232,160,32,0.08)]'
-                                : item.type === 'CR'
-                                  ? 'border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)]'
-                                  : 'border-[var(--accent-hdg)] text-[var(--accent-hdg)] bg-[rgba(46,204,113,0.08)]'
-                            }`}
+                            className={`px-2 py-1 rounded text-[10px] font-mono border ${({
+                              HRS: 'border-[var(--accent-hrs)] text-[var(--accent-hrs)] bg-[rgba(232,160,32,0.08)]',
+                              CR: 'border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)]',
+                              HDG: 'border-[var(--accent-hdg)] text-[var(--accent-hdg)] bg-[rgba(46,204,113,0.08)]',
+                              PICKLED: 'border-[var(--accent-pickled)] text-[var(--accent-pickled)] bg-[rgba(224,73,154,0.08)]',
+                              TEARDROP: 'border-[var(--accent-teardrop)] text-[var(--accent-teardrop)] bg-[rgba(34,193,214,0.08)]',
+                              ZM: 'border-[var(--accent-zm)] text-[var(--accent-zm)] bg-[rgba(139,124,246,0.08)]',
+                            } as Record<string, string>)[item.type] ?? 'border-[var(--border)] text-[var(--text-secondary)]'}`}
                           >
                             {item.type} {item.thickness}×{item.width}×{item.length} {item.grade}
                           </span>

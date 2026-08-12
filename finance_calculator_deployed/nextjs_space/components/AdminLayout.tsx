@@ -34,6 +34,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         '--accent-hrs': '#7a4a00',
         '--accent-cr': '#0b3d91',
         '--accent-hdg': '#0b6b2c',
+        '--accent-pickled': '#8a1a4a',
+        '--accent-teardrop': '#0e6270',
+        '--accent-zm': '#3d2f8f',
         '--accent-sum': '#9c0b1e',
       }
     : isDark
@@ -51,6 +54,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         '--accent-hrs': '#e8a020',
         '--accent-cr': '#3b8ef5',
         '--accent-hdg': '#2ecc71',
+        '--accent-pickled': '#e0499a',
+        '--accent-teardrop': '#22c1d6',
+        '--accent-zm': '#8b7cf6',
         '--accent-sum': '#f5475a',
       }
     : {
@@ -67,6 +73,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         '--accent-hrs': '#e8a020',
         '--accent-cr': '#3b8ef5',
         '--accent-hdg': '#2ecc71',
+        '--accent-pickled': '#e0499a',
+        '--accent-teardrop': '#22c1d6',
+        '--accent-zm': '#8b7cf6',
         '--accent-sum': '#f5475a',
       };
 

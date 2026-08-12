@@ -84,7 +84,13 @@ function buildHtml(
 
   const rows = items.map((item, idx) => {
     const dims = `${item.thickness} × ${item.width}${!item.isCoil ? ` × ${item.length}` : ''}`;
-    const typeClass = item.steelType === 'HRS' ? '#3b82f6' : item.steelType === 'CR' ? '#8b5cf6' : '#10b981';
+    // Jawna mapa kolorów per typ — poprzedni 2-poziomowy ternary po cichu kolorował
+    // każdy typ inny niż HRS/CR na zielono (HDG), co po dodaniu nowych typów byłoby błędne.
+    const TYPE_COLORS: Record<string, string> = {
+      HRS: '#3b82f6', CR: '#8b5cf6', HDG: '#10b981',
+      PICKLED: '#e0499a', TEARDROP: '#22c1d6', ZM: '#8b7cf6',
+    };
+    const typeClass = TYPE_COLORS[item.steelType] ?? '#64748b';
     const notesHtml = (item.notes ?? [])
       .map(n => `<span style="display:inline-block;background:#f1f5f9;border-radius:3px;padding:1px 5px;margin:1px 2px 1px 0;white-space:nowrap;">${escapeHtml(n)}</span>`)
       .join('');

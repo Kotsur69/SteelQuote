@@ -21,6 +21,9 @@ export interface AppSettings {
   pglBaseHrs: number;
   pglBaseCr: number;
   pglBaseHdg: number;
+  pglBasePickled: number;
+  pglBaseTeardrop: number;
+  pglBaseZm: number;
   transportBase: number;
   // Próg marży (%), poniżej którego oferta wymaga zatwierdzenia przez seniora/admina
   // (patrz lib/offerReview.ts) — konfigurowalny w Ustawieniach, tak jak PGL bazowe.
@@ -32,6 +35,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pglBaseHrs: 645,
   pglBaseCr: 645,
   pglBaseHdg: 645,
+  pglBasePickled: 650,
+  pglBaseTeardrop: 650,
+  pglBaseZm: 650,
   transportBase: 20,
   minMarginPct: 7,
 };
@@ -44,6 +50,9 @@ export function settingsRowToAppSettings(row: {
   pgl_base_hrs: string | number;
   pgl_base_cr: string | number;
   pgl_base_hdg: string | number;
+  pgl_base_pickled: string | number;
+  pgl_base_teardrop: string | number;
+  pgl_base_zm: string | number;
   transport_base: string | number;
   min_margin_pct: string | number;
 }): AppSettings {
@@ -52,6 +61,9 @@ export function settingsRowToAppSettings(row: {
     pglBaseHrs: Number(row.pgl_base_hrs),
     pglBaseCr: Number(row.pgl_base_cr),
     pglBaseHdg: Number(row.pgl_base_hdg),
+    pglBasePickled: Number(row.pgl_base_pickled),
+    pglBaseTeardrop: Number(row.pgl_base_teardrop),
+    pglBaseZm: Number(row.pgl_base_zm),
     transportBase: Number(row.transport_base),
     minMarginPct: Number(row.min_margin_pct),
   };
@@ -66,6 +78,12 @@ export function pglBaseForType(type: SteelType, settings: AppSettings): number {
       return settings.pglBaseCr;
     case 'HDG':
       return settings.pglBaseHdg;
+    case 'PICKLED':
+      return settings.pglBasePickled;
+    case 'TEARDROP':
+      return settings.pglBaseTeardrop;
+    case 'ZM':
+      return settings.pglBaseZm;
   }
 }
 
