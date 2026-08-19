@@ -599,8 +599,10 @@ export default function OffersPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <h3 className="font-medium text-[var(--text-primary)] truncate">
-                        {offer.display_name}
+                      {/* Numer oferty jako główny tytuł wiersza — stały punkt odniesienia
+                          (offer_19 / offer_19.1), zawsze w tym samym miejscu w KAŻDYM wierszu. */}
+                      <h3 className="font-medium text-base text-[var(--text-primary)] truncate">
+                        {offerNumberLabel(offer)}
                       </h3>
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border ${statusBadgeClass(offer.status)}`}
@@ -621,12 +623,15 @@ export default function OffersPage() {
                         </span>
                       )}
                     </div>
-                    {/* Stały numer oferty pod nazwą — dyskretny, nazwa zostaje najważniejsza.
-                        Pokazujemy ZAWSZE, także gdy oferta nie ma nazwy własnej i tytułem jest
-                        już "offer_19" — numer ma być w tym samym miejscu w KAŻDYM wierszu. */}
-                    <p className="mt-0.5 text-[10px] font-mono text-[var(--text-secondary)] opacity-60">
-                      {offerNumberLabel(offer)}
-                    </p>
+                    {/* Nazwa własna oferty pod numerem — drugorzędna wobec offer_id.
+                        display_name to kolumna generowana: gdy brak nazwy własnej, baza
+                        nadaje jej ten sam tekst co offerNumberLabel (np. "offer_19") —
+                        pomijamy wiersz, żeby nie dublować tego samego numeru pod spodem. */}
+                    {offer.display_name !== offerNumberLabel(offer) && (
+                      <p className="mt-0.5 text-sm text-[var(--text-secondary)] truncate">
+                        {offer.display_name}
+                      </p>
+                    )}
                     {/* Właściciel oferty — istotne dla seniora recenzującego cudze oferty */}
                     {!perms(offer).isOwner && (
                       <p className="mt-1 text-[11px] text-[var(--text-secondary)] font-mono">
@@ -839,7 +844,7 @@ export default function OffersPage() {
                   <div className="mt-3 pt-3 border-t border-[var(--border)]">
                     <button
                       onClick={(e) => { e.stopPropagation(); setExpandedVersionsId(expandedVersionsId === offer.id ? null : offer.id); }}
-                      className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                      className="flex items-center gap-1.5 text-xs font-mono font-medium text-[var(--text-primary)] opacity-80 hover:opacity-100 transition-opacity"
                     >
                       🕓 {versions.length} {versions.length === 1
                         ? (language === 'pl' ? 'poprzednia wersja' : 'previous version')
