@@ -58,6 +58,7 @@ import { downloadServerPdf } from '@/lib/serverPdf';
 import { exportZestawienieToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
 import { useHighContrast } from '@/lib/useHighContrast';
+import { getThemeVars } from '@/lib/themeVars';
 
 interface ZestawienieItem {
   id: number;
@@ -202,6 +203,9 @@ export default function Calculator() {
   // Odsyłanie display_name z powrotem do API zamroziłoby "offer_14" jako nazwę własną.
   const [currentOfferName, setCurrentOfferName] = useState<string>('');
   const [currentOfferRawName, setCurrentOfferRawName] = useState<string>('');
+  // Etykieta typu "offer_27.1" — liczona z root_offer_id + version_number, bo surowe `id`
+  // wiersza (np. 30) nie ma nic wspólnego z numerem, który handlowiec widzi na liście ofert.
+  const [currentOfferLabel, setCurrentOfferLabel] = useState<string>('');
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveOfferName, setSaveOfferName] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
@@ -901,6 +905,7 @@ export default function Calculator() {
             setCurrentOfferId(offer.id);
             setCurrentOfferName(offer.display_name);
             setCurrentOfferRawName(offer.offer_name ?? '');
+            setCurrentOfferLabel(offerNumberLabel(offer));
             restoreOfferData(offer.offer_data);
             setSaveMessage({ type: 'success', text: t.offers?.offerLoaded || 'Offer loaded!' });
             setTimeout(() => setSaveMessage(null), 3000);
@@ -971,6 +976,7 @@ export default function Calculator() {
         setCurrentOfferId(offer.id);
         setCurrentOfferName(offer.display_name);
         setCurrentOfferRawName(offer.offer_name ?? '');
+        setCurrentOfferLabel(offerNumberLabel(offer));
         // Od tej chwili oferta ma własny, zamrożony kurs. Gdyby admin zmienił kurs, a
         // handlowiec zapisał ponownie tę samą ofertę z otwartej karty — zapisze się kurs
         // pierwotny, nie nowy.
@@ -1036,61 +1042,10 @@ export default function Calculator() {
   const zestTotal = zestawienie.reduce((s, i) => s + i.totalValue, 0);
   const zestTons = zestawienie.reduce((s, i) => s + i.tons, 0);
 
-  // CSS variables based on theme. Wysoki kontrast to jeden, stały motyw -
-  // wygrywa niezaleznie od isDark, bo sprzedawcy na starych ekranach
-  // potrzebuja jednego, przewidywalnego, mocno kontrastowego widoku.
-  const cssVars = highContrast ? {
-    '--bg': '#ffffff',
-    '--bg-panel': '#f0f0f0',
-    '--bg-card': '#ffffff',
-    '--bg-input': '#ffffff',
-    '--border': '#000000',
-    '--border-hi': '#000000',
-    '--text-primary': '#000000',
-    '--text-secondary': '#1a1a1a',
-    '--text-muted': '#333333',
-    '--text-value': '#000000',
-    '--accent-hrs': '#7a4a00',
-    '--accent-cr': '#0b3d91',
-    '--accent-hdg': '#0b6b2c',
-    '--accent-sum': '#9c0b1e',
-  } : isDark ? {
-    '--bg': '#0f1117',
-    '--bg-panel': '#181c26',
-    '--bg-card': '#1e2333',
-    '--bg-input': '#141720',
-    '--border': '#2a3048',
-    '--border-hi': '#3d4a70',
-    '--text-primary': '#e8ecf5',
-    '--text-secondary': '#7b88aa',
-    '--text-muted': '#4a536b',
-    '--text-value': '#c8d4f0',
-    '--accent-hrs': '#e8a020',
-    '--accent-cr': '#3b8ef5',
-    '--accent-hdg': '#2ecc71',
-    '--accent-pickled': '#e0499a',
-    '--accent-teardrop': '#22c1d6',
-    '--accent-zm': '#8b7cf6',
-    '--accent-sum': '#f5475a',
-  } : {
-    '--bg': '#eef0f6',
-    '--bg-panel': '#e2e6f0',
-    '--bg-card': '#ffffff',
-    '--bg-input': '#f4f5fa',
-    '--border': '#b8c0d8',
-    '--border-hi': '#7e90c0',
-    '--text-primary': '#0d1220',
-    '--text-secondary': '#2e3a5c',
-    '--text-muted': '#6b789a',
-    '--text-value': '#141e3a',
-    '--accent-hrs': '#e8a020',
-    '--accent-cr': '#3b8ef5',
-    '--accent-hdg': '#2ecc71',
-    '--accent-pickled': '#e0499a',
-    '--accent-teardrop': '#22c1d6',
-    '--accent-zm': '#8b7cf6',
-    '--accent-sum': '#f5475a',
-  };
+  // CSS variables based on theme. Wysoki kontrast ma teraz wariant jasny i
+  // ciemny (zamiast jednego, stałego motywu), zeby przycisk dark/light dalej
+  // dzialal wizualnie, gdy wysoki kontrast jest wlaczony - patrz lib/themeVars.
+  const cssVars = getThemeVars(isDark, highContrast);
 
   // Localized toggle options (współdzielone z lib/itemNotes.ts do odtworzenia opisu pozycji w PDF)
   const getLocalizedOptions = getHutaSscToggleOptions(t, language);
@@ -1210,6 +1165,20 @@ export default function Calculator() {
           {t.common.logout}
         </button>
       </header>
+
+      {/* Currently Editing Banner — bardzo widoczny pasek, żeby nie dało się przeoczyć,
+          że kalkulator jest w trybie edycji istniejącej oferty, a nie tworzenia nowej. */}
+      {currentOfferId && (
+        <div className="flex items-center gap-2.5 mb-6 px-4 py-2.5 rounded-md border-2 border-[var(--accent-cr)] bg-[rgba(59,142,245,0.12)] text-sm font-mono animate-[fadeIn_0.2s_ease]">
+          <span className="text-base">✏️</span>
+          <span className="text-[var(--text-primary)]">
+            {t.offers?.currentlyEditingBanner || 'Teraz edytujesz ofertę:'}{' '}
+            <span className="font-bold text-[var(--accent-cr)]">
+              {currentOfferLabel || `offer_${currentOfferId}`}
+            </span>
+          </span>
+        </div>
+      )}
 
       {/* Navigation */}
       <Navigation isDark={isDark} highContrast={highContrast} />

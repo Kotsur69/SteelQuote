@@ -1,15 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 import { DEFAULT_SETTINGS, type AppSettings } from '@/lib/currency';
+import type { Translations } from '@/lib/translations';
 import type { PglPriceHistoryEntry } from '@/app/api/settings/pgl-history/route';
 import { exportPglHistoryToExcel } from '@/lib/pglHistoryExport';
 
+type SteelType = 'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | 'ZM';
+
 // Spójna paleta per typ stali w całym panelu (te same zmienne, co w Calculatorze):
 // HRS = pomarańczowy, CR = niebieski, HDG = zielony, PICKLED = różowy, TEARDROP = cyjan, ZM = fiolet.
-const STEEL_TYPE_COLOR: Record<'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | 'ZM', string> = {
+const STEEL_TYPE_COLOR: Record<SteelType, string> = {
   HRS: 'var(--accent-hrs)',
   CR: 'var(--accent-cr)',
   HDG: 'var(--accent-hdg)',
@@ -17,6 +20,24 @@ const STEEL_TYPE_COLOR: Record<'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | '
   TEARDROP: 'var(--accent-teardrop)',
   ZM: 'var(--accent-zm)',
 };
+
+const STEEL_TYPES: SteelType[] = ['HRS', 'CR', 'HDG', 'PICKLED', 'TEARDROP', 'ZM'];
+
+type HistorySortKey = 'steelType' | 'oldPrice' | 'newPrice' | 'delta' | 'changedByName' | 'changedAt';
+
+const DEFAULT_SORT_KEY: HistorySortKey = 'changedAt';
+const DEFAULT_SORT_DIR: 'asc' | 'desc' = 'desc';
+
+// Konfiguracja kolumn tabeli historii — jedno źródło prawdy dla nagłówków (klik = sortowanie)
+// i kluczy tłumaczeń, żeby nie duplikować 6x tej samej logiki renderowania <th>.
+const HISTORY_COLUMNS: { key: HistorySortKey; labelKey: keyof Translations['admin']['settings']; align: 'left' | 'right' }[] = [
+  { key: 'steelType', labelKey: 'historyColType', align: 'left' },
+  { key: 'oldPrice', labelKey: 'historyColOld', align: 'right' },
+  { key: 'newPrice', labelKey: 'historyColNew', align: 'right' },
+  { key: 'delta', labelKey: 'historyColDelta', align: 'right' },
+  { key: 'changedByName', labelKey: 'historyColBy', align: 'left' },
+  { key: 'changedAt', labelKey: 'historyColWhen', align: 'left' },
+];
 
 // Pola trzymamy jako string, a nie number: pole musi pozwolić wpisać "4," albo wyczyścić
 // zawartość w trakcie edycji. Konwersja i walidacja następuje przy zapisie — a serwer
@@ -45,6 +66,78 @@ export default function AdminSettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [history, setHistory] = useState<PglPriceHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState<SteelType | 'ALL'>('ALL');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [sortKey, setSortKey] = useState<HistorySortKey>(DEFAULT_SORT_KEY);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(DEFAULT_SORT_DIR);
+
+  const hasActiveFilters = typeFilter !== 'ALL' || dateFrom !== '' || dateTo !== '';
+
+  const resetFilters = () => {
+    setTypeFilter('ALL');
+    setDateFrom('');
+    setDateTo('');
+    setSortKey(DEFAULT_SORT_KEY);
+    setSortDir(DEFAULT_SORT_DIR);
+  };
+
+  // Klik w nagłówek kolumny: pierwszy klik sortuje malejąco (najbardziej "ciekawe" u góry —
+  // największa zmiana, najnowsza data), drugi klik odwraca kierunek.
+  const toggleSort = (key: HistorySortKey) => {
+    if (sortKey === key) {
+      setSortDir((dir) => (dir === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+  };
+
+  // dateFrom/dateTo to inputy <input type="date"> (YYYY-MM-DD, lokalny dzień) — porównujemy
+  // je na granicach dnia w lokalnej strefie, żeby "Do" obejmowało cały wybrany dzień.
+  const filteredHistory = useMemo(() => {
+    const fromTime = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+    const toTime = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null;
+
+    return history.filter((entry) => {
+      if (typeFilter !== 'ALL' && entry.steelType !== typeFilter) return false;
+      const changedAtTime = new Date(entry.changedAt).getTime();
+      if (fromTime !== null && changedAtTime < fromTime) return false;
+      if (toTime !== null && changedAtTime > toTime) return false;
+      return true;
+    });
+  }, [history, typeFilter, dateFrom, dateTo]);
+
+  const sortedHistory = useMemo(() => {
+    const sorted = [...filteredHistory].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case 'steelType':
+          cmp = a.steelType.localeCompare(b.steelType);
+          break;
+        case 'oldPrice':
+          cmp = a.oldPrice - b.oldPrice;
+          break;
+        case 'newPrice':
+          cmp = a.newPrice - b.newPrice;
+          break;
+        case 'delta':
+          cmp = (a.newPrice - a.oldPrice) - (b.newPrice - b.oldPrice);
+          break;
+        case 'changedByName':
+          cmp = (a.changedByName || a.changedByEmail || '').localeCompare(
+            b.changedByName || b.changedByEmail || ''
+          );
+          break;
+        case 'changedAt':
+        default:
+          cmp = new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime();
+          break;
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return sorted;
+  }, [filteredHistory, sortKey, sortDir]);
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -276,8 +369,8 @@ export default function AdminSettingsPage() {
                 {t.admin.settings.historyTitle}
               </h2>
               <button
-                onClick={() => exportPglHistoryToExcel(history)}
-                disabled={history.length === 0}
+                onClick={() => exportPglHistoryToExcel(sortedHistory)}
+                disabled={sortedHistory.length === 0}
                 className="ml-auto px-3 py-1.5 rounded bg-[var(--bg-input)] border border-[var(--border)] text-[10px] font-mono font-semibold tracking-wider text-[var(--text-primary)] hover:border-[var(--accent-cr)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {t.admin.settings.historyDownload}
@@ -293,60 +386,134 @@ export default function AdminSettingsPage() {
                 {t.admin.settings.historyEmpty}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-[var(--border)] text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-                      <th className="text-left font-medium px-4 py-2">{t.admin.settings.historyColType}</th>
-                      <th className="text-right font-medium px-4 py-2">{t.admin.settings.historyColOld}</th>
-                      <th className="text-right font-medium px-4 py-2">{t.admin.settings.historyColNew}</th>
-                      <th className="text-right font-medium px-4 py-2">{t.admin.settings.historyColDelta}</th>
-                      <th className="text-left font-medium px-4 py-2">{t.admin.settings.historyColBy}</th>
-                      <th className="text-left font-medium px-4 py-2">{t.admin.settings.historyColWhen}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.map((entry) => {
-                      const delta = entry.newPrice - entry.oldPrice;
-                      return (
-                        <tr key={entry.id} className="border-b border-[rgba(42,48,72,0.5)] last:border-b-0">
-                          <td className="px-4 py-2 font-mono font-semibold">
-                            <span
-                              className="inline-flex items-center gap-1.5"
-                              style={{ color: STEEL_TYPE_COLOR[entry.steelType] }}
+              <>
+                <div className="flex flex-wrap items-center gap-1.5 px-4 py-3 border-b border-[var(--border)] bg-[rgba(15,20,35,0.3)]">
+                  <button
+                    onClick={() => setTypeFilter('ALL')}
+                    className="px-2.5 py-1 rounded border text-[10px] font-mono font-semibold tracking-wider transition-colors"
+                    style={{
+                      borderColor: typeFilter === 'ALL' ? 'var(--accent-cr)' : 'var(--border)',
+                      color: typeFilter === 'ALL' ? 'var(--accent-cr)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {t.admin.settings.historyFilterAll}
+                  </button>
+                  {STEEL_TYPES.map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setTypeFilter(type)}
+                      className="px-2.5 py-1 rounded border text-[10px] font-mono font-semibold tracking-wider transition-colors"
+                      style={{
+                        borderColor: typeFilter === type ? STEEL_TYPE_COLOR[type] : 'var(--border)',
+                        color: typeFilter === type ? STEEL_TYPE_COLOR[type] : 'var(--text-secondary)',
+                      }}
+                    >
+                      {type}
+                    </button>
+                  ))}
+
+                  <span className="w-px h-4 bg-[var(--border)] mx-1.5" />
+
+                  <label className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] font-mono">
+                    {t.admin.settings.historyFilterFrom}
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-1.5 py-1 text-[11px] text-[var(--text-primary)] font-mono focus:border-[var(--accent-cr)] outline-none"
+                    />
+                  </label>
+                  <label className="flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] font-mono">
+                    {t.admin.settings.historyFilterTo}
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-1.5 py-1 text-[11px] text-[var(--text-primary)] font-mono focus:border-[var(--accent-cr)] outline-none"
+                    />
+                  </label>
+
+                  {hasActiveFilters && (
+                    <button
+                      onClick={resetFilters}
+                      className="ml-auto px-2.5 py-1.5 rounded border border-[var(--border)] text-[10px] font-mono font-semibold tracking-wider text-[var(--text-secondary)] hover:border-[var(--accent-sum)] hover:text-[var(--accent-sum)] transition-colors"
+                    >
+                      {t.admin.settings.historyFilterReset}
+                    </button>
+                  )}
+                </div>
+
+                {sortedHistory.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-[var(--text-secondary)]">
+                    {t.admin.settings.historyNoResults}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-[var(--border)] text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+                          {HISTORY_COLUMNS.map((col) => (
+                            <th
+                              key={col.key}
+                              onClick={() => toggleSort(col.key)}
+                              className={`font-medium px-4 py-2 cursor-pointer select-none hover:text-[var(--text-primary)] transition-colors ${
+                                col.align === 'right' ? 'text-right' : 'text-left'
+                              }`}
                             >
-                              <span
-                                className="w-1.5 h-1.5 rounded-full shrink-0"
-                                style={{ backgroundColor: STEEL_TYPE_COLOR[entry.steelType] }}
-                              />
-                              {entry.steelType}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2 text-right font-mono text-[var(--text-secondary)]">
-                            {entry.oldPrice.toFixed(2)}
-                          </td>
-                          <td className="px-4 py-2 text-right font-mono text-[var(--text-primary)]">
-                            {entry.newPrice.toFixed(2)}
-                          </td>
-                          <td
-                            className="px-4 py-2 text-right font-mono font-semibold"
-                            style={{ color: delta >= 0 ? 'var(--accent-sum)' : 'var(--accent-hdg)' }}
-                          >
-                            {delta >= 0 ? '+' : ''}
-                            {delta.toFixed(2)}
-                          </td>
-                          <td className="px-4 py-2 text-[var(--text-secondary)]">
-                            {entry.changedByName || entry.changedByEmail || '—'}
-                          </td>
-                          <td className="px-4 py-2 font-mono text-[var(--text-muted)]">
-                            {new Date(entry.changedAt).toLocaleString()}
-                          </td>
+                              {t.admin.settings[col.labelKey]}
+                              {sortKey === col.key && (
+                                <span className="ml-1 text-[var(--accent-cr)]">
+                                  {sortDir === 'asc' ? '▲' : '▼'}
+                                </span>
+                              )}
+                            </th>
+                          ))}
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody>
+                        {sortedHistory.map((entry) => {
+                          const delta = entry.newPrice - entry.oldPrice;
+                          return (
+                            <tr key={entry.id} className="border-b border-[rgba(42,48,72,0.5)] last:border-b-0">
+                              <td className="px-4 py-2 font-mono font-semibold">
+                                <span
+                                  className="inline-flex items-center gap-1.5"
+                                  style={{ color: STEEL_TYPE_COLOR[entry.steelType] }}
+                                >
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: STEEL_TYPE_COLOR[entry.steelType] }}
+                                  />
+                                  {entry.steelType}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-right font-mono text-[var(--text-secondary)]">
+                                {entry.oldPrice.toFixed(2)}
+                              </td>
+                              <td className="px-4 py-2 text-right font-mono text-[var(--text-primary)]">
+                                {entry.newPrice.toFixed(2)}
+                              </td>
+                              <td
+                                className="px-4 py-2 text-right font-mono font-semibold"
+                                style={{ color: delta >= 0 ? 'var(--accent-sum)' : 'var(--accent-hdg)' }}
+                              >
+                                {delta >= 0 ? '+' : ''}
+                                {delta.toFixed(2)}
+                              </td>
+                              <td className="px-4 py-2 text-[var(--text-secondary)]">
+                                {entry.changedByName || entry.changedByEmail || '—'}
+                              </td>
+                              <td className="px-4 py-2 font-mono text-[var(--text-muted)]">
+                                {new Date(entry.changedAt).toLocaleString()}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

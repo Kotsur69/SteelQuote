@@ -80,6 +80,7 @@ export interface Translations {
     saved: string;
     saveFailed: string;
     editOffer: string;
+    currentlyEditingBanner: string;
     copyOffer: string;
     deleteOffer: string;
     confirmDelete: string;
@@ -438,6 +439,11 @@ export interface Translations {
       historyColDelta: string;
       historyColBy: string;
       historyColWhen: string;
+      historyFilterAll: string;
+      historyFilterFrom: string;
+      historyFilterTo: string;
+      historyFilterReset: string;
+      historyNoResults: string;
     };
     totalOffers: string;
     activeSalespeople: string;
@@ -579,6 +585,7 @@ export const pl: Translations = {
     saved: 'Oferta zapisana pomyślnie!',
     saveFailed: 'Nie udało się zapisać oferty',
     editOffer: 'Edytuj ofertę',
+    currentlyEditingBanner: 'Teraz edytujesz ofertę:',
     copyOffer: 'Kopiuj ofertę',
     deleteOffer: 'Usuń ofertę',
     confirmDelete: 'Czy na pewno chcesz usunąć tę ofertę?',
@@ -904,6 +911,11 @@ export const pl: Translations = {
       historyColDelta: 'Zmiana',
       historyColBy: 'Zmienił',
       historyColWhen: 'Data zmiany',
+      historyFilterAll: 'Wszystkie',
+      historyFilterFrom: 'Od',
+      historyFilterTo: 'Do',
+      historyFilterReset: 'Wyczyść filtry',
+      historyNoResults: 'Brak zmian spełniających wybrane filtry.',
     },
     totalOffers: 'Oferty łącznie',
     activeSalespeople: 'Aktywni handlowcy',
@@ -1045,6 +1057,7 @@ export const en: Translations = {
     saved: 'Offer saved successfully!',
     saveFailed: 'Failed to save offer',
     editOffer: 'Edit offer',
+    currentlyEditingBanner: 'You are currently editing offer:',
     copyOffer: 'Copy offer',
     deleteOffer: 'Delete offer',
     confirmDelete: 'Are you sure you want to delete this offer?',
@@ -1370,6 +1383,11 @@ export const en: Translations = {
       historyColDelta: 'Change',
       historyColBy: 'Changed by',
       historyColWhen: 'Changed at',
+      historyFilterAll: 'All',
+      historyFilterFrom: 'From',
+      historyFilterTo: 'To',
+      historyFilterReset: 'Reset filters',
+      historyNoResults: 'No changes match the selected filters.',
     },
     totalOffers: 'Total offers',
     activeSalespeople: 'Active salespeople',
@@ -1510,6 +1528,7 @@ export const cs: Translations = {
     saved: 'Nabídka byla úspěšně uložena!',
     saveFailed: 'Nabídku se nepodařilo uložit',
     editOffer: 'Upravit nabídku',
+    currentlyEditingBanner: 'Nyní upravujete nabídku:',
     copyOffer: 'Kopírovat nabídku',
     deleteOffer: 'Smazat nabídku',
     confirmDelete: 'Opravdu chcete tuto nabídku smazat?',
@@ -1835,6 +1854,11 @@ export const cs: Translations = {
       historyColDelta: 'Změna',
       historyColBy: 'Změnil',
       historyColWhen: 'Datum změny',
+      historyFilterAll: 'Vše',
+      historyFilterFrom: 'Od',
+      historyFilterTo: 'Do',
+      historyFilterReset: 'Vymazat filtry',
+      historyNoResults: 'Žádné změny neodpovídají vybraným filtrům.',
     },
     totalOffers: 'Celkem nabídek',
     activeSalespeople: 'Aktivní obchodníci',
@@ -1975,6 +1999,7 @@ export const de: Translations = {
     saved: 'Angebot erfolgreich gespeichert!',
     saveFailed: 'Angebot konnte nicht gespeichert werden',
     editOffer: 'Angebot bearbeiten',
+    currentlyEditingBanner: 'Sie bearbeiten gerade Angebot:',
     copyOffer: 'Angebot kopieren',
     deleteOffer: 'Angebot löschen',
     confirmDelete: 'Möchten Sie dieses Angebot wirklich löschen?',
@@ -2300,6 +2325,11 @@ export const de: Translations = {
       historyColDelta: 'Änderung',
       historyColBy: 'Geändert von',
       historyColWhen: 'Geändert am',
+      historyFilterAll: 'Alle',
+      historyFilterFrom: 'Von',
+      historyFilterTo: 'Bis',
+      historyFilterReset: 'Filter zurücksetzen',
+      historyNoResults: 'Keine Änderungen entsprechen den gewählten Filtern.',
     },
     totalOffers: 'Angebote gesamt',
     activeSalespeople: 'Aktive Vertriebsmitarbeiter',
