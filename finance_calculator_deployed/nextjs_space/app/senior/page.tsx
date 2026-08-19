@@ -408,7 +408,7 @@ export default function SeniorPage() {
               <div
                 key={offer.id}
                 className={`p-4 hover:bg-[rgba(255,255,255,0.02)] transition-colors ${
-                  highContrast ? 'hover:bg-[rgba(0,0,0,0.10)]' : !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
+                  highContrast ? (isDark ? 'hover:bg-[rgba(255,255,255,0.10)]' : 'hover:bg-[rgba(0,0,0,0.10)]') : !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">

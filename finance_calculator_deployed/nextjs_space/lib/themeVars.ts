@@ -35,7 +35,7 @@ const highContrastDark: ThemeVars = {
   '--text-secondary': '#f2f2f2',
   '--text-muted': '#cccccc',
   '--text-value': '#ffffff',
-  '--accent-hrs': '#ffcc33',
+  '--accent-hrs': '#ff9500',
   '--accent-cr': '#66b3ff',
   '--accent-hdg': '#5ce488',
   '--accent-pickled': '#ff7ac6',

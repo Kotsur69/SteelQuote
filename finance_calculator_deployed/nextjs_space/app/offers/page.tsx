@@ -540,7 +540,7 @@ export default function OffersPage() {
                 key={offer.id}
                 onClick={() => { if (p.canEdit) handleEdit(offer.id); }}
                 className={`p-4 transition-colors ${p.canEdit ? 'cursor-pointer' : ''} hover:bg-[rgba(255,255,255,0.02)] ${
-                  highContrast ? 'hover:bg-[rgba(0,0,0,0.10)]' : !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
+                  highContrast ? (isDark ? 'hover:bg-[rgba(255,255,255,0.10)]' : 'hover:bg-[rgba(0,0,0,0.10)]') : !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">
