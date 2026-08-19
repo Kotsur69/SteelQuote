@@ -258,6 +258,7 @@ export default function Calculator() {
   // Grade dropdown
   const [showGradeDropdown, setShowGradeDropdown] = useState(false);
   const gradeInputRef = useRef<HTMLInputElement>(null);
+  const calculatorTopRef = useRef<HTMLDivElement>(null);
   
   // Get active matrices based on type
   const activeDimensionMatrix = useMemo(() => {
@@ -669,6 +670,8 @@ export default function Calculator() {
   const editItem = (id: number) => {
     const item = zestawienie.find(i => i.id === id);
     if (!item) return;
+
+    calculatorTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     setEditingId(id);
     // Ustawiamy typ BEZPOŚREDNIO — NIE przez selectType(), bo ono resetuje wszystkie
@@ -1393,7 +1396,7 @@ export default function Calculator() {
       </div>
 
       {/* Steel Type Selector — 2 rzędy po 3 (HRS/CR/HDG, PICKLED/TEARDROP/ZM), nie 6 obok siebie */}
-      <div className="grid grid-cols-3 gap-2.5 mb-6">
+      <div ref={calculatorTopRef} className="grid grid-cols-3 gap-2.5 mb-6">
         {(['HRS', 'CR', 'HDG', 'PICKLED', 'TEARDROP', 'ZM'] as SteelType[]).map(type => {
           // Jawna mapa stylów per typ — Tailwind JIT wymaga literalnych klas, nie
           // interpolowanych stringów z nazwą typu.
