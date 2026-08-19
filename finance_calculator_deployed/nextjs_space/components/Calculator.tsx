@@ -1951,19 +1951,21 @@ export default function Calculator() {
             <div className="px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <div className="flex items-center">
                 <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.pglBase}</span>
+                {/* PGL to międzynarodowa cena wsadu notowana zawsze w EUR — w odróżnieniu od
+                    reszty kwot to pole NIE podąża za przełącznikiem waluty (EUR/PLN). */}
                 <NumericField
-                  value={moneyInput(pglBase)}
-                  onChange={v => setPglBase(fromDisplay(v))}
+                  value={pglBase}
+                  onChange={v => setPglBase(v)}
                   min="0"
                   className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[110px] focus:border-[var(--accent-cr)] outline-none
                     ${highContrast ? 'border-[#000000] text-[#000000]' : !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
                 />
-                <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
+                <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">€/t</span>
               </div>
               {/* Poniżej bazy z Ustawień -> ta pozycja będzie wymagać zatwierdzenia (patrz lib/offerReview.ts) */}
               {pglBase < pglBaseForType(currentType, settings) && (
                 <p className="mt-1 text-[10px] text-[var(--accent-hrs)]">
-                  ⚠️ {t.summary.pglBelowBaseWarning} ({moneyInput(pglBaseForType(currentType, settings))} {symbol})
+                  ⚠️ {t.summary.pglBelowBaseWarning} ({pglBaseForType(currentType, settings)} €/t)
                 </p>
               )}
             </div>
