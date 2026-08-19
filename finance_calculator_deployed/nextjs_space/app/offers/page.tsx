@@ -789,9 +789,9 @@ export default function OffersPage() {
                 {/* Poprzednie wersje tej oferty (offer_X.1, offer_X.2, ...) - zwinięte domyślnie,
                     żeby częste edycje nie zaśmiecały listy. */}
                 {versions.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                  <div className="mt-3 pt-3 border-t border-[var(--border)]" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={(e) => { e.stopPropagation(); setExpandedVersionsId(expandedVersionsId === offer.id ? null : offer.id); }}
+                      onClick={() => setExpandedVersionsId(expandedVersionsId === offer.id ? null : offer.id)}
                       className="flex items-center gap-1.5 text-xs font-mono font-medium text-[var(--text-primary)] opacity-80 hover:opacity-100 transition-opacity"
                     >
                       🕓 {versions.length} {versions.length === 1
