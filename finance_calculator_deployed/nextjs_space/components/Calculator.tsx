@@ -2070,7 +2070,11 @@ export default function Calculator() {
             <div className="px-3.5 pt-2.5 pb-1.5">
               <button
                 onClick={addToZestawienie}
-                className="w-full py-3 rounded bg-gradient-to-r from-[#e8a020] to-[#f0c040] text-[#0d1220] font-mono text-xs font-bold tracking-wider hover:opacity-90 transition-opacity"
+                className={`w-full py-3 rounded font-mono text-xs font-bold tracking-wider hover:opacity-90 transition-opacity ${
+                  editingId !== null
+                    ? 'bg-gradient-to-r from-[#3b8ef5] to-[#5fa8ff] text-white'
+                    : 'bg-gradient-to-r from-[#e8a020] to-[#f0c040] text-[#0d1220]'
+                }`}
               >
                 {editingId !== null ? `💾 ${t.summary.updateItem.toUpperCase()}` : `＋ ${t.summary.addToList.toUpperCase()}`}
               </button>
