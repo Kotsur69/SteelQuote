@@ -864,6 +864,7 @@ export default function Calculator() {
         // admina pokazuje dokładnie te kwoty, które klient dostał przy wysyłce.
         currency,
         eurPlnRate: rate,
+        language,
       });
       setSaveMessage({ type: 'success', text: language === 'pl' ? 'PDF wygenerowany!' : 'PDF generated!' });
     } catch (error) {

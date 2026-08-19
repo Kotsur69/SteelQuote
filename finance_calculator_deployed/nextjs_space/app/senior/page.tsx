@@ -230,6 +230,7 @@ export default function SeniorPage() {
         // Waluta i kurs z SAMEJ oferty - starszy widzi i wysyła dokładnie to, co wycenił handlowiec.
         currency: offerCurrency(offer.offer_data),
         eurPlnRate: offerRate(offer.offer_data),
+        language,
       });
     } catch (error) {
       console.error('PDF generation error:', error);

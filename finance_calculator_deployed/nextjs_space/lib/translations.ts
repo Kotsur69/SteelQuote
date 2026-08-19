@@ -4,6 +4,10 @@
 
 export type Language = 'pl' | 'en' | 'cs' | 'de';
 
+export function isLanguage(value: unknown): value is Language {
+  return value === 'pl' || value === 'en' || value === 'cs' || value === 'de';
+}
+
 export interface Translations {
   // Common
   common: {

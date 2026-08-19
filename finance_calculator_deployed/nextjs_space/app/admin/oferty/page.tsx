@@ -275,6 +275,7 @@ function AdminOffersContent() {
         // Waluta i kurs z SAMEJ oferty, nie z bieżących ustawień.
         currency: offerCurrency(o.offer_data),
         eurPlnRate: offerRate(o.offer_data),
+        language,
       });
     } catch (e) {
       console.error('PDF error', e);

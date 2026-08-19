@@ -2,6 +2,8 @@
 // (bogaty render HTML -> PDF przez usluge Abacusa). Zastepuje klientowy jsPDF.
 
 import type { Currency } from '@/lib/currency';
+import type { Language } from '@/lib/translations';
+import { PDF_DATE_LOCALE } from '@/lib/pdfLabels';
 
 interface ClientInfoLike {
   firstName: string;
@@ -39,6 +41,8 @@ export interface ServerPdfInput {
   // przeliczenie robi serwer, tym kursem, a nie biezacym z ustawien.
   currency?: Currency;
   eurPlnRate?: number;
+  // Język UI handlowca w momencie eksportu — PDF renderuje się w tym języku.
+  language: Language;
 }
 
 // Mapuje pozycje zestawienia na ksztalt oczekiwany przez /api/generate-pdf,
@@ -64,9 +68,10 @@ export async function downloadServerPdf(input: ServerPdfInput): Promise<void> {
     },
   }));
 
+  const dateLocale = PDF_DATE_LOCALE[input.language];
   const offerDate = input.createdAt
-    ? new Date(input.createdAt).toLocaleDateString('pl-PL')
-    : new Date().toLocaleDateString('pl-PL');
+    ? new Date(input.createdAt).toLocaleDateString(dateLocale)
+    : new Date().toLocaleDateString(dateLocale);
 
   const res = await fetch('/api/generate-pdf', {
     method: 'POST',
@@ -78,6 +83,7 @@ export async function downloadServerPdf(input: ServerPdfInput): Promise<void> {
       offerDate,
       currency: input.currency,
       eurPlnRate: input.eurPlnRate,
+      language: input.language,
     }),
   });
 

@@ -275,6 +275,7 @@ export default function OffersPage() {
         // niezależnie od tego, co admin ustawił później.
         currency: offerCurrency(offer.offer_data),
         eurPlnRate: offerRate(offer.offer_data),
+        language,
       });
       setMessage({ type: 'success', text: 'PDF wygenerowany!' });
     } catch (error) {

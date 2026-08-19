@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/rbac';
 import { isCurrency, sanitizeRate, DEFAULT_CURRENCY, type Currency } from '@/lib/currency';
+import { isLanguage, type Language } from '@/lib/translations';
+import { PDF_LABELS, PDF_DATE_LOCALE } from '@/lib/pdfLabels';
 import fs from 'fs';
 import path from 'path';
 
@@ -67,9 +69,11 @@ function buildHtml(
   offerDate: string,
   userName: string,
   currency: Currency,
-  eurPlnRate: number
+  eurPlnRate: number,
+  language: Language
 ): string {
   const logo = getLogoBase64();
+  const L = PDF_LABELS[language];
 
   // Kwoty w pozycjach są zawsze w EUR (tak liczy kalkulator). Do PDF przeliczamy je
   // kursem PRZYSŁANYM W ŻĄDANIU — to kurs zamrożony w ofercie, nie bieżący z bazy.
@@ -99,7 +103,7 @@ function buildHtml(
         <td style="text-align:center;font-weight:600;">${idx + 1}</td>
         <td>
           <div style="font-weight:600;font-size:11px;">${escapeHtml(item.grade)}</div>
-          <div style="font-size:10px;color:#64748b;">${dims}${item.coating ? ' / ' + escapeHtml(item.coating) : ''}${item.isCoil ? ' (KRĄG)' : ''}</div>
+          <div style="font-size:10px;color:#64748b;">${dims}${item.coating ? ' / ' + escapeHtml(item.coating) : ''}${item.isCoil ? ' ' + L.coilSuffix : ''}</div>
         </td>
         <td style="text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${typeClass};color:#fff;font-size:10px;font-weight:700;">${escapeHtml(item.steelType)}</span></td>
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.thickness.toFixed(2)}</td>
@@ -113,7 +117,7 @@ function buildHtml(
   }).join('');
 
   return `<!DOCTYPE html>
-<html lang="pl">
+<html lang="${language}">
 <head>
 <meta charset="UTF-8">
 <style>
@@ -163,49 +167,49 @@ function buildHtml(
       ${logo ? `<img src="${logo}" class="logo" alt="Logo">` : ''}
       <div>
         <div class="company-name">Steel Pricing Hub</div>
-        <div class="company-sub">Kalkulator Dopłat Stalowych</div>
+        <div class="company-sub">${L.companySub}</div>
       </div>
     </div>
     <div class="offer-meta">
-      <div class="offer-title">${escapeHtml(offerName) || 'Oferta cenowa'}</div>
-      <div class="meta-row"><span class="lbl">Data: </span><span class="meta-val">${escapeHtml(offerDate)}</span></div>
-      <div class="meta-row"><span class="lbl">Sporządził: </span><span class="meta-val">${escapeHtml(userName) || '-'}</span></div>
+      <div class="offer-title">${escapeHtml(offerName) || L.defaultOfferTitle}</div>
+      <div class="meta-row"><span class="lbl">${L.dateLabel}</span><span class="meta-val">${escapeHtml(offerDate)}</span></div>
+      <div class="meta-row"><span class="lbl">${L.preparedByLabel}</span><span class="meta-val">${escapeHtml(userName) || '-'}</span></div>
     </div>
   </div>
 
   <div class="info-grid">
     <div class="info-block">
-      <div class="info-block-title">Odbiorca</div>
-      ${client.company ? `<div class="info-row"><span class="lbl">Firma:</span><span class="val">${escapeHtml(client.company)}</span></div>` : ''}
-      ${(client.firstName || client.lastName) ? `<div class="info-row"><span class="lbl">Osoba:</span><span class="val">${escapeHtml(client.firstName)} ${escapeHtml(client.lastName)}</span></div>` : ''}
-      ${client.address ? `<div class="info-row"><span class="lbl">Adres:</span><span class="val">${escapeHtml(client.address)}</span></div>` : ''}
-      ${client.nip ? `<div class="info-row"><span class="lbl">NIP:</span><span class="val">${escapeHtml(client.nip)}</span></div>` : ''}
-      ${client.sapId ? `<div class="info-row"><span class="lbl">SAP ID:</span><span class="val">${escapeHtml(client.sapId)}</span></div>` : ''}
-      ${client.phone ? `<div class="info-row"><span class="lbl">Telefon:</span><span class="val">${escapeHtml(client.phone)}</span></div>` : ''}
-      ${client.email ? `<div class="info-row"><span class="lbl">Email:</span><span class="val">${escapeHtml(client.email)}</span></div>` : ''}
+      <div class="info-block-title">${L.recipientTitle}</div>
+      ${client.company ? `<div class="info-row"><span class="lbl">${L.companyLabel}</span><span class="val">${escapeHtml(client.company)}</span></div>` : ''}
+      ${(client.firstName || client.lastName) ? `<div class="info-row"><span class="lbl">${L.personLabel}</span><span class="val">${escapeHtml(client.firstName)} ${escapeHtml(client.lastName)}</span></div>` : ''}
+      ${client.address ? `<div class="info-row"><span class="lbl">${L.addressLabel}</span><span class="val">${escapeHtml(client.address)}</span></div>` : ''}
+      ${client.nip ? `<div class="info-row"><span class="lbl">${L.taxIdLabel}</span><span class="val">${escapeHtml(client.nip)}</span></div>` : ''}
+      ${client.sapId ? `<div class="info-row"><span class="lbl">${L.sapIdLabel}</span><span class="val">${escapeHtml(client.sapId)}</span></div>` : ''}
+      ${client.phone ? `<div class="info-row"><span class="lbl">${L.phoneLabel}</span><span class="val">${escapeHtml(client.phone)}</span></div>` : ''}
+      ${client.email ? `<div class="info-row"><span class="lbl">${L.emailLabel}</span><span class="val">${escapeHtml(client.email)}</span></div>` : ''}
     </div>
     <div class="info-block">
-      <div class="info-block-title">Podsumowanie</div>
-      <div class="info-row"><span class="lbl">Pozycji:</span><span class="val">${items.length}</span></div>
-      <div class="info-row"><span class="lbl">Łącznie t:</span><span class="val">${totalTons.toFixed(2)} t</span></div>
-      <div class="info-row"><span class="lbl">Wartość:</span><span class="val" style="color:#059669;font-size:12px;">${Math.ceil(totalValue)} ${unit}</span></div>
-      <div class="info-row"><span class="lbl">Typy:</span><span class="val">${escapeHtml([...new Set(items.map(i => i.steelType))].join(', '))}</span></div>
+      <div class="info-block-title">${L.summaryTitle}</div>
+      <div class="info-row"><span class="lbl">${L.itemsLabel}</span><span class="val">${items.length}</span></div>
+      <div class="info-row"><span class="lbl">${L.totalTonsLabel}</span><span class="val">${totalTons.toFixed(2)} t</span></div>
+      <div class="info-row"><span class="lbl">${L.valueLabel}</span><span class="val" style="color:#059669;font-size:12px;">${Math.ceil(totalValue)} ${unit}</span></div>
+      <div class="info-row"><span class="lbl">${L.typesLabel}</span><span class="val">${escapeHtml([...new Set(items.map(i => i.steelType))].join(', '))}</span></div>
     </div>
   </div>
 
   <table>
     <thead>
       <tr>
-        <th style="width:30px;text-align:center;">Nr</th>
-        <th style="text-align:left;">Gatunek / Opis</th>
-        <th style="text-align:center;width:45px;">Typ</th>
-        <th style="text-align:right;width:55px;">Grub. mm</th>
-        <th style="text-align:right;width:55px;">Szer. mm</th>
-        <th style="text-align:right;width:55px;">Dł. mm</th>
-        <th style="text-align:right;width:50px;">Ilość t</th>
-        <th style="text-align:right;width:65px;">Cena ${unit}/t</th>
-        <th style="text-align:right;width:75px;">Wartość ${unit}</th>
-        <th style="width:250px;">Uwagi</th>
+        <th style="width:30px;text-align:center;">${L.colNo}</th>
+        <th style="text-align:left;">${L.colDesc}</th>
+        <th style="text-align:center;width:45px;">${L.colType}</th>
+        <th style="text-align:right;width:55px;">${L.colThickness}</th>
+        <th style="text-align:right;width:55px;">${L.colWidth}</th>
+        <th style="text-align:right;width:55px;">${L.colLength}</th>
+        <th style="text-align:right;width:50px;">${L.colQty}</th>
+        <th style="text-align:right;width:65px;">${L.colPrice} ${unit}/t</th>
+        <th style="text-align:right;width:75px;">${L.colValue} ${unit}</th>
+        <th style="width:250px;">${L.colNotes}</th>
       </tr>
     </thead>
     <tbody>
@@ -213,7 +217,7 @@ function buildHtml(
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="6" style="text-align:right;text-transform:uppercase;letter-spacing:1px;font-size:10px;">RAZEM:</td>
+        <td colspan="6" style="text-align:right;text-transform:uppercase;letter-spacing:1px;font-size:10px;">${L.totalRowLabel}</td>
         <td style="text-align:right;">${totalTons.toFixed(2)} t</td>
         <td style="text-align:right;"></td>
         <td style="text-align:right;"><span class="badge-total">${Math.ceil(totalValue)} ${unit}</span></td>
@@ -224,23 +228,23 @@ function buildHtml(
 
   <div class="footer">
     <ul class="footer-notes">
-      <li>Ceny w ${isPln ? 'PLN' : 'EUR'}/t, bez podatku VAT.</li>
-      ${isPln ? `<li>Kurs przeliczeniowy: 1 EUR = ${eurPlnRate.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')} PLN (kurs z dnia wyceny).</li>` : ''}
-      <li>Faktura wystawiana na podstawie wagi brutto.</li>
-      <li>Ważność oferty: 48h od daty wystawienia.</li>
-      <li>Warunki płatności: wg ustaleń indywidualnych.</li>
-      <li>Minimalna ilość: 5 ton na pozycję.</li>
-      <li>Termin dostawy: po potwierdzeniu dostępności materiału.</li>
-      <li>Tolerancja wagowa +/- 10%.</li>
+      <li>${L.pricesNote(isPln ? 'PLN' : 'EUR')}</li>
+      ${isPln ? `<li>${L.rateNote(eurPlnRate.toFixed(4).replace(/0+$/, '').replace(/\.$/, ''))}</li>` : ''}
+      <li>${L.invoiceNote}</li>
+      <li>${L.validityNote}</li>
+      <li>${L.paymentNote}</li>
+      <li>${L.minQuantityNote}</li>
+      <li>${L.deliveryNote}</li>
+      <li>${L.toleranceNote}</li>
     </ul>
     <div class="footer-sign">
       <div class="sign-block">
         <div class="sign-name">${escapeHtml(userName)}</div>
-        <div class="sign-line">Sporządził</div>
+        <div class="sign-line">${L.signPreparedBy}</div>
       </div>
       <div class="sign-block">
         <div class="sign-name">&nbsp;</div>
-        <div class="sign-line">Akceptacja klienta</div>
+        <div class="sign-line">${L.signClientAcceptance}</div>
       </div>
     </div>
   </div>
@@ -257,14 +261,16 @@ export async function POST(request: Request) {
     }
     const session = auth.session;
 
-    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate } = await request.json();
+    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language } = await request.json();
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'No items provided' }, { status: 400 });
     }
 
     const client: ClientInfo = clientInfo || { firstName: '', lastName: '', company: '', address: '', nip: '', sapId: '', phone: '', email: '' };
     const userName = session.email || '';
-    const date = offerDate || new Date().toLocaleDateString('pl-PL');
+    // Brak/nieznany język (stare wywołanie) => polski, tak jak dotąd zachowywał się PDF.
+    const pdfLanguage: Language = isLanguage(language) ? language : 'pl';
+    const date = offerDate || new Date().toLocaleDateString(PDF_DATE_LOCALE[pdfLanguage]);
 
     // Waluta i kurs przychodzą z klienta (kurs zamrożony w ofercie). Sanityzujemy je,
     // bo zepsuty kurs w payloadzie zawyżyłby wszystkie kwoty w PDF wysłanym do klienta.
@@ -272,7 +278,7 @@ export async function POST(request: Request) {
     const pdfCurrency: Currency = isCurrency(currency) ? currency : DEFAULT_CURRENCY;
     const pdfRate = sanitizeRate(eurPlnRate);
 
-    const html_content = buildHtml(items, client, offerName || '', date, userName, pdfCurrency, pdfRate);
+    const html_content = buildHtml(items, client, offerName || '', date, userName, pdfCurrency, pdfRate, pdfLanguage);
 
     // Step 1: Create PDF request
     const createResponse = await fetch('https://apps.abacus.ai/api/createConvertHtmlToPdfRequest', {
