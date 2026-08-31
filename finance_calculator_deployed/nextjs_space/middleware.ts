@@ -39,8 +39,14 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protected routes
-  if (pathname.startsWith('/calculator') || pathname.startsWith('/offers')) {
+  // Protected routes. /analytics is here rather than with the role-gated panels above: it is
+  // open to every logged-in role, and WHICH offers it reports on is decided server-side in
+  // lib/analyticsQuery.ts, not by the URL.
+  if (
+    pathname.startsWith('/calculator') ||
+    pathname.startsWith('/offers') ||
+    pathname.startsWith('/analytics')
+  ) {
     if (!token) {
       return NextResponse.redirect(new URL('/', request.url));
     }
@@ -67,5 +73,12 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/calculator/:path*', '/offers/:path*', '/senior/:path*', '/admin/:path*'],
+  matcher: [
+    '/',
+    '/calculator/:path*',
+    '/offers/:path*',
+    '/analytics/:path*',
+    '/senior/:path*',
+    '/admin/:path*',
+  ],
 };

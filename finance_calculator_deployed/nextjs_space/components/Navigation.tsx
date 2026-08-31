@@ -32,6 +32,9 @@ export default function Navigation({ isDark, highContrast }: NavigationProps) {
   const tabs = [
     { href: '/calculator', label: t.navigation?.calculator || 'Kalkulator', icon: '🧮' },
     { href: '/offers', label: t.navigation?.myOffers || 'Moje Oferty', icon: '📋' },
+    // Analytics is available to every role - junior and senior see their own book, admin the
+    // whole company. The scope is decided server-side; see lib/analyticsQuery.ts.
+    { href: '/analytics', label: t.analytics?.navAnalytics || 'Analiza', icon: '📊' },
     // Panel seniora tylko dla roli 'senior'.
     ...(role === 'senior'
       ? [{ href: '/senior', label: t.navigation?.panelSenior || 'Panel Seniora', icon: '🔍' }]

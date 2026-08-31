@@ -515,6 +515,113 @@ export interface Translations {
     contactCreated: string;
     noClientContacts: string;
   };
+
+  // Analytics panel (app/analytics)
+  analytics: {
+    title: string;
+    subtitle: string;
+    navAnalytics: string;
+    period: string;
+    presetToday: string;
+    presetYesterday: string;
+    presetLast7: string;
+    presetLast30: string;
+    presetLast90: string;
+    presetLast365: string;
+    presetThisMonth: string;
+    presetLastMonth: string;
+    presetThisQuarter: string;
+    presetLastQuarter: string;
+    presetThisYear: string;
+    presetLastYear: string;
+    presetYtd: string;
+    presetAll: string;
+    presetCustom: string;
+    from: string;
+    to: string;
+    granularity: string;
+    granDay: string;
+    granWeek: string;
+    granMonth: string;
+    granQuarter: string;
+    granYear: string;
+    basis: string;
+    basisCreated: string;
+    basisSent: string;
+    basisDecided: string;
+    filters: string;
+    salespeople: string;
+    steelTypes: string;
+    statuses: string;
+    decisions: string;
+    clients: string;
+    allSelected: string;
+    selected: string;
+    reset: string;
+    measure: string;
+    mTons: string;
+    mValue: string;
+    mOffers: string;
+    mClients: string;
+    mMarginPct: string;
+    dimension: string;
+    splitBy: string;
+    dimSteelType: string;
+    dimStatus: string;
+    dimDecision: string;
+    dimSalesperson: string;
+    dimClient: string;
+    splitNone: string;
+    chartType: string;
+    chartLine: string;
+    chartArea: string;
+    chartStackedArea: string;
+    chartBar: string;
+    chartStackedBar: string;
+    chartPie: string;
+    chartDonut: string;
+    chartHorizontalBar: string;
+    kpiTonsOffered: string;
+    kpiTonsWon: string;
+    kpiTonsLost: string;
+    kpiTonsPending: string;
+    kpiWinRateTons: string;
+    kpiWinRateOffers: string;
+    kpiOffers: string;
+    kpiClients: string;
+    kpiClientsWon: string;
+    kpiValueOffered: string;
+    kpiValueWon: string;
+    kpiAvgMargin: string;
+    kpiAvgTons: string;
+    vsPrevious: string;
+    noComparison: string;
+    panelTimeline: string;
+    panelBreakdown: string;
+    panelWinLoss: string;
+    panelTopClients: string;
+    panelTopSalespeople: string;
+    panelDataTable: string;
+    decisionPending: string;
+    decisionWon: string;
+    decisionLost: string;
+    clientDecision: string;
+    markWon: string;
+    markLost: string;
+    clearDecision: string;
+    decisionSaved: string;
+    decisionNotePrompt: string;
+    noData: string;
+    showTable: string;
+    showChart: string;
+    exportXlsx: string;
+    other: string;
+    total: string;
+    loadFailed: string;
+    decidedOffers: string;
+    winRate: string;
+    offersCount: string;
+  };
 }
 
 // Polish translations (default)
@@ -986,6 +1093,112 @@ export const pl: Translations = {
     person: 'Osoba',
     contactCreated: 'Kontakt dodany',
     noClientContacts: 'Brak zapisanych kontaktów',
+  },
+  // Analytics panel (app/analytics)
+  analytics: {
+    title: 'Analiza',
+    subtitle: 'Tony, klienci i skuteczność ofert',
+    navAnalytics: 'Analiza',
+    period: 'Okres',
+    presetToday: 'Dziś',
+    presetYesterday: 'Wczoraj',
+    presetLast7: 'Ostatnie 7 dni',
+    presetLast30: 'Ostatnie 30 dni',
+    presetLast90: 'Ostatnie 90 dni',
+    presetLast365: 'Ostatnie 12 miesięcy',
+    presetThisMonth: 'Ten miesiąc',
+    presetLastMonth: 'Poprzedni miesiąc',
+    presetThisQuarter: 'Ten kwartał',
+    presetLastQuarter: 'Poprzedni kwartał',
+    presetThisYear: 'Ten rok',
+    presetLastYear: 'Poprzedni rok',
+    presetYtd: 'Od początku roku',
+    presetAll: 'Całość',
+    presetCustom: 'Własny zakres',
+    from: 'Od',
+    to: 'Do',
+    granularity: 'Podział czasu',
+    granDay: 'Dni',
+    granWeek: 'Tygodnie',
+    granMonth: 'Miesiące',
+    granQuarter: 'Kwartały',
+    granYear: 'Lata',
+    basis: 'Licz po dacie',
+    basisCreated: 'utworzenia',
+    basisSent: 'wysłania',
+    basisDecided: 'decyzji klienta',
+    filters: 'Filtry',
+    salespeople: 'Handlowcy',
+    steelTypes: 'Typy stali',
+    statuses: 'Statusy',
+    decisions: 'Decyzje klienta',
+    clients: 'Klienci',
+    allSelected: 'Wszystko',
+    selected: 'wybrane',
+    reset: 'Wyczyść filtry',
+    measure: 'Miara',
+    mTons: 'Tony',
+    mValue: 'Wartość',
+    mOffers: 'Liczba ofert',
+    mClients: 'Klienci',
+    mMarginPct: 'Marża %',
+    dimension: 'Wymiar',
+    splitBy: 'Podziel na',
+    dimSteelType: 'Typ stali',
+    dimStatus: 'Status',
+    dimDecision: 'Decyzja klienta',
+    dimSalesperson: 'Handlowiec',
+    dimClient: 'Klient',
+    splitNone: 'Bez podziału',
+    chartType: 'Wykres',
+    chartLine: 'Liniowy',
+    chartArea: 'Warstwowy',
+    chartStackedArea: 'Warstwowy skumulowany',
+    chartBar: 'Słupkowy',
+    chartStackedBar: 'Słupkowy skumulowany',
+    chartPie: 'Kołowy',
+    chartDonut: 'Pierścieniowy',
+    chartHorizontalBar: 'Słupkowy poziomy',
+    kpiTonsOffered: 'Tony zaoferowane',
+    kpiTonsWon: 'Tony wygrane',
+    kpiTonsLost: 'Tony przegrane',
+    kpiTonsPending: 'Tony bez decyzji',
+    kpiWinRateTons: 'Skuteczność (tony)',
+    kpiWinRateOffers: 'Skuteczność (oferty)',
+    kpiOffers: 'Oferty',
+    kpiClients: 'Klienci',
+    kpiClientsWon: 'Klienci z wygraną',
+    kpiValueOffered: 'Wartość zaoferowana',
+    kpiValueWon: 'Wartość wygrana',
+    kpiAvgMargin: 'Średnia marża',
+    kpiAvgTons: 'Średnio ton na ofertę',
+    vsPrevious: 'vs poprzedni okres',
+    noComparison: 'brak porównania',
+    panelTimeline: 'Przebieg w czasie',
+    panelBreakdown: 'Rozbicie',
+    panelWinLoss: 'Wygrane i przegrane',
+    panelTopClients: 'Najlepsi klienci',
+    panelTopSalespeople: 'Handlowcy',
+    panelDataTable: 'Dane źródłowe',
+    decisionPending: 'Bez decyzji',
+    decisionWon: 'Wygrana',
+    decisionLost: 'Przegrana',
+    clientDecision: 'Decyzja klienta',
+    markWon: 'Klient przyjął',
+    markLost: 'Klient odrzucił',
+    clearDecision: 'Cofnij decyzję',
+    decisionSaved: 'Decyzja klienta zapisana',
+    decisionNotePrompt: 'Powód (opcjonalnie), np. cena, termin, konkurencja:',
+    noData: 'Brak danych w wybranym okresie',
+    showTable: 'Tabela',
+    showChart: 'Wykres',
+    exportXlsx: 'Eksport .xlsx',
+    other: 'Pozostali',
+    total: 'Razem',
+    loadFailed: 'Nie udało się pobrać danych analizy',
+    decidedOffers: 'rozstrzygnięte',
+    winRate: 'Skuteczność',
+    offersCount: 'ofert',
   },
 };
 
@@ -1459,6 +1672,112 @@ export const en: Translations = {
     contactCreated: 'Contact added',
     noClientContacts: 'No saved contacts',
   },
+  // Analytics panel (app/analytics)
+  analytics: {
+    title: 'Analytics',
+    subtitle: 'Tonnage, clients and offer success',
+    navAnalytics: 'Analytics',
+    period: 'Period',
+    presetToday: 'Today',
+    presetYesterday: 'Yesterday',
+    presetLast7: 'Last 7 days',
+    presetLast30: 'Last 30 days',
+    presetLast90: 'Last 90 days',
+    presetLast365: 'Last 12 months',
+    presetThisMonth: 'This month',
+    presetLastMonth: 'Last month',
+    presetThisQuarter: 'This quarter',
+    presetLastQuarter: 'Last quarter',
+    presetThisYear: 'This year',
+    presetLastYear: 'Last year',
+    presetYtd: 'Year to date',
+    presetAll: 'All time',
+    presetCustom: 'Custom range',
+    from: 'From',
+    to: 'To',
+    granularity: 'Time buckets',
+    granDay: 'Days',
+    granWeek: 'Weeks',
+    granMonth: 'Months',
+    granQuarter: 'Quarters',
+    granYear: 'Years',
+    basis: 'Count by date of',
+    basisCreated: 'creation',
+    basisSent: 'sending',
+    basisDecided: 'client decision',
+    filters: 'Filters',
+    salespeople: 'Salespeople',
+    steelTypes: 'Steel types',
+    statuses: 'Statuses',
+    decisions: 'Client decisions',
+    clients: 'Clients',
+    allSelected: 'All',
+    selected: 'selected',
+    reset: 'Clear filters',
+    measure: 'Measure',
+    mTons: 'Tons',
+    mValue: 'Value',
+    mOffers: 'Offer count',
+    mClients: 'Clients',
+    mMarginPct: 'Margin %',
+    dimension: 'Dimension',
+    splitBy: 'Split by',
+    dimSteelType: 'Steel type',
+    dimStatus: 'Status',
+    dimDecision: 'Client decision',
+    dimSalesperson: 'Salesperson',
+    dimClient: 'Client',
+    splitNone: 'No split',
+    chartType: 'Chart',
+    chartLine: 'Line',
+    chartArea: 'Area',
+    chartStackedArea: 'Stacked area',
+    chartBar: 'Bar',
+    chartStackedBar: 'Stacked bar',
+    chartPie: 'Pie',
+    chartDonut: 'Donut',
+    chartHorizontalBar: 'Horizontal bar',
+    kpiTonsOffered: 'Tons offered',
+    kpiTonsWon: 'Tons won',
+    kpiTonsLost: 'Tons lost',
+    kpiTonsPending: 'Tons undecided',
+    kpiWinRateTons: 'Win rate (tons)',
+    kpiWinRateOffers: 'Win rate (offers)',
+    kpiOffers: 'Offers',
+    kpiClients: 'Clients',
+    kpiClientsWon: 'Clients with a win',
+    kpiValueOffered: 'Value offered',
+    kpiValueWon: 'Value won',
+    kpiAvgMargin: 'Average margin',
+    kpiAvgTons: 'Average tons per offer',
+    vsPrevious: 'vs previous period',
+    noComparison: 'no comparison',
+    panelTimeline: 'Over time',
+    panelBreakdown: 'Breakdown',
+    panelWinLoss: 'Won and lost',
+    panelTopClients: 'Top clients',
+    panelTopSalespeople: 'Salespeople',
+    panelDataTable: 'Source data',
+    decisionPending: 'Undecided',
+    decisionWon: 'Won',
+    decisionLost: 'Lost',
+    clientDecision: 'Client decision',
+    markWon: 'Client accepted',
+    markLost: 'Client declined',
+    clearDecision: 'Undo decision',
+    decisionSaved: 'Client decision saved',
+    decisionNotePrompt: 'Reason (optional), e.g. price, lead time, competitor:',
+    noData: 'No data in the selected period',
+    showTable: 'Table',
+    showChart: 'Chart',
+    exportXlsx: 'Export .xlsx',
+    other: 'Others',
+    total: 'Total',
+    loadFailed: 'Could not load analytics data',
+    decidedOffers: 'decided',
+    winRate: 'Win rate',
+    offersCount: 'offers',
+  },
 };
 
 export const cs: Translations = {
@@ -1930,6 +2249,112 @@ export const cs: Translations = {
     contactCreated: 'Kontakt přidán',
     noClientContacts: 'Žádné uložené kontakty',
   },
+  // Analytics panel (app/analytics)
+  analytics: {
+    title: 'Analýza',
+    subtitle: 'Tonáž, zákazníci a úspěšnost nabídek',
+    navAnalytics: 'Analýza',
+    period: 'Období',
+    presetToday: 'Dnes',
+    presetYesterday: 'Včera',
+    presetLast7: 'Posledních 7 dní',
+    presetLast30: 'Posledních 30 dní',
+    presetLast90: 'Posledních 90 dní',
+    presetLast365: 'Posledních 12 měsíců',
+    presetThisMonth: 'Tento měsíc',
+    presetLastMonth: 'Minulý měsíc',
+    presetThisQuarter: 'Toto čtvrtletí',
+    presetLastQuarter: 'Minulé čtvrtletí',
+    presetThisYear: 'Tento rok',
+    presetLastYear: 'Minulý rok',
+    presetYtd: 'Od začátku roku',
+    presetAll: 'Vše',
+    presetCustom: 'Vlastní rozsah',
+    from: 'Od',
+    to: 'Do',
+    granularity: 'Časové úseky',
+    granDay: 'Dny',
+    granWeek: 'Týdny',
+    granMonth: 'Měsíce',
+    granQuarter: 'Čtvrtletí',
+    granYear: 'Roky',
+    basis: 'Počítat podle data',
+    basisCreated: 'vytvoření',
+    basisSent: 'odeslání',
+    basisDecided: 'rozhodnutí zákazníka',
+    filters: 'Filtry',
+    salespeople: 'Obchodníci',
+    steelTypes: 'Typy oceli',
+    statuses: 'Stavy',
+    decisions: 'Rozhodnutí zákazníka',
+    clients: 'Zákazníci',
+    allSelected: 'Vše',
+    selected: 'vybráno',
+    reset: 'Zrušit filtry',
+    measure: 'Metrika',
+    mTons: 'Tuny',
+    mValue: 'Hodnota',
+    mOffers: 'Počet nabídek',
+    mClients: 'Zákazníci',
+    mMarginPct: 'Marže %',
+    dimension: 'Dimenze',
+    splitBy: 'Rozdělit podle',
+    dimSteelType: 'Typ oceli',
+    dimStatus: 'Stav',
+    dimDecision: 'Rozhodnutí zákazníka',
+    dimSalesperson: 'Obchodník',
+    dimClient: 'Zákazník',
+    splitNone: 'Bez rozdělení',
+    chartType: 'Graf',
+    chartLine: 'Spojnicový',
+    chartArea: 'Plošný',
+    chartStackedArea: 'Plošný skládaný',
+    chartBar: 'Sloupcový',
+    chartStackedBar: 'Sloupcový skládaný',
+    chartPie: 'Výsečový',
+    chartDonut: 'Prstencový',
+    chartHorizontalBar: 'Pruhový',
+    kpiTonsOffered: 'Nabídnuté tuny',
+    kpiTonsWon: 'Získané tuny',
+    kpiTonsLost: 'Prohrané tuny',
+    kpiTonsPending: 'Tuny bez rozhodnutí',
+    kpiWinRateTons: 'Úspěšnost (tuny)',
+    kpiWinRateOffers: 'Úspěšnost (nabídky)',
+    kpiOffers: 'Nabídky',
+    kpiClients: 'Zákazníci',
+    kpiClientsWon: 'Zákazníci s výhrou',
+    kpiValueOffered: 'Nabídnutá hodnota',
+    kpiValueWon: 'Získaná hodnota',
+    kpiAvgMargin: 'Průměrná marže',
+    kpiAvgTons: 'Průměr tun na nabídku',
+    vsPrevious: 'vs předchozí období',
+    noComparison: 'bez srovnání',
+    panelTimeline: 'V čase',
+    panelBreakdown: 'Rozpad',
+    panelWinLoss: 'Získané a prohrané',
+    panelTopClients: 'Nejlepší zákazníci',
+    panelTopSalespeople: 'Obchodníci',
+    panelDataTable: 'Zdrojová data',
+    decisionPending: 'Bez rozhodnutí',
+    decisionWon: 'Získaná',
+    decisionLost: 'Prohraná',
+    clientDecision: 'Rozhodnutí zákazníka',
+    markWon: 'Zákazník přijal',
+    markLost: 'Zákazník odmítl',
+    clearDecision: 'Vrátit rozhodnutí',
+    decisionSaved: 'Rozhodnutí zákazníka uloženo',
+    decisionNotePrompt: 'Důvod (nepovinné), např. cena, termín, konkurence:',
+    noData: 'Ve zvoleném období nejsou data',
+    showTable: 'Tabulka',
+    showChart: 'Graf',
+    exportXlsx: 'Export .xlsx',
+    other: 'Ostatní',
+    total: 'Celkem',
+    loadFailed: 'Data analýzy se nepodařilo načíst',
+    decidedOffers: 'rozhodnuto',
+    winRate: 'Úspěšnost',
+    offersCount: 'nabídek',
+  },
 };
 
 export const de: Translations = {
@@ -2400,6 +2825,112 @@ export const de: Translations = {
     person: 'Person',
     contactCreated: 'Kontakt hinzugefügt',
     noClientContacts: 'Keine gespeicherten Kontakte',
+  },
+  // Analytics panel (app/analytics)
+  analytics: {
+    title: 'Analyse',
+    subtitle: 'Tonnage, Kunden und Angebotserfolg',
+    navAnalytics: 'Analyse',
+    period: 'Zeitraum',
+    presetToday: 'Heute',
+    presetYesterday: 'Gestern',
+    presetLast7: 'Letzte 7 Tage',
+    presetLast30: 'Letzte 30 Tage',
+    presetLast90: 'Letzte 90 Tage',
+    presetLast365: 'Letzte 12 Monate',
+    presetThisMonth: 'Dieser Monat',
+    presetLastMonth: 'Letzter Monat',
+    presetThisQuarter: 'Dieses Quartal',
+    presetLastQuarter: 'Letztes Quartal',
+    presetThisYear: 'Dieses Jahr',
+    presetLastYear: 'Letztes Jahr',
+    presetYtd: 'Seit Jahresbeginn',
+    presetAll: 'Gesamt',
+    presetCustom: 'Eigener Zeitraum',
+    from: 'Von',
+    to: 'Bis',
+    granularity: 'Zeitraster',
+    granDay: 'Tage',
+    granWeek: 'Wochen',
+    granMonth: 'Monate',
+    granQuarter: 'Quartale',
+    granYear: 'Jahre',
+    basis: 'Zählen nach Datum der',
+    basisCreated: 'Erstellung',
+    basisSent: 'Versendung',
+    basisDecided: 'Kundenentscheidung',
+    filters: 'Filter',
+    salespeople: 'Vertrieb',
+    steelTypes: 'Stahlsorten',
+    statuses: 'Status',
+    decisions: 'Kundenentscheidungen',
+    clients: 'Kunden',
+    allSelected: 'Alle',
+    selected: 'ausgewählt',
+    reset: 'Filter löschen',
+    measure: 'Kennzahl',
+    mTons: 'Tonnen',
+    mValue: 'Wert',
+    mOffers: 'Anzahl Angebote',
+    mClients: 'Kunden',
+    mMarginPct: 'Marge %',
+    dimension: 'Dimension',
+    splitBy: 'Aufteilen nach',
+    dimSteelType: 'Stahlsorte',
+    dimStatus: 'Status',
+    dimDecision: 'Kundenentscheidung',
+    dimSalesperson: 'Verkäufer',
+    dimClient: 'Kunde',
+    splitNone: 'Ohne Aufteilung',
+    chartType: 'Diagramm',
+    chartLine: 'Linie',
+    chartArea: 'Fläche',
+    chartStackedArea: 'Fläche gestapelt',
+    chartBar: 'Balken',
+    chartStackedBar: 'Balken gestapelt',
+    chartPie: 'Kreis',
+    chartDonut: 'Ring',
+    chartHorizontalBar: 'Balken waagerecht',
+    kpiTonsOffered: 'Angebotene Tonnen',
+    kpiTonsWon: 'Gewonnene Tonnen',
+    kpiTonsLost: 'Verlorene Tonnen',
+    kpiTonsPending: 'Tonnen ohne Entscheidung',
+    kpiWinRateTons: 'Erfolgsquote (Tonnen)',
+    kpiWinRateOffers: 'Erfolgsquote (Angebote)',
+    kpiOffers: 'Angebote',
+    kpiClients: 'Kunden',
+    kpiClientsWon: 'Kunden mit Zuschlag',
+    kpiValueOffered: 'Angebotener Wert',
+    kpiValueWon: 'Gewonnener Wert',
+    kpiAvgMargin: 'Durchschnittliche Marge',
+    kpiAvgTons: 'Tonnen je Angebot',
+    vsPrevious: 'vs. Vorperiode',
+    noComparison: 'kein Vergleich',
+    panelTimeline: 'Zeitverlauf',
+    panelBreakdown: 'Aufschlüsselung',
+    panelWinLoss: 'Gewonnen und verloren',
+    panelTopClients: 'Top-Kunden',
+    panelTopSalespeople: 'Vertrieb',
+    panelDataTable: 'Quelldaten',
+    decisionPending: 'Offen',
+    decisionWon: 'Gewonnen',
+    decisionLost: 'Verloren',
+    clientDecision: 'Kundenentscheidung',
+    markWon: 'Kunde hat angenommen',
+    markLost: 'Kunde hat abgelehnt',
+    clearDecision: 'Entscheidung zurücknehmen',
+    decisionSaved: 'Kundenentscheidung gespeichert',
+    decisionNotePrompt: 'Grund (optional), z. B. Preis, Lieferzeit, Wettbewerb:',
+    noData: 'Keine Daten im gewählten Zeitraum',
+    showTable: 'Tabelle',
+    showChart: 'Diagramm',
+    exportXlsx: 'Export .xlsx',
+    other: 'Übrige',
+    total: 'Gesamt',
+    loadFailed: 'Analysedaten konnten nicht geladen werden',
+    decidedOffers: 'entschieden',
+    winRate: 'Erfolgsquote',
+    offersCount: 'Angebote',
   },
 };
 

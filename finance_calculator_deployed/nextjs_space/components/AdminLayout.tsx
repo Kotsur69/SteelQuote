@@ -23,7 +23,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const cssVars = getThemeVars(isDark, highContrast);
 
   const tabs = [
-    { href: '/admin', label: t.admin.navDashboard, icon: '📊' },
+    { href: '/admin', label: t.admin.navDashboard, icon: '🏠' },
+    { href: '/analytics', label: t.analytics.navAnalytics, icon: '📊' },
     { href: '/admin/handlowcy', label: t.admin.navSalespeople, icon: '👥' },
     { href: '/admin/klienci', label: t.admin.navClients, icon: '🏢' },
     { href: '/admin/kontakty', label: t.admin.navContacts, icon: '📇' },

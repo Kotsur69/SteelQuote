@@ -15,6 +15,8 @@ import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
 import { offerNeedsReview } from '@/lib/offerReview';
+import type { ClientDecision } from '@/lib/analytics';
+import { DECISION_COLOR, DECISION_ICON } from '@/lib/chartColors';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import type { ItemInputs } from '@/lib/calculatorData';
 import {
@@ -102,6 +104,11 @@ interface Offer {
   reviewed_at?: string | null;
   rejection_reason?: string | null;
   sent_at?: string | null;
+  // The client's answer to a sent offer (migration 018). A separate axis from `status`, which
+  // describes OUR review workflow - see app/api/offers/[id]/decision/route.ts.
+  client_decision?: ClientDecision;
+  client_decision_at?: string | null;
+  client_decision_note?: string | null;
   created_at: string;
   updated_at: string;
   root_offer_id: number | null;
@@ -191,6 +198,43 @@ export default function OffersPage() {
 
   const handleSend = (offerId: number) =>
     handleWorkflowAction(offerId, 'send', t.workflow.sent);
+
+  /**
+   * Record what the client answered on a sent offer. This is what feeds the win/loss figures
+   * in the analytics panel, so it is asked for at the one moment the salesperson actually
+   * knows the answer: on the offer they just heard back about.
+   *
+   * A loss asks for a reason; a win does not need one, and cancelling the prompt still records
+   * the loss rather than dropping the click.
+   */
+  const handleDecision = async (offerId: number, decision: ClientDecision) => {
+    let note: string | null = null;
+    if (decision === 'lost') {
+      note = prompt(t.analytics.decisionNotePrompt);
+    }
+
+    setActionLoading(offerId);
+    try {
+      const res = await fetch(`/api/offers/${offerId}/decision`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, note: note ?? undefined }),
+      });
+      if (res.ok) {
+        setMessage({ type: 'success', text: t.analytics.decisionSaved });
+        fetchOffers(search);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessage({ type: 'error', text: data.error || t.workflow.actionFailed });
+      }
+    } catch (error) {
+      console.error('Error recording client decision:', error);
+      setMessage({ type: 'error', text: t.workflow.actionFailed });
+    } finally {
+      setActionLoading(null);
+      setTimeout(() => setMessage(null), 3500);
+    }
+  };
 
   const handleApprove = (offerId: number) => {
     if (!confirm(t.workflow.confirmApprove)) return;
@@ -390,6 +434,10 @@ export default function OffersPage() {
           (role === 'junior' && (s === 'approved' || (s === 'draft' && !needsReview(offer))))),
       // Senior i admin recenzują cudze oferty oczekujące na weryfikację.
       canReview: isReviewer && !isOwner && s === 'pending_review',
+      // The client's answer can only be recorded once the offer is actually with the client.
+      // The owner records their own; senior and admin may record on anyone's, exactly as they
+      // already review and send other people's offers (server-side check in the same shape).
+      canDecide: s === 'sent' && (isOwner || isReviewer),
     };
   };
 
@@ -570,6 +618,22 @@ export default function OffersPage() {
                           {needsReview(offer) ? t.offers.needsReviewBadge : t.offers.readyToSendBadge}
                         </span>
                       )}
+                      {/* Client's answer on a sent offer. Icon plus text, never colour alone. */}
+                      {offer.status === 'sent' && offer.client_decision && offer.client_decision !== 'pending' && (
+                        <span
+                          className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border"
+                          style={{
+                            color: DECISION_COLOR[offer.client_decision],
+                            borderColor: DECISION_COLOR[offer.client_decision],
+                          }}
+                          title={offer.client_decision_note || undefined}
+                        >
+                          {DECISION_ICON[offer.client_decision]}{' '}
+                          {offer.client_decision === 'won'
+                            ? t.analytics.decisionWon
+                            : t.analytics.decisionLost}
+                        </span>
+                      )}
                     </div>
                     {/* Nazwa własna oferty pod numerem — drugorzędna wobec offer_id.
                         display_name to kolumna generowana: gdy brak nazwy własnej, baza
@@ -590,6 +654,12 @@ export default function OffersPage() {
                     {offer.status === 'rejected' && offer.rejection_reason && (
                       <p className="mt-1.5 text-[11px] text-[var(--accent-sum)] bg-[rgba(245,71,90,0.08)] border border-[var(--accent-sum)] rounded px-2 py-1">
                         ✖ {t.workflow.rejectionReason}: {offer.rejection_reason}
+                      </p>
+                    )}
+                    {/* Why the client said no - the single most useful field in the loss report. */}
+                    {offer.client_decision === 'lost' && offer.client_decision_note && (
+                      <p className="mt-1.5 text-[11px] text-[var(--accent-sum)] bg-[rgba(245,71,90,0.08)] border border-[var(--accent-sum)] rounded px-2 py-1">
+                        {DECISION_ICON.lost} {t.analytics.decisionLost}: {offer.client_decision_note}
                       </p>
                     )}
                     <div className="flex flex-wrap gap-4 mt-2 text-xs text-[var(--text-secondary)]">
@@ -759,6 +829,43 @@ export default function OffersPage() {
                         title={t.workflow.sendToClient}
                       >
                         📨 {t.workflow.sendToClient}
+                      </button>
+                    )}
+
+                    {/* Client's answer. A sent offer is read-only for everything else, but this is
+                        the one fact that still arrives after sending, and without it the win
+                        rate in the analytics panel has nothing to work with. */}
+                    {p.canDecide && offer.client_decision !== 'won' && (
+                      <button
+                        onClick={() => handleDecision(offer.id, 'won')}
+                        disabled={actionLoading === offer.id}
+                        className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-hdg)] text-[var(--accent-hdg)] bg-[rgba(46,204,113,0.08)] hover:bg-[rgba(46,204,113,0.15)] transition-colors disabled:opacity-50"
+                        title={t.analytics.markWon}
+                      >
+                        {DECISION_ICON.won} {t.analytics.markWon}
+                      </button>
+                    )}
+
+                    {p.canDecide && offer.client_decision !== 'lost' && (
+                      <button
+                        onClick={() => handleDecision(offer.id, 'lost')}
+                        disabled={actionLoading === offer.id}
+                        className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-sum)] text-[var(--accent-sum)] bg-[rgba(245,71,90,0.08)] hover:bg-[rgba(245,71,90,0.15)] transition-colors disabled:opacity-50"
+                        title={t.analytics.markLost}
+                      >
+                        {DECISION_ICON.lost} {t.analytics.markLost}
+                      </button>
+                    )}
+
+                    {/* Undo, so a mis-click is not permanent. */}
+                    {p.canDecide && offer.client_decision && offer.client_decision !== 'pending' && (
+                      <button
+                        onClick={() => handleDecision(offer.id, 'pending')}
+                        disabled={actionLoading === offer.id}
+                        className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--border-hi)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50"
+                        title={t.analytics.clearDecision}
+                      >
+                        ↺ {t.analytics.clearDecision}
                       </button>
                     )}
 

@@ -89,6 +89,33 @@ through a server-side Abacus.ai-hosted rendering endpoint
   certificate, coating, protection, packaging, surface, finish, weld,
   marking, edging, labels, etc.) — plus Excel (`.xlsx`) export in KTS/GPAO
   column format for both the calculator summary and individual offers
+- Analytics panel (`/analytics`) for every role, PowerBI-style. Junior and senior see
+  their own book of business, admin sees the whole company plus a per-salesperson
+  filter and breakdown; the scope is decided server-side, not in the browser.
+  KPI tiles (tons offered / won / lost / undecided, win rate, offers, clients,
+  value, average margin) each carry the change against the comparison period —
+  calendar-aligned, so July compares against June and not against a 31-day window
+  starting 31 May. Fifteen period presets plus a custom range; buckets by
+  day/week/month/quarter/year; and a choice of which date to count by (created,
+  sent, or client decision), so "what did I quote in Q1" and "what did I close in
+  Q1" are different questions with different answers. Filters for salesperson,
+  steel type, status, client decision and client — a steel-type filter narrows to
+  matching LINE ITEMS, so filtering a mixed HRS+HDG offer to HDG counts only its
+  HDG tonnage. Timeline as line / area / stacked area / bar / stacked bar, split by
+  any dimension; breakdown as horizontal bars / pie / donut / table; a won-vs-lost
+  share bar with win rate over time; top-clients and top-salespeople tables;
+  the source offers behind every figure in a sortable table; and `.xlsx` export of
+  the whole view. Clicking a bar, slice or tile drills the page down to it. Charts
+  reuse the app's own `--accent-*` steel-type colours, so a steel type keeps the
+  colour it has in the settings panel, in light, dark and high contrast alike.
+  Only the latest version of an edited offer is counted, so a family of
+  `offer_30`, `offer_30.1`, `offer_30.2` is one quote and not three
+- Client decision on a sent offer — won / lost (with an optional reason) or back to
+  undecided — recorded from the offers list. This is a separate axis from the
+  internal `status` workflow: `approved` means a senior signed the offer off, never
+  that the client bought it. The owner records their own; senior and admin may
+  record on anyone's. It is what the win/loss figures in the analytics panel are
+  built on
 - Four languages: PL / EN / CS / DE
 
 **Setup:**
@@ -114,6 +141,7 @@ psql "$DATABASE_URL" -f migrations/014_add_min_margin_pct.sql
 psql "$DATABASE_URL" -f migrations/015_offer_versions.sql
 psql "$DATABASE_URL" -f migrations/016_add_pgl_base_new_types.sql
 psql "$DATABASE_URL" -f migrations/017_widen_pgl_price_history_steel_type.sql
+psql "$DATABASE_URL" -f migrations/018_offer_client_decision.sql
 npm run dev
 ```
 
