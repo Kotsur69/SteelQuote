@@ -12,6 +12,29 @@
 import * as XLSX from 'xlsx';
 import type { SteelType } from './calculatorData';
 
+// ─── Auto-dopasowanie szerokości kolumn ───
+// SheetJS domyślnie daje ~8 znaków na kolumnę, przez co użytkownik musi ręcznie
+// rozciągać każdą kolumnę, żeby cokolwiek odczytać. Liczymy szerokość z najdłuższej
+// zawartości w kolumnie (razem z nagłówkiem) i przycinamy do sensownego zakresu.
+const MIN_COL_WIDTH = 8;
+const MAX_COL_WIDTH = 60;
+const COL_WIDTH_PADDING = 2;
+
+type Cell = string | number | null | undefined;
+
+export function autoFitColumns(rows: Cell[][]): XLSX.ColInfo[] {
+  const widths: number[] = [];
+  for (const row of rows) {
+    row.forEach((cell, i) => {
+      const len = cell == null ? 0 : String(cell).length;
+      if (len > (widths[i] ?? 0)) widths[i] = len;
+    });
+  }
+  return widths.map((w) => ({
+    wch: Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, w + COL_WIDTH_PADDING)),
+  }));
+}
+
 // ─── Mapy: wartość w aplikacji → kod w formacie KTS/GPAO ───
 
 // Bez zgadywania — surowy typ. Do zmapowania na kody systemu później (HRS→'HRBL' itd.).
@@ -205,6 +228,7 @@ function buildRow(item: ExcelExportItem): (string | number)[] {
 export function exportZestawienieToExcel(items: ExcelExportItem[], offerName?: string): void {
   const rows = items.map(buildRow);
   const ws = XLSX.utils.aoa_to_sheet([KTS_HEADERS, ...rows]);
+  ws['!cols'] = autoFitColumns([KTS_HEADERS, ...rows]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'KTS');
   const safe = (offerName || 'oferta').replace(/[^\w.-]+/g, '_');

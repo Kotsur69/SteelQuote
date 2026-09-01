@@ -8,6 +8,7 @@
 // the period, the steel-type narrowing and the currency currently on screen.
 
 import * as XLSX from 'xlsx';
+import { autoFitColumns } from './excelExport';
 import type { AnalyticsGroup, AnalyticsPayload } from './analytics';
 import type { Currency } from './currency';
 
@@ -141,17 +142,14 @@ export function exportAnalyticsToExcel(
     ]),
   ];
 
+  const summarySheet = XLSX.utils.aoa_to_sheet(summary);
+  summarySheet['!cols'] = autoFitColumns(summary);
+  const offersSheet = XLSX.utils.aoa_to_sheet(offerRows);
+  offersSheet['!cols'] = autoFitColumns(offerRows);
+
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(
-    workbook,
-    XLSX.utils.aoa_to_sheet(summary),
-    labels.summary.slice(0, 31)
-  );
-  XLSX.utils.book_append_sheet(
-    workbook,
-    XLSX.utils.aoa_to_sheet(offerRows),
-    labels.offers.slice(0, 31)
-  );
+  XLSX.utils.book_append_sheet(workbook, summarySheet, labels.summary.slice(0, 31));
+  XLSX.utils.book_append_sheet(workbook, offersSheet, labels.offers.slice(0, 31));
 
   const stamp = payload.period.to ?? new Date().toISOString().slice(0, 10);
   XLSX.writeFile(workbook, `${fileName}_${stamp}.xlsx`);

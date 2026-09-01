@@ -4,6 +4,7 @@
 // przez serwer po sam plik.
 
 import * as XLSX from 'xlsx';
+import { autoFitColumns } from './excelExport';
 import type { PglPriceHistoryEntry } from '@/app/api/settings/pgl-history/route';
 
 const HEADERS = ['Typ stali', 'Stara cena (€/t)', 'Nowa cena (€/t)', 'Zmiana (€/t)', 'Zmienił', 'Data zmiany'];
@@ -23,6 +24,7 @@ function buildRow(entry: PglPriceHistoryEntry): (string | number)[] {
 export function exportPglHistoryToExcel(history: PglPriceHistoryEntry[]): void {
   const rows = history.map(buildRow);
   const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
+  ws['!cols'] = autoFitColumns([HEADERS, ...rows]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Historia PGL');
   const stamp = new Date().toISOString().slice(0, 10);
