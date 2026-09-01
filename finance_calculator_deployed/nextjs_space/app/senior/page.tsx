@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import Navigation from '@/components/Navigation';
+import TeamEditor from '@/components/TeamEditor';
 import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
 import { attachNotesToZestawienie } from '@/lib/itemNotes';
@@ -77,6 +78,8 @@ export default function SeniorPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<FilterTab>('pending');
   const [role, setRole] = useState<string | null>(null);
+  // Own user id, from /api/senior/offers - the team editor needs it to scope /api/teams.
+  const [userId, setUserId] = useState<number | null>(null);
   // Której rodziny ofert (klucz z groupOffersByVersion) ma rozwiniętą historię wersji.
   const [expandedVersionsKey, setExpandedVersionsKey] = useState<number | null>(null);
 
@@ -112,6 +115,7 @@ export default function SeniorPage() {
         if (!isCurrent()) return;
         setOffers(data.offers);
         setRole(data.role);
+        setUserId(typeof data.userId === 'number' ? data.userId : null);
       } else if (res.status === 403) {
         router.replace('/calculator');
       }
@@ -343,6 +347,19 @@ export default function SeniorPage() {
           }`}
         >
           {message.text}
+        </div>
+      )}
+
+      {/* My team - drives what this senior can see in the Analytics panel */}
+      {role === 'senior' && userId !== null && (
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md p-4 mb-5">
+          <div className="flex items-center gap-2.5 mb-3">
+            <span className="w-2 h-2 rounded-full bg-[var(--accent-cr)]" />
+            <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">
+              {t.team.title}
+            </h2>
+          </div>
+          <TeamEditor seniorId={userId} />
         </div>
       )}
 

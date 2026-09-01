@@ -190,8 +190,14 @@ export interface AnalyticsPayload {
   scope: {
     role: 'junior' | 'senior' | 'admin';
     userId: number;
-    /** true for admin - the whole company, and the salesperson filter is live. */
+    /** true for admin - the whole company; drives the admin-only Excel salespeople sheet. */
     canSeeAll: boolean;
+    /**
+     * true when the salesperson filter, split and breakdown make sense: admin (whole company)
+     * or a senior with at least one team member (migration 019). A junior, or a senior with no
+     * team, gets false and the controls stay hidden.
+     */
+    canFilterSalespeople: boolean;
   };
   filters: AnalyticsFilters;
   /** The window actually queried, after preset expansion. null = unbounded. */

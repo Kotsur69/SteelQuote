@@ -26,6 +26,7 @@ import {
   type OfferStatus,
 } from './analytics';
 import type { Role } from './auth';
+import { teamMemberIds } from './teams';
 
 /** The column each date basis filters and buckets on. */
 const BASIS_COLUMN: Record<DateBasis, string> = {
@@ -64,20 +65,34 @@ export interface RowQueryWindow {
 }
 
 /**
- * Junior and senior see their own offers only; admin sees the whole company and may narrow
- * to individual salespeople. Seniors review other people's offers but their analytics panel
- * stays personal - a supervisor-wide view is an admin capability here.
+ * Junior: own offers only. Senior: own offers plus every team member's (migration 019), which a
+ * ?users= filter may narrow but never widen past the team. Admin: the whole company, optionally
+ * narrowed to individual salespeople.
+ *
+ * `teamIds` is the senior's team, already fetched by the caller; it is ignored for other roles.
  */
 function visibilityClause(
   role: Role,
   userId: number,
   filterUserIds: number[],
+  teamIds: number[],
   params: unknown[]
 ): string {
-  if (role !== 'admin') {
+  if (role === 'junior') {
     params.push(userId);
     return `o.user_id = $${params.length}`;
   }
+
+  if (role === 'senior') {
+    // The filter can only pick from ids that are already in scope - anything else the client
+    // sends is dropped here, so a hand-edited query string cannot escape the team.
+    const allowed = new Set<number>([userId, ...teamIds]);
+    const requested = filterUserIds.filter((id) => allowed.has(id));
+    const ids = requested.length > 0 ? requested : [...allowed];
+    params.push(ids);
+    return `o.user_id = ANY($${params.length}::int[])`;
+  }
+
   if (filterUserIds.length > 0) {
     params.push(filterUserIds);
     return `o.user_id = ANY($${params.length}::int[])`;
@@ -101,7 +116,8 @@ export async function fetchAnalyticsRows(
   db: PoolClient | typeof pool = pool
 ): Promise<AnalyticsOfferRow[]> {
   const params: unknown[] = [];
-  const visibility = visibilityClause(role, userId, filters.userIds, params);
+  const teamIds = role === 'senior' ? await teamMemberIds(userId, db) : [];
+  const visibility = visibilityClause(role, userId, filters.userIds, teamIds, params);
   const basis = BASIS_COLUMN[filters.basis];
 
   const conditions: string[] = [];
@@ -183,19 +199,28 @@ export async function fetchToday(db: PoolClient | typeof pool = pool): Promise<s
 
 /**
  * Values the filter dropdowns offer. Clients are scoped the same way the rows are, so a
- * junior's client list contains only companies they have quoted; the salespeople list is
- * admin-only because nobody else can filter by it.
+ * junior's client list contains only companies they have quoted and a senior's spans their
+ * whole team. The salespeople list is empty for a junior (nobody to filter by), the senior
+ * plus their team for a senior, and the whole company for an admin.
  */
 export async function fetchFacets(
   role: Role,
   userId: number,
   db: PoolClient | typeof pool = pool
 ): Promise<{ users: { id: number; name: string }[]; clients: { id: number; name: string }[] }> {
+  const teamIds = role === 'senior' ? await teamMemberIds(userId, db) : [];
+
   const clientParams: unknown[] = [];
-  const ownership =
-    role === 'admin'
-      ? 'TRUE'
-      : (clientParams.push(userId), `o.user_id = $${clientParams.length}`);
+  let ownership: string;
+  if (role === 'admin') {
+    ownership = 'TRUE';
+  } else if (role === 'senior') {
+    clientParams.push([userId, ...teamIds]);
+    ownership = `o.user_id = ANY($${clientParams.length}::int[])`;
+  } else {
+    clientParams.push(userId);
+    ownership = `o.user_id = $${clientParams.length}`;
+  }
 
   const clientsResult = await db.query(
     `SELECT DISTINCT c.id, COALESCE(NULLIF(TRIM(c.company), ''), '#' || c.id::text) AS name
@@ -206,11 +231,24 @@ export async function fetchFacets(
     clientParams
   );
 
-  if (role !== 'admin') {
+  if (role === 'junior') {
     return { users: [], clients: clientsResult.rows };
   }
 
-  // Everyone who either still has an account or already owns offers - a deactivated
+  if (role === 'senior') {
+    // Exactly the ids the rows are scoped to: the senior and their team. With no team this is
+    // one entry, so the picker is inert rather than misleading.
+    const usersResult = await db.query(
+      `SELECT u.id, COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) AS name
+       FROM users u
+       WHERE u.id = $1 OR u.id = ANY($2::int[])
+       ORDER BY name ASC`,
+      [userId, teamIds]
+    );
+    return { users: usersResult.rows, clients: clientsResult.rows };
+  }
+
+  // Admin: everyone who either still has an account or already owns offers - a deactivated
   // salesperson has to stay filterable, otherwise their history becomes unreachable.
   const usersResult = await db.query(
     `SELECT u.id, COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) AS name

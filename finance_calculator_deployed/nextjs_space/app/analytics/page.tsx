@@ -2,8 +2,9 @@
 
 // The analytics panel, for every role.
 //
-// Junior and senior get their own book of business; admin gets the whole company plus a
-// salesperson filter and a salesperson breakdown. The difference is decided on the server
+// A junior gets their own book of business; a senior gets their own plus their team's
+// (migration 019); admin gets the whole company. The salesperson filter and breakdown show for
+// an admin or a senior with a team. The difference is decided on the server
 // (lib/analyticsQuery.ts) - this page only stops drawing the controls that would do nothing.
 //
 // One fetch per filter change, and every figure on the page comes out of that one response, so
@@ -190,7 +191,7 @@ export default function AnalyticsPage() {
         setFilters((f) => ({ ...f, decisions: [key] }));
         break;
       case 'salesperson':
-        if (data?.scope.canSeeAll) setFilters((f) => ({ ...f, userIds: [key] }));
+        if (data?.scope.canFilterSalespeople) setFilters((f) => ({ ...f, userIds: [key] }));
         break;
       case 'client':
         setFilters((f) => ({ ...f, clientIds: [key] }));
@@ -316,7 +317,7 @@ export default function AnalyticsPage() {
           value={filters}
           onChange={setFilters}
           facets={data?.facets ?? { users: [], clients: [], steelTypes: STEEL_TYPE_SERIES_ORDER }}
-          canSeeAll={data?.scope.canSeeAll ?? false}
+          canFilterSalespeople={data?.scope.canFilterSalespeople ?? false}
           period={data?.period ?? { from: null, to: null }}
         />
 
@@ -414,7 +415,7 @@ export default function AnalyticsPage() {
                       options={(
                         ['steelType', 'status', 'decision', 'client'] as Dimension[]
                       )
-                        .concat(data.scope.canSeeAll ? ['salesperson'] : [])
+                        .concat(data.scope.canFilterSalespeople ? ['salesperson'] : [])
                         .map((d) => ({ value: d, label: dimensionLabel[d] }))}
                     />
                     <Segmented
@@ -491,8 +492,9 @@ export default function AnalyticsPage() {
                 />
               </ChartFrame>
 
-              {/* A one-person breakdown says nothing, so this panel is the admin's. */}
-              {data.scope.canSeeAll && (
+              {/* A one-person breakdown says nothing, so this needs a team: admin or a senior
+                  who has one. */}
+              {data.scope.canFilterSalespeople && (
                 <ChartFrame
                   title={a.panelTopSalespeople}
                   accent="var(--accent-zm)"
@@ -534,7 +536,7 @@ export default function AnalyticsPage() {
                 rows={data.rows}
                 currency={currency}
                 language={language}
-                showOwner={data.scope.canSeeAll}
+                showOwner={data.scope.canFilterSalespeople}
                 labels={{
                   offerName: t.offers.offerName,
                   salesperson: a.dimSalesperson,

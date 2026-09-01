@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
+import TeamEditor from '@/components/TeamEditor';
 
 type Role = 'junior' | 'senior' | 'admin';
 
@@ -25,6 +26,8 @@ export default function AdminSalespeoplePage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<number | 'new' | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Which senior's team panel is expanded under their row (one at a time).
+  const [teamOpen, setTeamOpen] = useState<number | null>(null);
 
   // Formularz nowego konta
   const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'junior' as Role });
@@ -181,7 +184,8 @@ export default function AdminSalespeoplePage() {
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
                 {users.map((u) => (
-                  <tr key={u.id} className={u.is_active ? '' : 'opacity-50'}>
+                  <Fragment key={u.id}>
+                  <tr className={u.is_active ? '' : 'opacity-50'}>
                     <td className="px-4 py-3">
                       <div className="font-medium text-[var(--text-primary)]">
                         {u.full_name || '—'}
@@ -218,6 +222,19 @@ export default function AdminSalespeoplePage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2 justify-end">
+                        {u.role === 'senior' && (
+                          <button
+                            onClick={() => setTeamOpen(teamOpen === u.id ? null : u.id)}
+                            aria-expanded={teamOpen === u.id}
+                            className={`px-3 py-1.5 text-xs font-medium rounded border transition-colors ${
+                              teamOpen === u.id
+                                ? 'border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.15)]'
+                                : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]'
+                            }`}
+                          >
+                            👥 {t.team.title} {teamOpen === u.id ? '▲' : '▼'}
+                          </button>
+                        )}
                         <Link
                           href={`/admin/oferty?user_id=${u.id}`}
                           className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)] hover:bg-[rgba(59,142,245,0.15)] transition-colors"
@@ -238,6 +255,14 @@ export default function AdminSalespeoplePage() {
                       </div>
                     </td>
                   </tr>
+                  {u.role === 'senior' && teamOpen === u.id && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-4 bg-[var(--bg-panel)]">
+                        <TeamEditor seniorId={u.id} compact />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>

@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { DEFAULT_SETTINGS, settingsRowToAppSettings } from '@/lib/currency';
 import { offerNeedsReview } from '@/lib/offerReview';
+import { normalizeClientInfo, hasRequiredCompanyDetails } from '@/lib/pdfGenerator';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -24,6 +25,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     const offerId = parseInt(id);
+
+    // An offer can be saved without client data, but it must not leave the building without
+    // it: company name + NIP are the minimum that identifies who the quote is for. Same rule
+    // and same helper the calculator form uses to gate the contact section, and the clients
+    // contacts route uses on write. Checked here for every role before the status-specific
+    // UPDATE below; a missing row falls through and the existing 409 handles it.
+    const guard = await pool.query(`SELECT offer_data FROM offers WHERE id = $1`, [offerId]);
+    if (
+      guard.rows.length > 0 &&
+      !hasRequiredCompanyDetails(
+        normalizeClientInfo((guard.rows[0].offer_data as Record<string, unknown> | null)?.clientInfo)
+      )
+    ) {
+      return NextResponse.json(
+        { error: 'Nie można wysłać oferty bez danych firmy klienta (nazwa firmy i NIP).' },
+        { status: 422 }
+      );
+    }
 
     let result;
     if (session.role === 'admin') {

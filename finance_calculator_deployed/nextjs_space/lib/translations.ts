@@ -68,6 +68,20 @@ export interface Translations {
     awaitingSend: string;
   };
 
+  // Team management (senior builds a team of juniors; shared by /senior and /admin/handlowcy)
+  team: {
+    title: string;
+    hint: string;
+    loading: string;
+    empty: string;
+    addPlaceholder: string;
+    add: string;
+    remove: string;
+    noneAssignable: string;
+    loadFailed: string;
+    saveFailed: string;
+  };
+
   // Offers management
   offers: {
     title: string;
@@ -101,6 +115,8 @@ export interface Translations {
     duplicated: string;
     needsReviewBadge: string;
     readyToSendBadge: string;
+    missingClientBadge: string;
+    missingClientHint: string;
     deleted: string;
     updated: string;
   };
@@ -681,6 +697,19 @@ export const pl: Translations = {
     awaitingSend: 'Oczekujące na wysłanie',
   },
 
+  team: {
+    title: 'Mój zespół',
+    hint: 'Dodaj juniorów do zespołu, aby w panelu Analiza wybierać swoje dane lub dane wybranego juniora.',
+    loading: 'Wczytywanie zespołu…',
+    empty: 'Brak juniorów w zespole',
+    addPlaceholder: 'Wybierz juniora…',
+    add: 'Dodaj',
+    remove: 'Usuń z zespołu',
+    noneAssignable: 'Brak juniorów do dodania',
+    loadFailed: 'Nie udało się wczytać zespołu',
+    saveFailed: 'Nie udało się zapisać zmiany',
+  },
+
   offers: {
     title: 'Moje Oferty',
     subtitle: 'zarządzanie ofertami',
@@ -713,6 +742,8 @@ export const pl: Translations = {
     duplicated: 'Oferta skopiowana pomyślnie!',
     needsReviewBadge: 'Wymaga zatwierdzenia',
     readyToSendBadge: 'Gotowa do wysyłki',
+    missingClientBadge: 'Brak danych klienta',
+    missingClientHint: 'Uzupełnij nazwę firmy i NIP klienta, aby wysłać ofertę.',
     deleted: 'Oferta usunięta pomyślnie!',
     updated: 'Oferta zaktualizowana pomyślnie!',
   },
@@ -1259,6 +1290,19 @@ export const en: Translations = {
     awaitingSend: 'Awaiting send',
   },
 
+  team: {
+    title: 'My team',
+    hint: 'Add juniors to your team so the Analytics panel lets you view your own data or any team member’s.',
+    loading: 'Loading team…',
+    empty: 'No juniors on the team yet',
+    addPlaceholder: 'Pick a junior…',
+    add: 'Add',
+    remove: 'Remove from team',
+    noneAssignable: 'No juniors left to add',
+    loadFailed: 'Could not load the team',
+    saveFailed: 'Could not save the change',
+  },
+
   offers: {
     title: 'My Offers',
     subtitle: 'offer management',
@@ -1291,6 +1335,8 @@ export const en: Translations = {
     duplicated: 'Offer duplicated successfully!',
     needsReviewBadge: 'Needs approval',
     readyToSendBadge: 'Ready to send',
+    missingClientBadge: 'Client data missing',
+    missingClientHint: 'Fill in the client company name and Tax ID (NIP) to send the offer.',
     deleted: 'Offer deleted successfully!',
     updated: 'Offer updated successfully!',
   },
@@ -1836,6 +1882,19 @@ export const cs: Translations = {
     awaitingSend: 'Čekající na odeslání',
   },
 
+  team: {
+    title: 'Můj tým',
+    hint: 'Přidejte juniory do týmu, aby vám panel Analýza umožnil zobrazit vaše data nebo data vybraného juniora.',
+    loading: 'Načítání týmu…',
+    empty: 'V týmu zatím nejsou žádní junioři',
+    addPlaceholder: 'Vyberte juniora…',
+    add: 'Přidat',
+    remove: 'Odebrat z týmu',
+    noneAssignable: 'Žádní junioři k přidání',
+    loadFailed: 'Tým se nepodařilo načíst',
+    saveFailed: 'Změnu se nepodařilo uložit',
+  },
+
   offers: {
     title: 'Moje nabídky',
     subtitle: 'správa nabídek',
@@ -1868,6 +1927,8 @@ export const cs: Translations = {
     duplicated: 'Nabídka byla úspěšně duplikována!',
     needsReviewBadge: 'Vyžaduje schválení',
     readyToSendBadge: 'Připraveno k odeslání',
+    missingClientBadge: 'Chybí údaje klienta',
+    missingClientHint: 'Vyplňte název firmy klienta a DIČ (NIP), abyste mohli nabídku odeslat.',
     deleted: 'Nabídka byla úspěšně smazána!',
     updated: 'Nabídka byla úspěšně aktualizována!',
   },
@@ -2413,6 +2474,19 @@ export const de: Translations = {
     awaitingSend: 'Wartend auf Versand',
   },
 
+  team: {
+    title: 'Mein Team',
+    hint: 'Füge Juniors zu deinem Team hinzu, damit das Analyse-Panel deine eigenen Daten oder die eines Teammitglieds anzeigen kann.',
+    loading: 'Team wird geladen…',
+    empty: 'Noch keine Juniors im Team',
+    addPlaceholder: 'Junior auswählen…',
+    add: 'Hinzufügen',
+    remove: 'Aus dem Team entfernen',
+    noneAssignable: 'Keine Juniors zum Hinzufügen',
+    loadFailed: 'Team konnte nicht geladen werden',
+    saveFailed: 'Änderung konnte nicht gespeichert werden',
+  },
+
   offers: {
     title: 'Meine Angebote',
     subtitle: 'Angebotsverwaltung',
@@ -2445,6 +2519,8 @@ export const de: Translations = {
     duplicated: 'Angebot erfolgreich dupliziert!',
     needsReviewBadge: 'Erfordert Genehmigung',
     readyToSendBadge: 'Versandbereit',
+    missingClientBadge: 'Kundendaten fehlen',
+    missingClientHint: 'Firmenname und USt-IdNr. (NIP) des Kunden ausfüllen, um das Angebot zu senden.',
     deleted: 'Angebot erfolgreich gelöscht!',
     updated: 'Angebot erfolgreich aktualisiert!',
   },

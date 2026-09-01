@@ -102,7 +102,7 @@ export function exportAnalyticsToExcel(
     ...groupRows(labels.steelType, payload.bySteelType, currency, labels),
     ...groupRows(labels.status, payload.byStatus, currency, labels),
     ...groupRows(labels.decision, payload.byDecision, currency, labels),
-    ...(payload.scope.canSeeAll
+    ...(payload.scope.canFilterSalespeople
       ? groupRows(labels.salesperson, payload.bySalesperson, currency, labels)
       : []),
     ...groupRows(labels.client, payload.byClient, currency, labels),

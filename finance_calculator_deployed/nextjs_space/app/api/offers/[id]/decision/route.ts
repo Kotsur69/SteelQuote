@@ -62,12 +62,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ownershipClause = `AND o.user_id = $${values.length}`;
     }
 
+    // $2 is cast to text at every use. Without it Postgres deduces the type twice - `character
+    // varying` from `client_decision = $2` and `text` from `$2 = 'pending'` - and refuses the
+    // statement (42P08, "inconsistent types deduced for parameter $2"). Assigning text into the
+    // VARCHAR(20) column is an implicit widening, so the CHECK constraint still applies.
     const result = await pool.query(
       `UPDATE offers o
-       SET client_decision = $2,
-           client_decision_at = CASE WHEN $2 = 'pending' THEN NULL ELSE CURRENT_TIMESTAMP END,
-           client_decision_by = CASE WHEN $2 = 'pending' THEN NULL ELSE $3::int END,
-           client_decision_note = CASE WHEN $2 = 'pending' THEN NULL ELSE $4::text END,
+       SET client_decision = $2::text,
+           client_decision_at = CASE WHEN $2::text = 'pending' THEN NULL ELSE CURRENT_TIMESTAMP END,
+           client_decision_by = CASE WHEN $2::text = 'pending' THEN NULL ELSE $3::int END,
+           client_decision_note = CASE WHEN $2::text = 'pending' THEN NULL ELSE $4::text END,
            updated_at = CURRENT_TIMESTAMP
        WHERE o.id = $1 AND o.status = 'sent' ${ownershipClause}
        RETURNING o.id, o.client_decision, o.client_decision_at, o.client_decision_note`,

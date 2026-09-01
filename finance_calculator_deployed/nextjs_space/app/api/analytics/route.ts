@@ -31,10 +31,11 @@ import type { SteelType } from '@/lib/calculatorData';
 
 // GET - everything the analytics panel draws, for the period and filters in the query string.
 //
-// Scope follows the role: junior and senior get their own offers, admin gets the whole company
-// plus a live salesperson filter. The `users` parameter is simply ignored for non-admins - see
-// visibilityClause in lib/analyticsQuery.ts, where the decision is made server-side rather
-// than trusted from the client.
+// Scope follows the role: a junior gets their own offers, a senior gets their own plus every
+// team member's (migration 019), an admin gets the whole company. The `users` parameter is
+// ignored for a junior; for a senior it can only narrow within the team; for an admin it can
+// pick anyone. The decision is made server-side in visibilityClause (lib/analyticsQuery.ts),
+// never trusted from the client.
 //
 // Query parameters (all optional):
 //   preset      one of PERIOD_PRESETS, default last90. 'custom' uses from/to verbatim.
@@ -42,7 +43,7 @@ import type { SteelType } from '@/lib/calculatorData';
 //   basis       created | sent | decided        - which date the window applies to
 //   granularity day | week | month | quarter | year, default: fitted to the window length
 //   split       a dimension, or none            - extra per-series breakdown of the timeline
-//   users       comma-separated user ids        - admin only
+//   users       comma-separated user ids        - admin: anyone; senior: own team only
 //   types       comma-separated steel types     - narrows LINE ITEMS, not whole offers
 //   statuses    comma-separated offer statuses
 //   decisions   comma-separated client decisions
@@ -99,7 +100,9 @@ export async function GET(request: NextRequest) {
       dateTo: period.to ?? '',
       basis,
       granularity,
-      userIds: session.role === 'admin' ? parseIdList(sp.get('users')) : [],
+      // A junior has nobody to filter by; a senior's list is clamped to their team inside
+      // visibilityClause, so it is safe to parse the raw ids here for both senior and admin.
+      userIds: session.role === 'junior' ? [] : parseIdList(sp.get('users')),
       steelTypes: parseEnumList<SteelType>(sp.get('types'), STEEL_TYPE_SERIES_ORDER),
       statuses: parseEnumList(sp.get('statuses'), OFFER_STATUSES),
       decisions: parseEnumList(sp.get('decisions'), CLIENT_DECISIONS),
@@ -116,6 +119,11 @@ export async function GET(request: NextRequest) {
     });
 
     const facets = await fetchFacets(session.role, session.userId);
+    // A senior's facet list always contains at least themselves; more than one entry means they
+    // have a team, which is what unlocks the salesperson controls for them.
+    const canFilterSalespeople =
+      session.role === 'admin' ||
+      (session.role === 'senior' && facets.users.length > 1);
     const userLabels = new Map(facets.users.map((u) => [String(u.id), u.name]));
     const clientLabels = new Map(facets.clients.map((c) => [String(c.id), c.name]));
 
@@ -166,6 +174,7 @@ export async function GET(request: NextRequest) {
         role: session.role,
         userId: session.userId,
         canSeeAll: session.role === 'admin',
+        canFilterSalespeople,
       },
       filters,
       period: { from: period.from, to: period.to },

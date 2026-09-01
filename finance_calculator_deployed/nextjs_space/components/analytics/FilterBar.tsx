@@ -5,7 +5,8 @@
 //
 // Nothing here is applied optimistically in the browser: the state below is serialised into the
 // /api/analytics query string and the server re-derives every figure. The salesperson filter is
-// only rendered for admins, and the server ignores it for anyone else regardless.
+// rendered for an admin or a senior with a team; the server clamps its ids to what the caller
+// may actually see, so a junior (or a hand-edited query) gets nothing extra.
 
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
@@ -57,7 +58,8 @@ interface FilterBarProps {
   value: AnalyticsUiFilters;
   onChange: (next: AnalyticsUiFilters) => void;
   facets: AnalyticsFacets;
-  canSeeAll: boolean;
+  /** Admin, or a senior with a team - controls whether the salesperson filter/split show. */
+  canFilterSalespeople: boolean;
   /** Resolved window, echoed back by the server - shown so a preset is never ambiguous. */
   period: { from: string | null; to: string | null };
 }
@@ -66,7 +68,7 @@ export default function FilterBar({
   value,
   onChange,
   facets,
-  canSeeAll,
+  canFilterSalespeople,
   period,
 }: FilterBarProps) {
   const { t } = useLanguage();
@@ -190,7 +192,7 @@ export default function FilterBar({
           onChange={(next) => set('split', next)}
           options={[
             { value: 'none' as const, label: a.splitNone },
-            ...DIMENSIONS.filter((d) => d !== 'salesperson' || canSeeAll).map((d) => ({
+            ...DIMENSIONS.filter((d) => d !== 'salesperson' || canFilterSalespeople).map((d) => ({
               value: d,
               label: dimensionLabel[d],
             })),
@@ -200,7 +202,7 @@ export default function FilterBar({
 
       {/* Narrowing filters */}
       <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[var(--border)]">
-        {canSeeAll && (
+        {canFilterSalespeople && (
           <MultiSelect
             label={a.salespeople}
             options={facets.users.map((u) => ({ value: String(u.id), label: u.name }))}

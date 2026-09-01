@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import Navigation from '@/components/Navigation';
-import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
+import { ClientInfo, normalizeClientInfo, hasRequiredCompanyDetails } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
 import { attachNotesToZestawienie } from '@/lib/itemNotes';
 import { exportOfferToExcel } from '@/lib/excelExport';
@@ -413,6 +413,12 @@ export default function OffersPage() {
   // różnić od tych z chwili dodania pozycji), tak samo jak serwer w /api/offers/[id]/send.
   const needsReview = (offer: Offer) => offerNeedsReview(offer.offer_data.zestawienie, settings);
 
+  // Company name + NIP must be filled before an offer can go to the client. Mirrors the
+  // server guard in /api/offers/[id]/send - the offer can still be saved and edited without
+  // them, it just cannot be sent.
+  const hasClientDetails = (offer: Offer) =>
+    hasRequiredCompanyDetails(normalizeClientInfo(offer.offer_data.clientInfo));
+
   // Uprawnienia do akcji na jednej ofercie, zależne od roli i statusu.
   const perms = (offer: Offer) => {
     const isOwner = currentUserId !== null && offer.user_id === currentUserId;
@@ -618,6 +624,16 @@ export default function OffersPage() {
                           {needsReview(offer) ? t.offers.needsReviewBadge : t.offers.readyToSendBadge}
                         </span>
                       )}
+                      {/* Brak danych firmy klienta - oferta nie wyjdzie do klienta, dopóki ich
+                          nie uzupełni. Pokazywane właścicielowi na ofercie niewysłanej. */}
+                      {offer.status !== 'sent' && p.isOwner && !hasClientDetails(offer) && (
+                        <span
+                          className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border border-[var(--accent-sum)] text-[var(--accent-sum)] bg-[rgba(245,71,90,0.12)]"
+                          title={t.offers.missingClientHint}
+                        >
+                          ⚠ {t.offers.missingClientBadge}
+                        </span>
+                      )}
                       {/* Client's answer on a sent offer. Icon plus text, never colour alone. */}
                       {offer.status === 'sent' && offer.client_decision && offer.client_decision !== 'pending' && (
                         <span
@@ -820,13 +836,15 @@ export default function OffersPage() {
                       </button>
                     )}
 
-                    {/* Wyślij do klienta (senior draft/approved lub junior approved) */}
+                    {/* Wyślij do klienta (senior draft/approved lub junior approved).
+                        Zablokowany, dopóki brakuje danych firmy klienta - patrz hasClientDetails
+                        i strażnik w /api/offers/[id]/send. */}
                     {p.canSend && (
                       <button
                         onClick={() => handleSend(offer.id)}
-                        disabled={actionLoading === offer.id}
-                        className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-white bg-[var(--accent-cr)] hover:opacity-90 transition-opacity disabled:opacity-50"
-                        title={t.workflow.sendToClient}
+                        disabled={actionLoading === offer.id || !hasClientDetails(offer)}
+                        className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-white bg-[var(--accent-cr)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={hasClientDetails(offer) ? t.workflow.sendToClient : t.offers.missingClientBadge}
                       >
                         📨 {t.workflow.sendToClient}
                       </button>
