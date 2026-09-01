@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/lib/theme-context';
 import { LangProvider } from '@/lib/lang-context';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { CurrencyProvider } from '@/contexts/CurrencyContext';
+import { UnsavedGuardProvider } from '@/lib/unsavedGuard';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -14,7 +15,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       <LangProvider>
         <LanguageProvider>
           <CurrencyProvider>
-            {children}
+            <UnsavedGuardProvider>
+              {children}
+            </UnsavedGuardProvider>
           </CurrencyProvider>
         </LanguageProvider>
       </LangProvider>

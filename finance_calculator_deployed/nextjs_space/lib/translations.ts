@@ -383,6 +383,16 @@ export interface Translations {
     exportExcel: string;
   };
 
+  // Ochrona przed utratą niezapisanych zmian w kalkulatorze
+  unsavedGuard: {
+    newOffer: string;
+    title: string;
+    body: string;
+    save: string;
+    discard: string;
+    cancel: string;
+  };
+
   // Role handlowców
   roles: {
     junior: string;
@@ -979,6 +989,14 @@ export const pl: Translations = {
   excel: {
     exportExcel: 'Eksportuj Excel',
   },
+  unsavedGuard: {
+    newOffer: 'Nowa oferta',
+    title: 'Niezapisane zmiany',
+    body: 'Bieżąca oferta ma zmiany, które nie zostały jeszcze zapisane. Jeśli teraz przejdziesz dalej, zostaną utracone.',
+    save: 'Zapisz i kontynuuj',
+    discard: 'Odrzuć zmiany',
+    cancel: 'Anuluj',
+  },
 
   roles: {
     junior: 'Młodszy handlowiec',
@@ -1572,6 +1590,14 @@ export const en: Translations = {
   excel: {
     exportExcel: 'Export Excel',
   },
+  unsavedGuard: {
+    newOffer: 'New offer',
+    title: 'Unsaved changes',
+    body: 'The current offer has changes that have not been saved yet. If you continue now, they will be lost.',
+    save: 'Save and continue',
+    discard: 'Discard changes',
+    cancel: 'Cancel',
+  },
 
   roles: {
     junior: 'Junior sales rep',
@@ -2164,6 +2190,14 @@ export const cs: Translations = {
   excel: {
     exportExcel: 'Exportovat Excel',
   },
+  unsavedGuard: {
+    newOffer: 'Nová nabídka',
+    title: 'Neuložené změny',
+    body: 'Aktuální nabídka obsahuje změny, které dosud nebyly uloženy. Pokud budete pokračovat, ztratí se.',
+    save: 'Uložit a pokračovat',
+    discard: 'Zahodit změny',
+    cancel: 'Zrušit',
+  },
 
   roles: {
     junior: 'Mladší obchodník',
@@ -2755,6 +2789,14 @@ export const de: Translations = {
   },
   excel: {
     exportExcel: 'Excel exportieren',
+  },
+  unsavedGuard: {
+    newOffer: 'Neues Angebot',
+    title: 'Nicht gespeicherte Änderungen',
+    body: 'Das aktuelle Angebot enthält Änderungen, die noch nicht gespeichert wurden. Wenn Sie jetzt fortfahren, gehen sie verloren.',
+    save: 'Speichern und fortfahren',
+    discard: 'Änderungen verwerfen',
+    cancel: 'Abbrechen',
   },
 
   roles: {

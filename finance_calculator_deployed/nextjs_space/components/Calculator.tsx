@@ -42,6 +42,7 @@ import { attachNotesToZestawienie } from '@/lib/itemNotes';
 import { offerNumberLabel } from '@/lib/offerVersions';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
+import { useUnsavedGuard } from '@/lib/unsavedGuard';
 import { pglBaseForType } from '@/lib/currency';
 import { formatWarning } from '@/lib/translations';
 import {
@@ -80,6 +81,35 @@ interface ZestawienieItem {
   // dokładnie jej konfigurację (opcjonalny — stare zapisane oferty go nie mają).
   inputs?: ItemInputs;
 }
+
+// Clean-slate snapshot of a brand-new offer. Same shape collectOfferData() returns, built
+// from the initial useState values below, so restoreOfferData(INITIAL_OFFER_DATA) resets
+// the whole calculator in one call (used by the "Nowa oferta" button and the "Kalkulator"
+// tab). pglBase/transport are placeholders here — the admin-defaults effect overwrites them
+// with the current settings right after the reset, exactly as on a fresh page load.
+const INITIAL_OFFER_DATA: Record<string, unknown> = {
+  currentType: 'HRS',
+  thickness: 4,
+  width: 1500,
+  length: 3000,
+  isCoilMode: false,
+  gradeInput: 'S235JR+N',
+  selectedGrade: { name: 'S235JR+N', value: 24 },
+  tolThick: 0, tolThickIdx: 0,
+  cert: 5,
+  selectedCoating: 'Z275',
+  crZabezp: 0, crOpak: 5, crOpakIdx: 1, crPowierz: 0, crWykon: 0, crWykonIdx: 0, crZgrzew: -3,
+  hdgZabezp: 0, hdgZabezpIdx: 3, hdgOpak: 5, hdgOpakIdx: 1, hdgPowierz: 0, hdgWykon: 0, hdgZgrzew: -3,
+  zmZabezp: 0, zmZabezpIdx: 2, zmOpak: 5, zmOpakIdx: 1, zmPowierz: 0, zmZgrzew: -3,
+  sscLenTol: 0, sscFlatness: 0, sscSurface: 10,
+  sscMaxWeight: 0, sscMarking: 0, sscEdging: 0,
+  sscPacking: 0, sscPackingIdx: 0, sscLabels: 0,
+  pglBase: 645, marginPct: 7, extra: 0, transport: 20, tons: 1,
+  zestawienie: [],
+  clientInfo: EMPTY_CLIENT_INFO,
+  displayCurrency: 'EUR',
+  eurPlnRate: null,
+};
 
 export default function Calculator() {
   // Language
@@ -210,6 +240,14 @@ export default function Calculator() {
   const [saveOfferName, setSaveOfferName] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Unsaved-changes guard. `baselineRef` holds a JSON snapshot of the offer as it was last
+  // loaded / saved; the calculator is "dirty" when the live snapshot differs. `baselineNonce`
+  // is bumped whenever we want to re-capture that baseline (after load, after save, after a
+  // reset) — the capture happens in an effect so it runs once the state has actually settled.
+  const guard = useUnsavedGuard();
+  const baselineRef = useRef<string | null>(null);
+  const [baselineNonce, setBaselineNonce] = useState(0);
   
   // Client info
   const [clientInfo, setClientInfo] = useState<ClientInfo>(EMPTY_CLIENT_INFO);
@@ -908,6 +946,8 @@ export default function Calculator() {
             setCurrentOfferRawName(offer.offer_name ?? '');
             setCurrentOfferLabel(offerNumberLabel(offer));
             restoreOfferData(offer.offer_data);
+            // Re-capture the dirty-check baseline once the restored state has settled.
+            setBaselineNonce(n => n + 1);
             setSaveMessage({ type: 'success', text: t.offers?.offerLoaded || 'Offer loaded!' });
             setTimeout(() => setSaveMessage(null), 3000);
           }
@@ -944,12 +984,16 @@ export default function Calculator() {
       const s = fresh ?? settings;
       setPglBase(pglBaseForType(currentType, s));
       setTransport(s.transportBase);
+      // Baseline for a fresh offer is captured only after the admin defaults land, so the
+      // default PGL/transport are not themselves seen as unsaved changes.
+      setBaselineNonce(n => n + 1);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Save offer function
-  const handleSaveOffer = async () => {
+  // Save offer function. Returns true on a successful save so the unsaved-changes guard
+  // can chain "Zapisz i kontynuuj" -> proceed with the pending navigation.
+  const handleSaveOffer = async (): Promise<boolean> => {
     setSaveLoading(true);
     const offerData = collectOfferData();
     // Nazwa jest opcjonalna. Pusta => baza nada "offer_<ID>" (kolumna generowana display_name).
@@ -996,17 +1040,111 @@ export default function Calculator() {
         if (urlNeedsUpdate) {
           router.replace(`/calculator?edit=${offer.id}`, { scroll: false });
         }
-      } else {
-        setSaveMessage({ type: 'error', text: t.offers?.saveFailed || 'Save failed' });
+        // The just-saved state is the new dirty-check baseline.
+        setBaselineNonce(n => n + 1);
+        return true;
       }
+      setSaveMessage({ type: 'error', text: t.offers?.saveFailed || 'Save failed' });
+      return false;
     } catch (error) {
       console.error('Error saving offer:', error);
       setSaveMessage({ type: 'error', text: t.offers?.saveFailed || 'Save failed' });
+      return false;
     } finally {
       setSaveLoading(false);
       setTimeout(() => setSaveMessage(null), 3000);
     }
   };
+
+  // --- Unsaved-changes guard wiring -----------------------------------------------------
+
+  // Re-capture the baseline after the state that triggered a bump has settled. Runs after
+  // paint, so restoreOfferData()/admin-defaults setState calls are already flushed.
+  useEffect(() => {
+    baselineRef.current = JSON.stringify(collectOfferData());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baselineNonce]);
+
+  // Dirty = live snapshot differs from the last loaded/saved baseline. Null baseline (the
+  // async window before the first capture) counts as clean, so no premature prompt.
+  const currentSnapshot = JSON.stringify(collectOfferData());
+  const isDirty = baselineRef.current !== null && currentSnapshot !== baselineRef.current;
+
+  // Full reset to a clean offer. Reused by the "Nowa oferta" button and the "Kalkulator"
+  // tab (via the guard). Anything not covered by restoreOfferData(INITIAL_OFFER_DATA) — the
+  // offer identity, edit-only UI flags, the ?edit param — is cleared explicitly here.
+  const resetToNewOffer = () => {
+    restoreOfferData(INITIAL_OFFER_DATA);
+    setEditingId(null);
+    setLegacyEditWarning(false);
+    setCurrentOfferId(null);
+    setCurrentOfferName('');
+    setCurrentOfferRawName('');
+    setCurrentOfferLabel('');
+    setShowSaveModal(false);
+    setSaveOfferName('');
+    setSaveMessage(null);
+
+    const hadEditParam = searchParams.get('edit') !== null;
+    // Let the admin-defaults effect run again for the clean offer.
+    defaultsAppliedRef.current = false;
+
+    if (hadEditParam) {
+      // Dropping ?edit re-fires the [searchParams] effects; the admin-defaults one then
+      // re-applies PGL/transport and re-captures the baseline.
+      router.replace('/calculator', { scroll: false });
+    } else {
+      // Same route, no param change -> the effect won't re-fire on its own, so apply the
+      // admin defaults inline and re-baseline here.
+      (async () => {
+        const fresh = await refreshSettings();
+        const s = fresh ?? settings;
+        setPglBase(pglBaseForType('HRS', s));
+        setTransport(s.transportBase);
+        defaultsAppliedRef.current = true;
+        setBaselineNonce(n => n + 1);
+      })();
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // The guard calls these through refs so it always hits the latest closure without the
+  // calculator having to re-register on every render.
+  const resetToNewOfferRef = useRef(resetToNewOffer);
+  const handleSaveOfferRef = useRef(handleSaveOffer);
+  useEffect(() => {
+    resetToNewOfferRef.current = resetToNewOffer;
+    handleSaveOfferRef.current = handleSaveOffer;
+  });
+
+  // Register with the guard once; unregister on unmount so other pages see a clean slate.
+  useEffect(() => {
+    guard.setNewOfferAction(() => resetToNewOfferRef.current());
+    guard.setSaver(() => handleSaveOfferRef.current());
+    return () => {
+      guard.setNewOfferAction(null);
+      guard.setSaver(null);
+      guard.setDirty(false);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep the guard's dirty flag in sync (ref write only — no re-render).
+  useEffect(() => {
+    guard.setDirty(isDirty);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDirty]);
+
+  // Tab close / refresh: the browser owns this dialog and its wording; we only arm it.
+  useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [isDirty]);
 
   // Zapisz kontakt do firmy OD RĘKI, bez zapisywania całej oferty (POST
   // /api/clients/contacts, reużywa upsertClientFromOffer po stronie backendu).
