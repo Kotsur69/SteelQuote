@@ -25,7 +25,7 @@ import {
   LENGTH_SURCHARGE_HRS,
   BASE_SURCHARGE_CR_HDG,
   PICKLING_SURCHARGE,
-  TEARDROP_FLAT_SURCHARGE,
+  getTeardropSurcharge,
   TOL_THICK_OPTIONS,
   YIELD_GRADES,
   SCRAP_CONSTANT,
@@ -470,8 +470,8 @@ export default function Calculator() {
     return getPicklingSurcharge(thickness) || 0;
   }, [currentType, thickness, getPicklingSurcharge]);
 
-  // Dopłata Łezka — stała, tylko TEARDROP
-  const teardropSurcharge = currentType === 'TEARDROP' ? TEARDROP_FLAT_SURCHARGE : 0;
+  // Dopłata Łezka — tylko TEARDROP, zależna od szerokości taśmy
+  const teardropSurcharge = currentType === 'TEARDROP' ? getTeardropSurcharge(width) : 0;
 
   // Calculate base surcharge
   const baseSurchargeRaw = useMemo(() => {
@@ -636,7 +636,7 @@ export default function Calculator() {
     // Reset grade
     const defaultGrades: Record<SteelType, string | null> = {
       HRS: 'S235JR+N', CR: 'DC01', HDG: 'DX51D+Z',
-      PICKLED: 'S235JR+N', TEARDROP: null, ZM: 'DX51D+ZM',
+      PICKLED: 'S235JR+N', TEARDROP: 'S235JR+N', ZM: 'DX51D+ZM',
     };
     const defaultName = defaultGrades[type];
     const defaultEntry = defaultName

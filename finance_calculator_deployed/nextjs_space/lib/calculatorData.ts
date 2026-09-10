@@ -308,9 +308,38 @@ export const GRADE_TABLE_ZM = [
   { name: "DX54D+ZM", value: 92 },
 ];
 
-// TEARDROP (Łezka) nie ma na razie gatunków — decyzja usera 2026-08-12: brak selektora
-// gatunku, dopłata gatunkowa = 0 dla tego typu, dopóki klient nie poda tabeli.
-export const GRADE_TABLE_TEARDROP: { name: string; value: number }[] = [];
+// Grade table for TEARDROP (Łezka) — dopłata gatunkowa [EUR/t]. Dane klienta, wrzesień 2026.
+// Zastępuje wcześniejszą decyzję z 2026-08-12 (brak selektora) — klient dostarczył tabelę.
+// S...MC = HSLA wg EN 10149-2; pozostałe = konstrukcyjne wg EN 10025-2:2019.
+// Warianty "-CAT_A" mają tę samą stawkę co gatunek bazowy.
+export const GRADE_TABLE_TEARDROP: { name: string; value: number }[] = [
+  { name: "S235J2+AR", value: 19 },
+  { name: "S235J2+AR-CAT_A", value: 19 },
+  { name: "S235J2+N", value: 24 },
+  { name: "S235J2+N-CAT_A", value: 24 },
+  { name: "S235JR+AR", value: 9 },
+  { name: "S235JR+AR-CAT_A", value: 9 },
+  { name: "S235JR+N", value: 24 },
+  { name: "S235JR+N-CAT_A", value: 24 },
+  { name: "S275J2+N", value: 40 },
+  { name: "S275J2+N-CAT_A", value: 40 },
+  { name: "S275JR+AR", value: 20 },
+  { name: "S275JR+AR-CAT_A", value: 20 },
+  { name: "S275JR+N", value: 40 },
+  { name: "S275JR+N-CAT_A", value: 40 },
+  { name: "S355J2+AR", value: 52 },
+  { name: "S355J2+AR-CAT_A", value: 52 },
+  { name: "S355J2+N", value: 57 },
+  { name: "S355J2+N-CAT_A", value: 57 },
+  { name: "S355JR+AR", value: 42 },
+  { name: "S355JR+AR-CAT_A", value: 42 },
+  { name: "S355JR+N", value: 57 },
+  { name: "S355JR+N-CAT_A", value: 57 },
+  { name: "S355MC", value: 48 },
+  { name: "S355MC-CAT_A", value: 48 },
+  { name: "S500MC", value: 83 },
+  { name: "S500MC-CAT_A", value: 83 },
+];
 
 export const GRADE_TABLES = {
   HRS: GRADE_TABLE_HRS,
@@ -1006,9 +1035,23 @@ export const PICKLING_SURCHARGE = [
   { thicknessMin: 8.00, thicknessMax: 13.00, value: 70 },
 ];
 
-// Dopłata Łezka (TEARDROP) — stała, zawsze doliczana dla tego typu, niezależna od
-// grubości/szerokości. Dane klienta, sierpień 2026.
-export const TEARDROP_FLAT_SURCHARGE = 30;
+// Dopłata Łezka (TEARDROP) — zawsze doliczana dla tego typu, zależna od szerokości
+// taśmy (nie od grubości). Dane klienta, wrzesień 2026:
+//   do szer. 1,5 m  (<= 1500 mm)        -> 30
+//   od 1,51 do 2,05 m (1501..2050 mm)   -> 45
+export const TEARDROP_SURCHARGE_BY_WIDTH = [
+  { widthMin: 0, widthMax: 1500, value: 30 },
+  { widthMin: 1501, widthMax: 2050, value: 45 },
+];
+
+// Zwraca dopłatę Łezka dla podanej szerokości (mm). Szerokości powyżej 2050 mm nie
+// są w tabeli klienta — stosujemy stawkę górnego progu.
+export function getTeardropSurcharge(width: number): number {
+  for (const row of TEARDROP_SURCHARGE_BY_WIDTH) {
+    if (width >= row.widthMin && width <= row.widthMax) return row.value;
+  }
+  return width > 2050 ? 45 : 30;
+}
 
 // Tolerance options
 export const TOL_THICK_OPTIONS = {
