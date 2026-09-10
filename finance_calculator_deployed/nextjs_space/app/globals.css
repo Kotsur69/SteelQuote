@@ -396,34 +396,59 @@ input[type=number] {
 }
 
 /* ─── HIGH CONTRAST MODE ───
-   Jeden, stały motyw (bez wariantów jasny/ciemny) dla sprzedawcow na
-   starych/malych ekranach (np. 800x600). Kolory dla elementow sterowanych
-   przez zmienne CSS sa nadpisywane bezposrednio w obiekcie cssVars w JS
-   (Calculator.tsx, offers/senior/AdminLayout) - blok ponizej to warstwa
-   zapasowa (gdyby jakis element renderowal sie poza tym drzewem) plus
-   globalne wzmocnienie grubosci, grubosci obramowan i rozmiaru tekstu,
-   ktorego nie da sie latwo przekazac przez zmienne CSS. */
+   Tryb dla sprzedawcow na starych/malych ekranach (np. 800x600). Od teraz
+   "wysoki kontrast" to NIE ostra paleta czerń-na-bieli (sprzedawcy uznali ja
+   za kiczowata) - to wieksza czcionka, grubsza waga i grubsze obramowania na
+   normalnych, nowoczesnych kolorach motywu. Kolory elementow sterowanych
+   zmiennymi CSS ida z obiektu cssVars w JS (lib/themeVars.ts); bloki ponizej
+   to warstwa zapasowa dla elementow renderowanych poza tym drzewem - jeden
+   dla jasnego, jeden dla ciemnego wysokiego kontrastu (klasa .dark na <html>
+   z lib/theme-context). Obramowania i tekst pomocniczy odrobine mocniej
+   skontrastowane niz w zwyklym motywie. */
 :root.hc,
 .hc {
-  --bg:          #ffffff;
-  --bg-panel:    #f0f0f0;
+  --bg:          #eef0f6;
+  --bg-panel:    #e2e6f0;
   --bg-card:     #ffffff;
-  --bg-input:    #ffffff;
-  --border:      #000000;
-  --border-hi:   #000000;
-  --accent:      #0b3d91;
-  --accent-light:#0b3d91;
-  --accent-hrs:  #7a4a00;
-  --accent-cr:   #0b3d91;
-  --accent-hdg:  #0b6b2c;
-  --accent-pickled: #8a1a4a;
-  --accent-teardrop: #0e6270;
-  --accent-zm:   #3d2f8f;
-  --accent-sum:  #9c0b1e;
-  --text-primary:   #000000;
-  --text-secondary: #1a1a1a;
-  --text-muted:     #333333;
-  --text-value:     #000000;
+  --bg-input:    #f4f5fa;
+  --border:      #8a97b8;
+  --border-hi:   #5b6f9f;
+  --accent:      #3b8ef5;
+  --accent-light:#60a5fa;
+  --accent-hrs:  #e8a020;
+  --accent-cr:   #3b8ef5;
+  --accent-hdg:  #2ecc71;
+  --accent-pickled: #e0499a;
+  --accent-teardrop: #22c1d6;
+  --accent-zm:   #8b7cf6;
+  --accent-sum:  #f5475a;
+  --text-primary:   #0d1220;
+  --text-secondary: #2e3a5c;
+  --text-muted:     #556080;
+  --text-value:     #141e3a;
+}
+
+:root.hc.dark,
+.hc.dark {
+  --bg:          #0f1117;
+  --bg-panel:    #181c26;
+  --bg-card:     #1e2333;
+  --bg-input:    #141720;
+  --border:      #3d4668;
+  --border-hi:   #556492;
+  --accent:      #3b8ef5;
+  --accent-light:#60a5fa;
+  --accent-hrs:  #e8a020;
+  --accent-cr:   #3b8ef5;
+  --accent-hdg:  #2ecc71;
+  --accent-pickled: #e0499a;
+  --accent-teardrop: #22c1d6;
+  --accent-zm:   #8b7cf6;
+  --accent-sum:  #f5475a;
+  --text-primary:   #e8ecf5;
+  --text-secondary: #7b88aa;
+  --text-muted:     #6b7699;
+  --text-value:     #c8d4f0;
 }
 
 html.hc body { zoom: 1.18; }
@@ -443,5 +468,5 @@ html.hc body { zoom: 1.18; }
 }
 .hc .sum-row { border-top-width: 3px !important; }
 .hc .data-row, .hc .zr td, .hc .zt { border-bottom-width: 2px !important; }
-.hc .dim-warning { border-width: 2px !important; color: #9c0b1e !important; }
+.hc .dim-warning { border-width: 2px !important; }
 .hc .grade-dropdown { box-shadow: 0 8px 24px rgba(0,0,0,0.35) !important; }

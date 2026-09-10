@@ -16,6 +16,8 @@ interface ContactComboboxProps {
   onSelect: (contact: ContactSuggestion) => void;
   placeholder?: string;
   isDark: boolean;
+  // Kept for call-site compatibility; high contrast no longer changes field
+  // colours, only typography/borders via the global .hc rules.
   highContrast?: boolean;
   lookupErrorLabel: string;
 }
@@ -37,7 +39,6 @@ export default function ContactCombobox({
   onSelect,
   placeholder,
   isDark,
-  highContrast = false,
   lookupErrorLabel,
 }: ContactComboboxProps) {
   const listboxId = useId();
@@ -80,7 +81,7 @@ export default function ContactCombobox({
         onFocus={() => setIsOpen(true)}
         onKeyDown={handleKeyDown}
         className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[#a78bfa] outline-none transition-colors w-full disabled:cursor-not-allowed
-          ${!highContrast && !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+          ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
       />
 
       {failed && (

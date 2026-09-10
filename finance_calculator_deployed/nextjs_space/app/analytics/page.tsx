@@ -292,7 +292,7 @@ export default function AnalyticsPage() {
           onClick={() => setHighContrast(!highContrast)}
           className={`rounded-[20px] px-3.5 py-1.5 text-[11px] font-mono flex items-center gap-1.5 border-2 transition-colors ${
             highContrast
-              ? 'bg-black text-white border-black'
+              ? 'bg-[rgba(59,142,245,0.15)] text-[var(--accent-cr)] border-[var(--accent-cr)]'
               : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]'
           }`}
         >

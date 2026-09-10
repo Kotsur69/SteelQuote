@@ -58,7 +58,9 @@ interface TransportPanelProps {
   currencySymbol: string;
   t: Translations;
   isDark: boolean;
-  highContrast: boolean;
+  // Kept for call-site compatibility; high contrast no longer changes panel
+  // colours, only typography/borders via the global .hc rules.
+  highContrast?: boolean;
 }
 
 const inputClass =
@@ -81,13 +83,12 @@ export default function TransportPanel({
   currencySymbol,
   t,
   isDark,
-  highContrast,
 }: TransportPanelProps) {
   const s = t.summary;
   // Kwota liczona automatycznie tylko wtedy, gdy handlowiec nie przejął sterowania.
   const isAuto = !route.manualMode && !route.oversizeManual;
 
-  const lightBorder = !highContrast && !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : '';
+  const lightBorder = !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : '';
 
   return (
     <div className="border-b border-[rgba(42,48,72,0.5)]">

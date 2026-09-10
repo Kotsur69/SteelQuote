@@ -487,7 +487,7 @@ export default function OffersPage() {
           onClick={() => setHighContrast(!highContrast)}
           className={`rounded-[20px] px-3.5 py-1.5 text-[11px] font-mono flex items-center gap-1.5 border-2 transition-colors ${
             highContrast
-              ? 'bg-black text-white border-black'
+              ? 'bg-[rgba(59,142,245,0.15)] text-[var(--accent-cr)] border-[var(--accent-cr)]'
               : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]'
           }`}
         >
@@ -595,7 +595,7 @@ export default function OffersPage() {
                 key={offer.id}
                 onClick={() => { if (p.canEdit) handleEdit(offer.id); }}
                 className={`p-4 transition-colors ${p.canEdit ? 'cursor-pointer' : ''} hover:bg-[rgba(255,255,255,0.02)] ${
-                  highContrast ? (isDark ? 'hover:bg-[rgba(255,255,255,0.10)]' : 'hover:bg-[rgba(0,0,0,0.10)]') : !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
+                  !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">

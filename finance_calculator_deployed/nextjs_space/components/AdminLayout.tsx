@@ -68,7 +68,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           onClick={() => setHighContrast(!highContrast)}
           className={`rounded-[20px] px-3.5 py-1.5 text-[11px] font-mono flex items-center gap-1.5 border-2 transition-colors ${
             highContrast
-              ? 'bg-black text-white border-black'
+              ? 'bg-[rgba(59,142,245,0.15)] text-[var(--accent-cr)] border-[var(--accent-cr)]'
               : 'bg-[var(--bg-card)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]'
           }`}
         >
@@ -105,7 +105,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   isActive
                     ? 'bg-[rgba(59,142,245,0.12)] border-[#3b8ef5] text-[#3b8ef5]'
                     : `border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.03)]
-                       ${highContrast ? (isDark ? 'hover:bg-[rgba(255,255,255,0.12)]' : 'hover:bg-[rgba(0,0,0,0.12)]') : !isDark ? 'hover:bg-[rgba(0,0,0,0.03)]' : ''}`
+                       ${!isDark ? 'hover:bg-[rgba(0,0,0,0.03)]' : ''}`
                 }`}
             >
               <span className="text-base">{tab.icon}</span>

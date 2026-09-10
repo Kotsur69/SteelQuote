@@ -8,6 +8,8 @@ import { useUnsavedGuard } from '@/lib/unsavedGuard';
 
 interface NavigationProps {
   isDark: boolean;
+  // Kept for call-site compatibility; high contrast no longer changes nav colours,
+  // only typography/borders via the global .hc rules.
   highContrast?: boolean;
 }
 
@@ -17,7 +19,7 @@ interface NavUser {
   role: string;
 }
 
-export default function Navigation({ isDark, highContrast }: NavigationProps) {
+export default function Navigation({ isDark }: NavigationProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useLanguage();
@@ -76,7 +78,7 @@ export default function Navigation({ isDark, highContrast }: NavigationProps) {
               ${isActive
                 ? 'bg-[rgba(59,142,245,0.12)] border-[#3b8ef5] text-[#3b8ef5]'
                 : `border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.03)]
-                   ${highContrast ? (isDark ? 'hover:bg-[rgba(255,255,255,0.12)]' : 'hover:bg-[rgba(0,0,0,0.12)]') : !isDark ? 'hover:bg-[rgba(0,0,0,0.03)]' : ''}`
+                   ${!isDark ? 'hover:bg-[rgba(0,0,0,0.03)]' : ''}`
               }`}
           >
             <span className="text-base">{tab.icon}</span>
