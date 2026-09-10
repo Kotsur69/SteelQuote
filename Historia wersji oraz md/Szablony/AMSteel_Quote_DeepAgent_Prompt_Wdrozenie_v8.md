@@ -6,7 +6,7 @@
 # wysokiego kontrastu, doplata za Lezke zalezna od szerokosci + tabela gatunkow TEARDROP.
 
 Skopiuj ponizszy tekst do DeepAgent i dolacz zalaczony zip **`AMSteel_Quote_v1.7_deploy.zip`**
-(spakowany z galezi `feat/analytics-panel`, commit `3cfa15d`, dokladnie to, co jest na GitHubie:
+(spakowany z galezi `feat/analytics-panel`, commit `de6fca0`, dokladnie to, co jest na GitHubie:
 https://github.com/Kotsur69/SteelQuote/tree/feat/analytics-panel). Zip zawiera caly folder
 `nextjs_space` BEZ `node_modules`, `.next`, `.env`, `.env.local` i `package-lock.json` (projekt
 jedzie na yarnie, npm-owy lock miesza w instalacji).
@@ -90,6 +90,9 @@ dopasuj lokalizacje do istniejacej struktury projektu.
   wersja to naprawia (`app/api/offers/[id]/decision/route.ts`). Zachowanie docelowe bez zmian:
   decyzje mozna zapisac tylko na ofercie `sent`, `decision = 'pending'` czysci ja w calosci,
   wlasciciel zapisuje na swojej, senior i admin na dowolnej.
+- UI na liscie `/offers`: gdy decyzja jest juz zapisana (`won`/`lost`), przyciski "oznacz jako
+  wygrana/przegrana" **znikaja** — zostaje tylko "↺ cofnij decyzje". Zmiana decyzji wymaga
+  najpierw cofniecia. Sam endpoint bez zmian (nadal przyjmuje kazda z trzech wartosci).
 
 **C) Transport liczony z realnej trasy drogowej (migracja 020):**
 - Do tej pory transport byl JEDNA liczba (`app_settings.transport_base`, €/t) wpisywana recznie.
@@ -231,6 +234,8 @@ Nie musisz tego robic Ty — to ja sprawdzam w przegladarce na podgladzie, zanim
 - edytor zespolu (dodaj/usun juniora) w panelu ustawien dziala,
 - na ofercie **wyslanej** da sie zapisac decyzje klienta (won/lost) i po odswiezeniu strony
   decyzja **nadal tam jest** (regres z v1.6 naprawiony); cofniecie do "pending" czysci ja,
+- po zapisaniu decyzji przyciski "klient zaakceptowal / odrzucil" **znikaja** — zostaje tylko
+  "↺ cofnij decyzje"; zmiana decyzji = najpierw cofnij, potem wybierz ponownie,
 - panel "Handlowcy": kolumny skutecznosc % i laczny tonaz ofertowany maja sensowne liczby,
   rozwijana sekcja "Wyniki" pokazuje pelne rozbicie; oferta z wieloma wersjami liczy sie raz,
 - sekcja "Trasa i transport" w kalkulatorze: po wpisaniu adresu klienta (albo pobraniu z
