@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 import TeamEditor from '@/components/TeamEditor';
+import { formatTons, formatPct, formatInt, formatDate } from '@/lib/analyticsFormat';
 
 type Role = 'junior' | 'senior' | 'admin';
 
@@ -18,16 +19,36 @@ interface AdminUser {
   offers_total: number;
   offers_pending: number;
   offers_sent: number;
+  // Performance aggregates (see GET /api/admin/users). Dates are YYYY-MM-DD or null.
+  account_created_date: string | null;
+  first_quote_date: string | null;
+  last_quote_date: string | null;
+  offers_won: number;
+  offers_lost: number;
+  offers_decision_pending: number;
+  tons_offered: number;
+  tons_won: number;
+  tons_lost: number;
+  tons_pending: number;
+  avg_margin_pct: number | null;
+}
+
+/** won / (won + lost) as a percentage; null while nothing is decided. */
+function winRateOffers(u: AdminUser): number | null {
+  const decided = u.offers_won + u.offers_lost;
+  return decided > 0 ? (u.offers_won / decided) * 100 : null;
 }
 
 export default function AdminSalespeoplePage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<number | 'new' | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   // Which senior's team panel is expanded under their row (one at a time).
   const [teamOpen, setTeamOpen] = useState<number | null>(null);
+  // Which salesperson's performance strip is expanded (independent of teamOpen).
+  const [perfOpen, setPerfOpen] = useState<number | null>(null);
 
   // Formularz nowego konta
   const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'junior' as Role });
@@ -179,11 +200,15 @@ export default function AdminSalespeoplePage() {
                   <th className="px-4 py-2.5 font-medium">{t.admin.role}</th>
                   <th className="px-4 py-2.5 font-medium">{t.admin.status}</th>
                   <th className="px-4 py-2.5 font-medium text-center">{t.admin.offersCount}</th>
+                  <th className="px-4 py-2.5 font-medium text-center">{t.admin.perf.colWinRate}</th>
+                  <th className="px-4 py-2.5 font-medium text-right">{t.admin.perf.colTonnage}</th>
                   <th className="px-4 py-2.5 font-medium text-right">{t.admin.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
-                {users.map((u) => (
+                {users.map((u) => {
+                  const rate = winRateOffers(u);
+                  return (
                   <Fragment key={u.id}>
                   <tr className={u.is_active ? '' : 'opacity-50'}>
                     <td className="px-4 py-3">
@@ -220,8 +245,31 @@ export default function AdminSalespeoplePage() {
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-center font-mono text-[var(--text-value)]">
+                      {rate === null ? (
+                        <span className="text-[var(--text-muted)]">—</span>
+                      ) : (
+                        <span className={rate >= 50 ? 'text-[var(--accent-hdg)]' : 'text-[var(--accent-sum)]'}>
+                          {formatPct(rate, language)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-[var(--text-value)]">
+                      {formatTons(u.tons_offered, language)} t
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => setPerfOpen(perfOpen === u.id ? null : u.id)}
+                          aria-expanded={perfOpen === u.id}
+                          className={`px-3 py-1.5 text-xs font-medium rounded border transition-colors ${
+                            perfOpen === u.id
+                              ? 'border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.15)]'
+                              : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]'
+                          }`}
+                        >
+                          📊 {t.admin.perf.performance} {perfOpen === u.id ? '▲' : '▼'}
+                        </button>
                         {u.role === 'senior' && (
                           <button
                             onClick={() => setTeamOpen(teamOpen === u.id ? null : u.id)}
@@ -255,20 +303,87 @@ export default function AdminSalespeoplePage() {
                       </div>
                     </td>
                   </tr>
+                  {perfOpen === u.id && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-4 bg-[var(--bg-panel)]">
+                        <PerfDetail user={u} rate={rate} language={language} t={t} />
+                      </td>
+                    </tr>
+                  )}
                   {u.role === 'senior' && teamOpen === u.id && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-4 bg-[var(--bg-panel)]">
+                      <td colSpan={7} className="px-4 py-4 bg-[var(--bg-panel)]">
                         <TeamEditor seniorId={u.id} compact />
                       </td>
                     </tr>
                   )}
                   </Fragment>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
     </AdminLayout>
+  );
+}
+
+/** One labelled figure in the performance strip. */
+function Stat({ label, value, tone }: { label: string; value: string; tone?: 'good' | 'bad' | 'muted' }) {
+  const color =
+    tone === 'good' ? 'text-[var(--accent-hdg)]'
+    : tone === 'bad' ? 'text-[var(--accent-sum)]'
+    : tone === 'muted' ? 'text-[var(--text-muted)]'
+    : 'text-[var(--text-value)]';
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)]">{label}</div>
+      <div className={`font-mono text-sm mt-0.5 ${color}`}>{value}</div>
+    </div>
+  );
+}
+
+/** The strip that opens under a salesperson row: activity dates, offer outcomes, tonnage. */
+function PerfDetail({
+  user: u,
+  rate,
+  language,
+  t,
+}: {
+  user: AdminUser;
+  rate: number | null;
+  language: Parameters<typeof formatTons>[1];
+  t: ReturnType<typeof useLanguage>['t'];
+}) {
+  const hasQuotes = u.first_quote_date !== null;
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-6 gap-y-4">
+      <Stat label={t.admin.perf.accountCreated} value={formatDate(u.account_created_date, language)} />
+      <Stat
+        label={t.admin.perf.firstQuote}
+        value={hasQuotes ? formatDate(u.first_quote_date, language) : t.admin.perf.noQuotes}
+        tone={hasQuotes ? undefined : 'muted'}
+      />
+      <Stat
+        label={t.admin.perf.lastQuote}
+        value={hasQuotes ? formatDate(u.last_quote_date, language) : t.admin.perf.noQuotes}
+        tone={hasQuotes ? undefined : 'muted'}
+      />
+      <Stat
+        label={t.admin.perf.winRateOffers}
+        value={rate === null ? '—' : formatPct(rate, language)}
+        tone={rate === null ? 'muted' : rate >= 50 ? 'good' : 'bad'}
+      />
+      <Stat label={t.admin.perf.avgMargin} value={formatPct(u.avg_margin_pct, language)} />
+      <div className="hidden lg:block" />
+
+      <Stat label={t.admin.perf.offersWon} value={formatInt(u.offers_won, language)} tone={u.offers_won > 0 ? 'good' : undefined} />
+      <Stat label={t.admin.perf.offersLost} value={formatInt(u.offers_lost, language)} tone={u.offers_lost > 0 ? 'bad' : undefined} />
+      <Stat label={t.admin.perf.offersAwaitingDecision} value={formatInt(u.offers_decision_pending, language)} />
+      <Stat label={t.admin.perf.tonnageWon} value={`${formatTons(u.tons_won, language)} t`} tone={u.tons_won > 0 ? 'good' : undefined} />
+      <Stat label={t.admin.perf.tonnageLost} value={`${formatTons(u.tons_lost, language)} t`} tone={u.tons_lost > 0 ? 'bad' : undefined} />
+      <Stat label={t.admin.perf.tonnagePending} value={`${formatTons(u.tons_pending, language)} t`} />
+    </div>
   );
 }

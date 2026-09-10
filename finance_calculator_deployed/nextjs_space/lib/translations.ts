@@ -580,6 +580,27 @@ export interface Translations {
     person: string;
     contactCreated: string;
     noClientContacts: string;
+    // Per-salesperson performance: columns on the list + the expandable detail strip.
+    perf: {
+      performance: string;
+      colWinRate: string;
+      colTonnage: string;
+      winRateOffers: string;
+      offersWon: string;
+      offersLost: string;
+      offersAwaitingDecision: string;
+      tonnageOffered: string;
+      tonnageWon: string;
+      tonnageLost: string;
+      tonnagePending: string;
+      avgMargin: string;
+      accountCreated: string;
+      firstQuote: string;
+      lastQuote: string;
+      noQuotes: string;
+      showDetails: string;
+      hideDetails: string;
+    };
   };
 
   // Analytics panel (app/analytics)
@@ -1222,6 +1243,26 @@ export const pl: Translations = {
     person: 'Osoba',
     contactCreated: 'Kontakt dodany',
     noClientContacts: 'Brak zapisanych kontaktów',
+    perf: {
+      performance: 'Wyniki',
+      colWinRate: 'Skut. %',
+      colTonnage: 'Tony (of.)',
+      winRateOffers: 'Skuteczność (oferty)',
+      offersWon: 'Wygrane',
+      offersLost: 'Przegrane',
+      offersAwaitingDecision: 'Bez decyzji',
+      tonnageOffered: 'Tony ofertowane',
+      tonnageWon: 'Tony wygrane',
+      tonnageLost: 'Tony przegrane',
+      tonnagePending: 'Tony bez decyzji',
+      avgMargin: 'Śr. marża',
+      accountCreated: 'Konto utworzone',
+      firstQuote: 'Pierwsza oferta',
+      lastQuote: 'Ostatnia oferta',
+      noQuotes: 'Brak ofert',
+      showDetails: 'Wyniki',
+      hideDetails: 'Wyniki',
+    },
   },
   // Analytics panel (app/analytics)
   analytics: {
@@ -1863,6 +1904,26 @@ export const en: Translations = {
     person: 'Person',
     contactCreated: 'Contact added',
     noClientContacts: 'No saved contacts',
+    perf: {
+      performance: 'Performance',
+      colWinRate: 'Win %',
+      colTonnage: 'Tonnes (off.)',
+      winRateOffers: 'Win rate (offers)',
+      offersWon: 'Won',
+      offersLost: 'Lost',
+      offersAwaitingDecision: 'No decision',
+      tonnageOffered: 'Tonnes offered',
+      tonnageWon: 'Tonnes won',
+      tonnageLost: 'Tonnes lost',
+      tonnagePending: 'Tonnes undecided',
+      avgMargin: 'Avg margin',
+      accountCreated: 'Account created',
+      firstQuote: 'First quote',
+      lastQuote: 'Last quote',
+      noQuotes: 'No quotes',
+      showDetails: 'Performance',
+      hideDetails: 'Performance',
+    },
   },
   // Analytics panel (app/analytics)
   analytics: {
@@ -2503,6 +2564,26 @@ export const cs: Translations = {
     person: 'Osoba',
     contactCreated: 'Kontakt přidán',
     noClientContacts: 'Žádné uložené kontakty',
+    perf: {
+      performance: 'Výsledky',
+      colWinRate: 'Úsp. %',
+      colTonnage: 'Tuny (nab.)',
+      winRateOffers: 'Úspěšnost (nabídky)',
+      offersWon: 'Vyhrané',
+      offersLost: 'Prohrané',
+      offersAwaitingDecision: 'Bez rozhodnutí',
+      tonnageOffered: 'Nabídnuté tuny',
+      tonnageWon: 'Vyhrané tuny',
+      tonnageLost: 'Prohrané tuny',
+      tonnagePending: 'Tuny bez rozhodnutí',
+      avgMargin: 'Prům. marže',
+      accountCreated: 'Účet vytvořen',
+      firstQuote: 'První nabídka',
+      lastQuote: 'Poslední nabídka',
+      noQuotes: 'Žádné nabídky',
+      showDetails: 'Výsledky',
+      hideDetails: 'Výsledky',
+    },
   },
   // Analytics panel (app/analytics)
   analytics: {
@@ -3143,6 +3224,26 @@ export const de: Translations = {
     person: 'Person',
     contactCreated: 'Kontakt hinzugefügt',
     noClientContacts: 'Keine gespeicherten Kontakte',
+    perf: {
+      performance: 'Ergebnisse',
+      colWinRate: 'Quote %',
+      colTonnage: 'Tonnen (Ang.)',
+      winRateOffers: 'Erfolgsquote (Angebote)',
+      offersWon: 'Gewonnen',
+      offersLost: 'Verloren',
+      offersAwaitingDecision: 'Ohne Entscheidung',
+      tonnageOffered: 'Angebotene Tonnen',
+      tonnageWon: 'Gewonnene Tonnen',
+      tonnageLost: 'Verlorene Tonnen',
+      tonnagePending: 'Tonnen ohne Entscheidung',
+      avgMargin: 'Ø Marge',
+      accountCreated: 'Konto erstellt',
+      firstQuote: 'Erstes Angebot',
+      lastQuote: 'Letztes Angebot',
+      noQuotes: 'Keine Angebote',
+      showDetails: 'Ergebnisse',
+      hideDetails: 'Ergebnisse',
+    },
   },
   // Analytics panel (app/analytics)
   analytics: {
