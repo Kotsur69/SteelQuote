@@ -256,12 +256,19 @@ export default function Calculator() {
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Unsaved-changes guard. `baselineRef` holds a JSON snapshot of the offer as it was last
+  // Unsaved-changes guard. `baseline` holds a JSON snapshot of the offer as it was last
   // loaded / saved; the calculator is "dirty" when the live snapshot differs. `baselineNonce`
   // is bumped whenever we want to re-capture that baseline (after load, after save, after a
   // reset) — the capture happens in an effect so it runs once the state has actually settled.
+  //
+  // `baseline` is state, not a ref, on purpose: capturing it must trigger a re-render so
+  // `isDirty` recomputes against the fresh snapshot. With a ref the capture ran in an effect
+  // *after* `isDirty` had already been read for that render, and nothing scheduled a
+  // follow-up render — so `guard.setDirty` stayed stuck on the stale pre-capture value.
+  // That left a phantom "unsaved changes" prompt after "Nowa oferta" was clicked while
+  // editing a saved offer, even though nothing was changed.
   const guard = useUnsavedGuard();
-  const baselineRef = useRef<string | null>(null);
+  const [baseline, setBaseline] = useState<string | null>(null);
   const [baselineNonce, setBaselineNonce] = useState(0);
   
   // Client info
@@ -1166,14 +1173,14 @@ export default function Calculator() {
   // Re-capture the baseline after the state that triggered a bump has settled. Runs after
   // paint, so restoreOfferData()/admin-defaults setState calls are already flushed.
   useEffect(() => {
-    baselineRef.current = JSON.stringify(collectOfferData());
+    setBaseline(JSON.stringify(collectOfferData()));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baselineNonce]);
 
   // Dirty = live snapshot differs from the last loaded/saved baseline. Null baseline (the
   // async window before the first capture) counts as clean, so no premature prompt.
   const currentSnapshot = JSON.stringify(collectOfferData());
-  const isDirty = baselineRef.current !== null && currentSnapshot !== baselineRef.current;
+  const isDirty = baseline !== null && currentSnapshot !== baseline;
 
   // Full reset to a clean offer. Reused by the "Nowa oferta" button and the "Kalkulator"
   // tab (via the guard). Anything not covered by restoreOfferData(INITIAL_OFFER_DATA) — the
