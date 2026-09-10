@@ -2,6 +2,39 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { DEFAULT_SETTINGS, settingsRowToAppSettings, type AppSettings } from '@/lib/currency';
+import type { TariffBand } from '@/lib/transportTariff';
+
+// Kolumny app_settings sprzed migracji 020. Trzymamy je osobno, żeby GET umiał się
+// wycofać do starszego schematu, gdy kod jest wdrożony przed puszczeniem migracji.
+const LEGACY_SETTINGS_COLUMNS =
+  'eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, pgl_base_pickled, pgl_base_teardrop, pgl_base_zm, transport_base, min_margin_pct';
+const TRANSPORT_SETTINGS_COLUMNS =
+  'transport_truck_capacity_t, transport_origin_address, transport_oversize_long_pln';
+
+/**
+ * Cennik transportowy. Pusta tablica (brak tabeli albo brak wierszy) oznacza dla
+ * settingsRowToAppSettings "użyj cennika domyślnego" — kalkulator ma liczyć od razu.
+ */
+async function readTariffBands(): Promise<TariffBand[]> {
+  try {
+    const result = await pool.query(
+      `SELECT distance_from_km, distance_to_km, flat_price_pln, price_per_km_pln
+       FROM transport_tariff_bands ORDER BY distance_from_km`
+    );
+    return result.rows.map(row => ({
+      fromKm: Number(row.distance_from_km),
+      toKm: row.distance_to_km === null ? null : Number(row.distance_to_km),
+      flatPln: row.flat_price_pln === null ? null : Number(row.flat_price_pln),
+      perKmPln: row.price_per_km_pln === null ? null : Number(row.price_per_km_pln),
+    }));
+  } catch (error) {
+    if ((error as { code?: string })?.code === '42P01') {
+      console.warn('Tabela transport_tariff_bands nie istnieje — uruchom migrations/020_transport_tariff.sql. Używam cennika domyślnego.');
+      return [];
+    }
+    throw error;
+  }
+}
 
 // GET - Globalne ustawienia. Dostępne dla KAŻDEJ zalogowanej roli: junior i senior
 // potrzebują kursu, żeby w ogóle wyświetlić cenę w PLN, a PGL/transport są ich
@@ -14,15 +47,26 @@ export async function GET() {
   if ('error' in auth) return auth.error;
 
   try {
-    const result = await pool.query(
-      'SELECT eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, pgl_base_pickled, pgl_base_teardrop, pgl_base_zm, transport_base, min_margin_pct FROM app_settings WHERE id = 1'
-    );
+    let result;
+    try {
+      result = await pool.query(
+        `SELECT ${LEGACY_SETTINGS_COLUMNS}, ${TRANSPORT_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`
+      );
+    } catch (error) {
+      // 42703 = undefined_column: migracja 020 jeszcze nie puszczona. Czytamy sam
+      // stary zestaw kolumn — parametry transportu wejdą wtedy z wartości domyślnych.
+      if ((error as { code?: string })?.code !== '42703') throw error;
+      console.warn('Brak kolumn transportowych w app_settings — uruchom migrations/020_transport_tariff.sql.');
+      result = await pool.query(`SELECT ${LEGACY_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`);
+    }
     // Brak wiersza = migracja 007 nie została puszczona. Nie wywracamy kalkulatora —
     // oddajemy wartości domyślne (identyczne z seedem migracji).
     if (result.rows.length === 0) {
       return NextResponse.json({ settings: DEFAULT_SETTINGS });
     }
-    return NextResponse.json({ settings: settingsRowToAppSettings(result.rows[0]) });
+    return NextResponse.json({
+      settings: settingsRowToAppSettings(result.rows[0], await readTariffBands()),
+    });
   } catch (error) {
     // 42P01 = undefined_table. Zdarza się, gdy kod jest wdrożony, a migracja 007 jeszcze
     // nie puszczona. Kalkulator ma wtedy działać na wartościach domyślnych, a nie sypać
@@ -87,6 +131,9 @@ export async function PATCH(request: NextRequest) {
       { key: 'pglBaseZm', column: 'pgl_base_zm', label: 'PGL bazowe ZM', min: 0, max: 100000, steelType: 'ZM' },
       { key: 'transportBase', column: 'transport_base', label: 'Transport bazowy', min: 0, max: 100000, steelType: null },
       { key: 'minMarginPct', column: 'min_margin_pct', label: 'Minimalna marża', min: 0, max: 100, steelType: null },
+      // Ładowność 0 dzieliłaby przez zero przy liczbie kursów, dlatego minimum > 0.
+      { key: 'transportTruckCapacityT', column: 'transport_truck_capacity_t', label: 'Ładowność ciężarówki', min: 0.01, max: 100, steelType: null },
+      { key: 'transportOversizeLongPln', column: 'transport_oversize_long_pln', label: 'Dopłata za elementy 13,6-15,1 m', min: 0, max: 100000, steelType: null },
     ];
 
     const sets: string[] = [];
@@ -105,6 +152,24 @@ export async function PATCH(request: NextRequest) {
       if (field.steelType) {
         touchedPgl.push({ column: field.column, steelType: field.steelType, value: parsed.value });
       }
+    }
+
+    // Adres nadania jest jedynym ustawieniem tekstowym — nie przechodzi przez parseNumber.
+    // Pusty adres uniemożliwiłby wyznaczenie JAKIEJKOLWIEK trasy, więc go odrzucamy.
+    if (body.transportOriginAddress !== undefined) {
+      const raw = body.transportOriginAddress;
+      if (typeof raw !== 'string') {
+        return NextResponse.json({ error: 'Adres nadania: podaj tekst' }, { status: 400 });
+      }
+      const address = raw.replace(/\s+/g, ' ').trim();
+      if (address.length === 0 || address.length > 300) {
+        return NextResponse.json(
+          { error: 'Adres nadania: wymagany, maksymalnie 300 znaków' },
+          { status: 400 }
+        );
+      }
+      sets.push(`transport_origin_address = $${i++}`);
+      values.push(address);
     }
 
     if (sets.length === 0) {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 import { DEFAULT_SETTINGS, type AppSettings } from '@/lib/currency';
+import { DEFAULT_TARIFF_BANDS, type TariffBand } from '@/lib/transportTariff';
 import type { Translations } from '@/lib/translations';
 import type { PglPriceHistoryEntry } from '@/app/api/settings/pgl-history/route';
 import { exportPglHistoryToExcel } from '@/lib/pglHistoryExport';
@@ -42,7 +43,11 @@ const HISTORY_COLUMNS: { key: HistorySortKey; labelKey: keyof Translations['admi
 // Pola trzymamy jako string, a nie number: pole musi pozwolić wpisać "4," albo wyczyścić
 // zawartość w trakcie edycji. Konwersja i walidacja następuje przy zapisie — a serwer
 // waliduje drugi raz (app/api/settings/route.ts), bo to on jest granicą zaufania.
-type FormState = Record<keyof AppSettings, string>;
+//
+// Cennik transportowy (tariffBands) NIE jest częścią tego formularza — to tabela wierszy
+// z własnym zapisem (PUT /api/settings/tariff), więc wypada z FormState.
+type SettingFormKey = Exclude<keyof AppSettings, 'tariffBands'>;
+type FormState = Record<SettingFormKey, string>;
 
 function toForm(s: AppSettings): FormState {
   return {
@@ -55,6 +60,23 @@ function toForm(s: AppSettings): FormState {
     pglBaseZm: String(s.pglBaseZm),
     transportBase: String(s.transportBase),
     minMarginPct: String(s.minMarginPct),
+    transportTruckCapacityT: String(s.transportTruckCapacityT),
+    transportOriginAddress: s.transportOriginAddress,
+    transportOversizeLongPln: String(s.transportOversizeLongPln),
+  };
+}
+
+// Wiersz cennika w formularzu. Jak FormState wyżej — stringi, żeby dało się wyczyścić
+// pole w trakcie edycji. Pusty `toKm` to pasmo otwarte ("i powyżej"), pusty `flatPln`
+// lub `perKmPln` oznacza "ten model ceny nie dotyczy tego pasma".
+type BandForm = { fromKm: string; toKm: string; flatPln: string; perKmPln: string };
+
+function toBandForm(band: TariffBand): BandForm {
+  return {
+    fromKm: String(band.fromKm),
+    toKm: band.toKm === null ? '' : String(band.toKm),
+    flatPln: band.flatPln === null ? '' : String(band.flatPln),
+    perKmPln: band.perKmPln === null ? '' : String(band.perKmPln),
   };
 }
 
@@ -71,6 +93,9 @@ export default function AdminSettingsPage() {
   const [dateTo, setDateTo] = useState('');
   const [sortKey, setSortKey] = useState<HistorySortKey>(DEFAULT_SORT_KEY);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>(DEFAULT_SORT_DIR);
+  const [bands, setBands] = useState<BandForm[]>(DEFAULT_TARIFF_BANDS.map(toBandForm));
+  const [tariffSaving, setTariffSaving] = useState(false);
+  const [tariffMessage, setTariffMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const hasActiveFilters = typeFilter !== 'ALL' || dateFrom !== '' || dateTo !== '';
 
@@ -161,6 +186,7 @@ export default function AdminSettingsPage() {
         if (res.ok) {
           const { settings } = await res.json();
           setForm(toForm(settings as AppSettings));
+          setBands((settings as AppSettings).tariffBands.map(toBandForm));
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -188,6 +214,9 @@ export default function AdminSettingsPage() {
           pglBaseZm: form.pglBaseZm,
           transportBase: form.transportBase,
           minMarginPct: form.minMarginPct,
+          transportTruckCapacityT: form.transportTruckCapacityT,
+          transportOriginAddress: form.transportOriginAddress,
+          transportOversizeLongPln: form.transportOversizeLongPln,
         }),
       });
       const data = await res.json();
@@ -208,7 +237,49 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const fields: { key: keyof AppSettings; label: string; hint: string; unit: string; step: string; color?: string }[] = [
+  const updateBand = (index: number, patch: Partial<BandForm>) => {
+    setBands(prev => prev.map((band, i) => (i === index ? { ...band, ...patch } : band)));
+  };
+
+  const addBand = () => {
+    // Nowe pasmo startuje tam, gdzie kończy się ostatnie — admin i tak może to zmienić,
+    // ale najczęstszy przypadek (dołożenie kolejnego progu) wychodzi bez poprawek.
+    const last = bands[bands.length - 1];
+    const nextFrom = last ? (last.toKm || last.fromKm) : '0';
+    setBands(prev => [...prev, { fromKm: nextFrom, toKm: '', flatPln: '', perKmPln: '' }]);
+  };
+
+  const removeBand = (index: number) => {
+    setBands(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveTariff = async () => {
+    setTariffSaving(true);
+    setTariffMessage(null);
+    try {
+      const res = await fetch('/api/settings/tariff', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bands }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBands((data.bands as TariffBand[]).map(toBandForm));
+        setTariffMessage({ type: 'success', text: t.admin.settings.tariffSaved });
+      } else {
+        // Serwer mówi wprost, które pasmo jest źle wypełnione — pokazujemy to dosłownie.
+        setTariffMessage({ type: 'error', text: data.error || t.admin.settings.tariffSaveFailed });
+      }
+    } catch (error) {
+      console.error('Error saving transport tariff:', error);
+      setTariffMessage({ type: 'error', text: t.admin.settings.tariffSaveFailed });
+    } finally {
+      setTariffSaving(false);
+      setTimeout(() => setTariffMessage(null), 5000);
+    }
+  };
+
+  const fields: { key: SettingFormKey; label: string; hint: string; unit: string; step: string; color?: string; inputType?: 'number' | 'text' }[] = [
     {
       key: 'eurPlnRate',
       label: t.admin.settings.eurPlnRate,
@@ -278,6 +349,28 @@ export default function AdminSettingsPage() {
       unit: '%',
       step: '0.1',
     },
+    {
+      key: 'transportOriginAddress',
+      label: t.admin.settings.transportOrigin,
+      hint: t.admin.settings.transportOriginHint,
+      unit: '',
+      step: '',
+      inputType: 'text',
+    },
+    {
+      key: 'transportTruckCapacityT',
+      label: t.admin.settings.truckCapacity,
+      hint: t.admin.settings.truckCapacityHint,
+      unit: 't',
+      step: '0.5',
+    },
+    {
+      key: 'transportOversizeLongPln',
+      label: t.admin.settings.oversizeLong,
+      hint: t.admin.settings.oversizeLongHint,
+      unit: 'PLN',
+      step: '1',
+    },
   ];
 
   return (
@@ -316,12 +409,15 @@ export default function AdminSettingsPage() {
                     </label>
                     <input
                       id={field.key}
-                      type="number"
-                      min="0"
-                      step={field.step}
+                      type={field.inputType ?? 'number'}
+                      // Adres jest tekstem — min/step dotyczą tylko pól liczbowych, a szerokie
+                      // pole i wyrównanie do lewej są tu czytelniejsze niż wąska kolumna liczb.
+                      {...(field.inputType === 'text' ? {} : { min: '0', step: field.step })}
                       value={form[field.key]}
                       onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
-                      className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[120px] focus:border-[var(--accent-cr)] outline-none"
+                      className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium focus:border-[var(--accent-cr)] outline-none ${
+                        field.inputType === 'text' ? 'flex-1 min-w-0 text-left' : 'text-right w-[120px]'
+                      }`}
                     />
                     <span className="text-[10px] text-[var(--text-muted)] font-mono w-[70px]">
                       {field.unit}
@@ -359,6 +455,141 @@ export default function AdminSettingsPage() {
             <span className="text-base leading-none">ℹ</span>
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
               {t.admin.settings.frozenRateNotice}
+            </p>
+          </div>
+
+          {/* Cennik transportowy — stawki przewoźnika w PLN. Pasmo ma ALBO ryczałt,
+              ALBO stawkę za km; serwer waliduje to drugi raz (app/api/settings/tariff). */}
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
+            <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)]">
+              <span className="w-2 h-2 rounded-full bg-[var(--accent-hdg)]" />
+              <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">
+                {t.admin.settings.tariffTitle}
+              </h2>
+              <span className="text-[10px] text-[var(--text-secondary)] font-mono ml-auto">
+                {t.admin.settings.tariffSubtitle}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px]">
+                <thead>
+                  <tr className="border-b border-[var(--border)]">
+                    <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
+                      {t.admin.settings.tariffFrom}
+                    </th>
+                    <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
+                      {t.admin.settings.tariffTo}
+                    </th>
+                    <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
+                      {t.admin.settings.tariffFlat}
+                    </th>
+                    <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
+                      {t.admin.settings.tariffPerKm}
+                    </th>
+                    <th className="w-10" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {bands.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-4 text-center text-xs text-[var(--text-muted)]">
+                        {t.admin.settings.tariffEmpty}
+                      </td>
+                    </tr>
+                  )}
+                  {bands.map((band, index) => (
+                    <tr key={index} className="border-b border-[rgba(42,48,72,0.5)]">
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={band.fromKm}
+                          onChange={e => updateBand(index, { fromKm: e.target.value })}
+                          className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] text-right w-full focus:border-[var(--accent-cr)] outline-none"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={band.toKm}
+                          onChange={e => updateBand(index, { toKm: e.target.value })}
+                          placeholder={t.admin.settings.tariffOpenEnded}
+                          className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] text-right w-full focus:border-[var(--accent-cr)] outline-none"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={band.flatPln}
+                          // Wpisanie ryczałtu czyści stawkę za km (i odwrotnie) — inaczej admin
+                          // zostawiłby oba pola i dostał błąd walidacji dopiero przy zapisie.
+                          onChange={e => updateBand(index, { flatPln: e.target.value, perKmPln: '' })}
+                          className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] text-right w-full focus:border-[var(--accent-cr)] outline-none"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={band.perKmPln}
+                          onChange={e => updateBand(index, { perKmPln: e.target.value, flatPln: '' })}
+                          className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] text-right w-full focus:border-[var(--accent-cr)] outline-none"
+                        />
+                      </td>
+                      <td className="px-2 py-2 text-center">
+                        <button
+                          onClick={() => removeBand(index)}
+                          title={t.admin.settings.tariffRemove}
+                          aria-label={`${t.admin.settings.tariffRemove} ${index + 1}`}
+                          className="text-[var(--text-muted)] hover:text-[var(--accent-sum)] transition-colors text-sm leading-none px-1"
+                        >
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-t border-[var(--border)]">
+              <button
+                onClick={handleSaveTariff}
+                disabled={tariffSaving}
+                className="px-5 py-2 rounded bg-gradient-to-r from-[#e8a020] to-[#f0c040] text-[#0d1220] font-mono text-xs font-bold tracking-wider hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {tariffSaving ? '…' : t.admin.settings.tariffSave}
+              </button>
+              <button
+                onClick={addBand}
+                className="px-3 py-2 rounded border border-[var(--border)] text-[var(--text-secondary)] font-mono text-xs hover:border-[var(--accent-cr)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                + {t.admin.settings.tariffAdd}
+              </button>
+              {tariffMessage && (
+                <span
+                  className="text-xs font-mono"
+                  style={{
+                    color: tariffMessage.type === 'success' ? 'var(--accent-hdg)' : 'var(--accent-sum)',
+                  }}
+                >
+                  {tariffMessage.text}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-2.5 px-4 py-3 rounded-md border-l-[3px] border-[var(--accent-hdg)] bg-[rgba(46,196,127,0.08)]">
+            <span className="text-base leading-none">ℹ</span>
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              {t.admin.settings.tariffNotice}
             </p>
           </div>
 

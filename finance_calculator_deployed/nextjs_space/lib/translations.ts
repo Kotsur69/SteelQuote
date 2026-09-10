@@ -235,6 +235,26 @@ export interface Translations {
     marginBelowMinWarning: string;
     extra: string;
     transport: string;
+    transportRouteTitle: string;
+    transportOrigin: string;
+    transportDest: string;
+    transportDestPlaceholder: string;
+    transportCalculate: string;
+    transportCalculating: string;
+    transportDistance: string;
+    transportTrucks: string;
+    transportPerTruck: string;
+    transportTotalCost: string;
+    transportManualKm: string;
+    transportManualMode: string;
+    transportOversizeLong: string;
+    transportOversizeManual: string;
+    transportOversizeManualNotice: string;
+    transportRecalcNotice: string;
+    transportNoTariff: string;
+    transportFromClient: string;
+    transportCached: string;
+    transportClear: string;
     sscSurcharges: string;
     finalPrice: string;
     quantity: string;
@@ -455,6 +475,26 @@ export interface Translations {
       minMarginPctHint: string;
       transportBase: string;
       transportBaseHint: string;
+      transportOrigin: string;
+      transportOriginHint: string;
+      truckCapacity: string;
+      truckCapacityHint: string;
+      oversizeLong: string;
+      oversizeLongHint: string;
+      tariffTitle: string;
+      tariffSubtitle: string;
+      tariffFrom: string;
+      tariffTo: string;
+      tariffFlat: string;
+      tariffPerKm: string;
+      tariffOpenEnded: string;
+      tariffAdd: string;
+      tariffRemove: string;
+      tariffSave: string;
+      tariffSaved: string;
+      tariffSaveFailed: string;
+      tariffEmpty: string;
+      tariffNotice: string;
       save: string;
       saved: string;
       saveFailed: string;
@@ -865,6 +905,26 @@ export const pl: Translations = {
     marginBelowMinWarning: 'Marża poniżej wymaganego minimum — ta pozycja będzie wymagać zatwierdzenia',
     extra: 'Dopłata dodatkowa',
     transport: 'Transport',
+    transportRouteTitle: 'Trasa i transport',
+    transportOrigin: 'Wysyłka z',
+    transportDest: 'Transport do',
+    transportDestPlaceholder: 'np. Marynarki Polskiej 100, Gdańsk',
+    transportCalculate: 'Oblicz trasę',
+    transportCalculating: 'Liczę trasę…',
+    transportDistance: 'Odległość',
+    transportTrucks: 'Ciężarówki',
+    transportPerTruck: 'Stawka za kurs',
+    transportTotalCost: 'Koszt transportu',
+    transportManualKm: 'Kilometry ręcznie',
+    transportManualMode: 'Wpisz kwotę ręcznie',
+    transportOversizeLong: 'Elementy 13,6–15,1 m (+{price} zł/kurs)',
+    transportOversizeManual: 'Ponadgabaryt: >15,1 m lub >2,4 m',
+    transportOversizeManualNotice: 'Ponadgabaryt wymaga wyceny indywidualnej u przewoźnika — wpisz kwotę transportu ręcznie.',
+    transportRecalcNotice: 'Transport przeliczony: {tons} t → {trucks} × kurs.',
+    transportNoTariff: 'Brak stawki dla tej odległości — wpisz kwotę ręcznie.',
+    transportFromClient: 'Adres z kartoteki klienta',
+    transportCached: 'z pamięci podręcznej',
+    transportClear: 'Wyczyść trasę',
     sscSurcharges: 'Dopłaty SSC',
     finalPrice: 'Cena końcowa',
     quantity: 'Ilość (tony)',
@@ -1056,6 +1116,26 @@ export const pl: Translations = {
       minMarginPct: 'Minimalna marża (%)',
       minMarginPctHint: 'Poniżej tego progu marża pozycji wymaga zatwierdzenia przez seniora lub admina.',
       transportBaseHint: 'Wartość startowa transportu w nowej kalkulacji. Handlowiec może ją nadpisać.',
+      transportOrigin: 'Adres nadania',
+      transportOriginHint: 'Punkt A każdej trasy — magazyn, z którego wychodzi towar.',
+      truckCapacity: 'Ładowność ciężarówki',
+      truckCapacityHint: 'Ile ton mieści jeden kurs. Powyżej tej wagi oferta płaci za kolejny kurs — nawet 1 tona to cała ciężarówka.',
+      oversizeLong: 'Dopłata 13,6–15,1 m',
+      oversizeLongHint: 'Doliczana do każdego kursu, gdy handlowiec zaznaczy elementy tej długości.',
+      tariffTitle: 'Cennik transportowy',
+      tariffSubtitle: 'stawki przewoźnika w PLN',
+      tariffFrom: 'Od (km)',
+      tariffTo: 'Do (km)',
+      tariffFlat: 'Ryczałt (zł)',
+      tariffPerKm: 'Stawka (zł/km)',
+      tariffOpenEnded: 'i powyżej',
+      tariffAdd: 'Dodaj pasmo',
+      tariffRemove: 'Usuń',
+      tariffSave: 'Zapisz cennik',
+      tariffSaved: 'Cennik zapisany.',
+      tariffSaveFailed: 'Nie udało się zapisać cennika.',
+      tariffEmpty: 'Brak pasm — kalkulator użyje cennika domyślnego.',
+      tariffNotice: 'Pasmo ma ALBO ryczałt, ALBO stawkę za kilometr — nigdy oba naraz. Ostatnie pasmo zostaw bez górnej granicy, żeby łapało wszystkie dalsze trasy.',
       save: 'Zapisz ustawienia',
       saved: 'Ustawienia zapisane.',
       saveFailed: 'Nie udało się zapisać ustawień.',
@@ -1466,6 +1546,26 @@ export const en: Translations = {
     marginBelowMinWarning: 'Margin is below the required minimum — this position will require approval',
     extra: 'Extra',
     transport: 'Transport',
+    transportRouteTitle: 'Route & transport',
+    transportOrigin: 'Sent from',
+    transportDest: 'Transport to',
+    transportDestPlaceholder: 'e.g. Marynarki Polskiej 100, Gdańsk',
+    transportCalculate: 'Calculate route',
+    transportCalculating: 'Calculating…',
+    transportDistance: 'Distance',
+    transportTrucks: 'Trucks',
+    transportPerTruck: 'Rate per truck',
+    transportTotalCost: 'Transport cost',
+    transportManualKm: 'Kilometres by hand',
+    transportManualMode: 'Enter amount manually',
+    transportOversizeLong: 'Elements 13.6-15.1 m (+{price} PLN/truck)',
+    transportOversizeManual: 'Oversize: >15.1 m or >2.4 m',
+    transportOversizeManualNotice: 'Oversize loads are quoted individually by the carrier - enter the transport amount by hand.',
+    transportRecalcNotice: 'Transport recalculated: {tons} t → {trucks} × truck.',
+    transportNoTariff: 'No rate for this distance - enter the amount by hand.',
+    transportFromClient: 'Address from client record',
+    transportCached: 'from cache',
+    transportClear: 'Clear route',
     sscSurcharges: 'SSC surcharges',
     finalPrice: 'Final price',
     quantity: 'Quantity (tons)',
@@ -1657,6 +1757,26 @@ export const en: Translations = {
       minMarginPct: 'Minimum margin (%)',
       minMarginPctHint: 'Below this margin threshold, a position requires senior or admin approval.',
       transportBaseHint: 'Starting transport value for a new calculation. Salespeople can override it.',
+      transportOrigin: 'Origin address',
+      transportOriginHint: 'Point A of every route - the warehouse the goods leave from.',
+      truckCapacity: 'Truck capacity',
+      truckCapacityHint: 'Tonnes per truck. Above this weight the offer pays for another truck - even 1 tonne is a whole truck.',
+      oversizeLong: 'Surcharge 13.6-15.1 m',
+      oversizeLongHint: 'Added to every truck when the salesperson flags elements of this length.',
+      tariffTitle: 'Transport rate card',
+      tariffSubtitle: 'carrier rates in PLN',
+      tariffFrom: 'From (km)',
+      tariffTo: 'To (km)',
+      tariffFlat: 'Flat (PLN)',
+      tariffPerKm: 'Rate (PLN/km)',
+      tariffOpenEnded: 'and above',
+      tariffAdd: 'Add band',
+      tariffRemove: 'Remove',
+      tariffSave: 'Save rate card',
+      tariffSaved: 'Rate card saved.',
+      tariffSaveFailed: 'Could not save the rate card.',
+      tariffEmpty: 'No bands - the calculator will use the default rate card.',
+      tariffNotice: 'A band has EITHER a flat price OR a per-kilometre rate - never both. Leave the last band without an upper bound so it catches every longer route.',
       save: 'Save settings',
       saved: 'Settings saved.',
       saveFailed: 'Failed to save settings.',
@@ -2066,6 +2186,26 @@ export const cs: Translations = {
     marginBelowMinWarning: 'Marže je pod požadovaným minimem — tato položka bude vyžadovat schválení',
     extra: 'Příplatek',
     transport: 'Doprava',
+    transportRouteTitle: 'Trasa a doprava',
+    transportOrigin: 'Odesláno z',
+    transportDest: 'Doprava do',
+    transportDestPlaceholder: 'např. Marynarki Polskiej 100, Gdańsk',
+    transportCalculate: 'Spočítat trasu',
+    transportCalculating: 'Počítám trasu…',
+    transportDistance: 'Vzdálenost',
+    transportTrucks: 'Kamiony',
+    transportPerTruck: 'Sazba za jízdu',
+    transportTotalCost: 'Náklady na dopravu',
+    transportManualKm: 'Kilometry ručně',
+    transportManualMode: 'Zadat částku ručně',
+    transportOversizeLong: 'Prvky 13,6-15,1 m (+{price} zł/jízda)',
+    transportOversizeManual: 'Nadrozměr: >15,1 m nebo >2,4 m',
+    transportOversizeManualNotice: 'Nadrozměrný náklad oceňuje dopravce individuálně - zadejte částku dopravy ručně.',
+    transportRecalcNotice: 'Doprava přepočítána: {tons} t → {trucks} × jízda.',
+    transportNoTariff: 'Pro tuto vzdálenost není sazba - zadejte částku ručně.',
+    transportFromClient: 'Adresa z kartotéky klienta',
+    transportCached: 'z mezipaměti',
+    transportClear: 'Vymazat trasu',
     sscSurcharges: 'Příplatky SSC',
     finalPrice: 'Konečná cena',
     quantity: 'Množství (tuny)',
@@ -2257,6 +2397,26 @@ export const cs: Translations = {
       minMarginPct: 'Minimální marže (%)',
       minMarginPctHint: 'Pod touto hranicí marže položka vyžaduje schválení seniorem nebo adminem.',
       transportBaseHint: 'Výchozí hodnota dopravy pro novou kalkulaci. Obchodník ji může přepsat.',
+      transportOrigin: 'Adresa odeslání',
+      transportOriginHint: 'Bod A každé trasy - sklad, ze kterého zboží vyjíždí.',
+      truckCapacity: 'Nosnost kamionu',
+      truckCapacityHint: 'Kolik tun pojme jedna jízda. Nad touto váhou nabídka platí další jízdu - i 1 tuna je celý kamion.',
+      oversizeLong: 'Příplatek 13,6-15,1 m',
+      oversizeLongHint: 'Připočte se ke každé jízdě, když obchodník označí prvky této délky.',
+      tariffTitle: 'Ceník dopravy',
+      tariffSubtitle: 'sazby dopravce v PLN',
+      tariffFrom: 'Od (km)',
+      tariffTo: 'Do (km)',
+      tariffFlat: 'Paušál (zł)',
+      tariffPerKm: 'Sazba (zł/km)',
+      tariffOpenEnded: 'a výše',
+      tariffAdd: 'Přidat pásmo',
+      tariffRemove: 'Odebrat',
+      tariffSave: 'Uložit ceník',
+      tariffSaved: 'Ceník uložen.',
+      tariffSaveFailed: 'Ceník se nepodařilo uložit.',
+      tariffEmpty: 'Žádná pásma - kalkulátor použije výchozí ceník.',
+      tariffNotice: 'Pásmo má BUĎ paušál, NEBO sazbu za kilometr - nikdy obojí. Poslední pásmo nechte bez horní hranice, aby zachytilo všechny delší trasy.',
       save: 'Uložit nastavení',
       saved: 'Nastavení uloženo.',
       saveFailed: 'Nastavení se nepodařilo uložit.',
@@ -2666,6 +2826,26 @@ export const de: Translations = {
     marginBelowMinWarning: 'Marge liegt unter dem erforderlichen Minimum — diese Position erfordert eine Genehmigung',
     extra: 'Zuschlag',
     transport: 'Transport',
+    transportRouteTitle: 'Route & Transport',
+    transportOrigin: 'Versand ab',
+    transportDest: 'Transport nach',
+    transportDestPlaceholder: 'z. B. Marynarki Polskiej 100, Gdańsk',
+    transportCalculate: 'Route berechnen',
+    transportCalculating: 'Berechne Route…',
+    transportDistance: 'Entfernung',
+    transportTrucks: 'LKW',
+    transportPerTruck: 'Satz pro Fahrt',
+    transportTotalCost: 'Transportkosten',
+    transportManualKm: 'Kilometer manuell',
+    transportManualMode: 'Betrag manuell eingeben',
+    transportOversizeLong: 'Elemente 13,6-15,1 m (+{price} PLN/Fahrt)',
+    transportOversizeManual: 'Übergröße: >15,1 m oder >2,4 m',
+    transportOversizeManualNotice: 'Übergroße Ladungen werden vom Spediteur individuell kalkuliert - Transportbetrag manuell eingeben.',
+    transportRecalcNotice: 'Transport neu berechnet: {tons} t → {trucks} × Fahrt.',
+    transportNoTariff: 'Kein Satz für diese Entfernung - Betrag manuell eingeben.',
+    transportFromClient: 'Adresse aus der Kundenkartei',
+    transportCached: 'aus dem Cache',
+    transportClear: 'Route löschen',
     sscSurcharges: 'SSC-Zuschläge',
     finalPrice: 'Endpreis',
     quantity: 'Menge (Tonnen)',
@@ -2857,6 +3037,26 @@ export const de: Translations = {
       minMarginPct: 'Mindestmarge (%)',
       minMarginPctHint: 'Unterhalb dieser Marge erfordert eine Position die Genehmigung durch Senior oder Admin.',
       transportBaseHint: 'Startwert für Transport in einer neuen Kalkulation. Vertrieb kann ihn überschreiben.',
+      transportOrigin: 'Versandadresse',
+      transportOriginHint: 'Punkt A jeder Route - das Lager, aus dem die Ware herausgeht.',
+      truckCapacity: 'LKW-Nutzlast',
+      truckCapacityHint: 'Tonnen pro Fahrt. Über diesem Gewicht zahlt das Angebot eine weitere Fahrt - auch 1 Tonne ist ein ganzer LKW.',
+      oversizeLong: 'Zuschlag 13,6-15,1 m',
+      oversizeLongHint: 'Wird jeder Fahrt hinzugefügt, wenn der Vertrieb Elemente dieser Länge markiert.',
+      tariffTitle: 'Transport-Preisliste',
+      tariffSubtitle: 'Spediteurssätze in PLN',
+      tariffFrom: 'Ab (km)',
+      tariffTo: 'Bis (km)',
+      tariffFlat: 'Pauschale (PLN)',
+      tariffPerKm: 'Satz (PLN/km)',
+      tariffOpenEnded: 'und darüber',
+      tariffAdd: 'Band hinzufügen',
+      tariffRemove: 'Entfernen',
+      tariffSave: 'Preisliste speichern',
+      tariffSaved: 'Preisliste gespeichert.',
+      tariffSaveFailed: 'Preisliste konnte nicht gespeichert werden.',
+      tariffEmpty: 'Keine Bänder - der Rechner nutzt die Standard-Preisliste.',
+      tariffNotice: 'Ein Band hat ENTWEDER eine Pauschale ODER einen Kilometersatz - nie beides. Lassen Sie das letzte Band ohne Obergrenze, damit es alle weiteren Routen erfasst.',
       save: 'Einstellungen speichern',
       saved: 'Einstellungen gespeichert.',
       saveFailed: 'Einstellungen konnten nicht gespeichert werden.',

@@ -4,6 +4,8 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
 import NumericField from '@/components/NumericField';
+import TransportPanel, { EMPTY_TRANSPORT_ROUTE, type TransportRoute } from '@/components/TransportPanel';
+import { computeTransport } from '@/lib/transportTariff';
 import {
   GRADE_TABLES,
   DIMENSION_MATRIX_HRS,
@@ -107,6 +109,7 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
   pglBase: 645, marginPct: 7, extra: 0, transport: 20, tons: 1,
   zestawienie: [],
   clientInfo: EMPTY_CLIENT_INFO,
+  transportRoute: EMPTY_TRANSPORT_ROUTE,
   displayCurrency: 'EUR',
   eurPlnRate: null,
 };
@@ -214,6 +217,18 @@ export default function Calculator() {
   const [extra, setExtra] = useState(0);
   const [transport, setTransport] = useState(20);
   const [tons, setTons] = useState(1);
+
+  // Transport liczony z trasy. Trasa jest JEDNA na całą ofertę (towar jedzie jednym
+  // kompletem ciężarówek), więc mieszka obok zestawienia, a nie w pozycji.
+  const [transportRoute, setTransportRoute] = useState<TransportRoute>(EMPTY_TRANSPORT_ROUTE);
+  const [transportPanelOpen, setTransportPanelOpen] = useState(false);
+  const [transportLoading, setTransportLoading] = useState(false);
+  const [transportError, setTransportError] = useState<string | null>(null);
+
+  const patchTransportRoute = useCallback((patch: Partial<TransportRoute>) => {
+    setTransportRoute(prev => ({ ...prev, ...patch }));
+    setTransportError(null);
+  }, []);
   
   // Zestawienie
   const [zestawienie, setZestawienie] = useState<ZestawienieItem[]>([]);
@@ -507,6 +522,87 @@ export default function Calculator() {
   const cenaWsadu = pglBase + sumaHuta;
   const marzaNetto = cenaWsadu * (marginPct / 100);
   const cenaKoncowa = cenaWsadu + marzaNetto + extra + transport + sumaSSC;
+
+  // --- Transport z trasy -----------------------------------------------------
+
+  // Tonaż CAŁEJ oferty. Pozycja w edycji jest już w zestawieniu, więc jej stary tonaż
+  // odejmujemy i bierzemy bieżący `tons` — inaczej liczylibyśmy ją dwa razy.
+  const offerTons = useMemo(
+    () => zestawienie.filter(i => i.id !== editingId).reduce((sum, i) => sum + i.tons, 0) + tons,
+    [zestawienie, editingId, tons]
+  );
+
+  // null = handlowiec liczy transport sam (tryb ręczny albo ponadgabaryt), nie ma jeszcze
+  // kilometrów, albo cennik nie ma stawki na tę odległość.
+  const transportBreakdown = useMemo(() => {
+    if (transportRoute.manualMode || transportRoute.oversizeManual) return null;
+    if (transportRoute.distanceKm === null) return null;
+    return computeTransport({
+      distanceKm: transportRoute.distanceKm,
+      totalTons: offerTons,
+      truckCapacityT: settings.transportTruckCapacityT,
+      bands: settings.tariffBands,
+      hasLongElements: transportRoute.hasLongElements,
+      oversizeLongPln: settings.transportOversizeLongPln,
+      eurPlnRate: rate,
+    });
+  }, [transportRoute, offerTons, settings, rate]);
+
+  // Wyliczony koszt wchodzi do pola Transport ORAZ do każdej pozycji już dodanej.
+  // Dodanie pozycji może przekroczyć ładowność i dołożyć kolejny kurs — wtedy transport
+  // €/t rośnie dla całej oferty, więc pozycje wpisane wcześniej muszą się przeliczyć,
+  // inaczej oferta zsumowałaby się z nieaktualnych stawek.
+  useEffect(() => {
+    if (!transportBreakdown) return;
+    const perTon = transportBreakdown.eurPerTon;
+
+    setTransport(prev => (prev === perTon ? prev : perTon));
+
+    setZestawienie(prev => {
+      let changed = false;
+      const next = prev.map(item => {
+        // Pozycja bez snapshotu .inputs (oferta sprzed v1.3) nie wie, ile miała transportu
+        // — nie da się jej bezpiecznie przeliczyć, więc zostaje nietknięta.
+        if (!item.inputs || item.inputs.transport === perTon) return item;
+        changed = true;
+        const finalPrice = item.finalPrice - item.inputs.transport + perTon;
+        return {
+          ...item,
+          finalPrice,
+          totalValue: Math.round(finalPrice * item.tons * 100) / 100,
+          inputs: { ...item.inputs, transport: perTon },
+        };
+      });
+      return changed ? next : prev;
+    });
+  }, [transportBreakdown]);
+
+  const handleCalculateRoute = useCallback(async () => {
+    const destAddress = transportRoute.destAddress.trim();
+    if (destAddress.length === 0) return;
+
+    setTransportLoading(true);
+    setTransportError(null);
+    try {
+      const res = await fetch('/api/transport', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ destAddress }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTransportRoute(prev => ({ ...prev, distanceKm: data.distanceKm, destLabel: data.destLabel }));
+      } else {
+        // Serwer mówi wprost, co poszło nie tak i że da się wpisać kilometry ręcznie.
+        setTransportError(data.error || t.summary.transportNoTariff);
+      }
+    } catch (error) {
+      console.error('Error calculating route:', error);
+      setTransportError(t.summary.transportNoTariff);
+    } finally {
+      setTransportLoading(false);
+    }
+  }, [transportRoute.destAddress, t.summary.transportNoTariff]);
   
   // Filtered grades for dropdown
   const filteredGrades = useMemo(() => {
@@ -802,6 +898,9 @@ export default function Calculator() {
     pglBase, marginPct, extra, transport, tons,
     zestawienie,
     clientInfo,
+    // Trasa zamrażana razem z ofertą — po ponownym otwarciu widać, na jakim adresie
+    // i ilu kilometrach stała wycena, nawet gdy cennik przewoźnika zdążył się zmienić.
+    transportRoute,
     // Waluta i kurs ZAMRAŻANE wraz z ofertą. `rate` to kurs zamrożony przy wczytaniu
     // oferty (jeśli miała), a dla nowej oferty — kurs bieżący z ustawień. Dzięki temu
     // późniejsza zmiana kursu przez admina nie przelicza ofert zapisanych, czekających
@@ -863,6 +962,12 @@ export default function Calculator() {
     // SAP_ID nie ma tego pola, a niekontrolowany input to ostrzeżenie Reacta i pole,
     // którego nie da się edytować.
     if (data.clientInfo !== undefined) setClientInfo(normalizeClientInfo(data.clientInfo));
+
+    // Oferty zapisane przed dodaniem trasy nie mają tego pola — wracają z pustą trasą
+    // i ręcznym transportem, dokładnie tak, jak zostały wycenione.
+    setTransportRoute(
+      data.transportRoute ? { ...EMPTY_TRANSPORT_ROUTE, ...data.transportRoute } : EMPTY_TRANSPORT_ROUTE
+    );
 
     // Kurs zamrożony w ofercie ma pierwszeństwo nad bieżącym z ustawień — oferta wyceniona
     // po 4,30 zostaje po 4,30, choćby admin ustawił dziś 4,45.
@@ -2137,15 +2242,53 @@ export default function Calculator() {
             {/* Transport */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.transport}</span>
-              <NumericField
-                value={moneyInput(transport)}
-                onChange={v => setTransport(fromDisplay(v))}
-                min="0"
-                className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
-                  ${!highContrast && !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-              />
+              {/* Gdy transport liczy się z trasy, pole jest tylko do odczytu — ręczna
+                  edycja i tak zostałaby nadpisana przy następnym przeliczeniu. Żeby
+                  wpisać kwotę samemu, handlowiec włącza tryb ręczny w panelu niżej. */}
+              {transportBreakdown ? (
+                <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">
+                  {money2(transport)}
+                </span>
+              ) : (
+                <NumericField
+                  value={moneyInput(transport)}
+                  onChange={v => setTransport(fromDisplay(v))}
+                  min="0"
+                  className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
+                    ${!highContrast && !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                />
+              )}
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
+
+            <TransportPanel
+              open={transportPanelOpen}
+              onToggle={() => {
+                // Pierwsze otwarcie panelu podstawia adres z kartoteki klienta — najczęstszy
+                // przypadek to dostawa właśnie tam, więc handlowiec nie przepisuje go ręcznie.
+                // Podstawiamy TYLKO przy otwarciu (akcja użytkownika), nie w efekcie: inaczej
+                // wczytanie zapisanej oferty zmieniałoby jej stan i fałszywie ją brudziło.
+                if (!transportPanelOpen && transportRoute.destAddress.trim() === '' && clientInfo.address.trim() !== '') {
+                  patchTransportRoute({ destAddress: clientInfo.address });
+                }
+                setTransportPanelOpen(o => !o);
+              }}
+              route={transportRoute}
+              onRouteChange={patchTransportRoute}
+              breakdown={transportBreakdown}
+              offerTons={offerTons}
+              originAddress={settings.transportOriginAddress}
+              clientAddress={clientInfo.address}
+              oversizeLongPln={settings.transportOversizeLongPln}
+              loading={transportLoading}
+              error={transportError}
+              onCalculate={handleCalculateRoute}
+              formatEur={money2}
+              currencySymbol={symbol}
+              t={t}
+              isDark={isDark}
+              highContrast={highContrast}
+            />
             
             <div className="h-px bg-[var(--border)] mx-4 my-1" />
             

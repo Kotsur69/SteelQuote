@@ -4,6 +4,13 @@
 // przy edycji). Dzięki temu silnik liczenia nie wie nic o walutach.
 
 import type { SteelType } from './calculatorData';
+import {
+  DEFAULT_ORIGIN_ADDRESS,
+  DEFAULT_OVERSIZE_LONG_PLN,
+  DEFAULT_TARIFF_BANDS,
+  DEFAULT_TRUCK_CAPACITY_T,
+  type TariffBand,
+} from './transportTariff';
 
 export type Currency = 'EUR' | 'PLN';
 
@@ -28,6 +35,18 @@ export interface AppSettings {
   // Próg marży (%), poniżej którego oferta wymaga zatwierdzenia przez seniora/admina
   // (patrz lib/offerReview.ts) — konfigurowalny w Ustawieniach, tak jak PGL bazowe.
   minMarginPct: number;
+
+  // --- Transport liczony z trasy (migracja 020) ---
+  // transportBase wyżej zostaje jako wartość startowa/awaryjna: handlowiec może nie
+  // podać adresu (odbiór własny, trasa niepoliczalna) i wtedy nadal wpisuje kwotę ręcznie.
+  /** Ładowność jednej ciężarówki w tonach — dzielnik przy liczbie kursów. */
+  transportTruckCapacityT: number;
+  /** Adres nadania ("wysyłka z Krakowa") — punkt A każdej trasy. */
+  transportOriginAddress: string;
+  /** Dopłata za elementy 13,6-15,1 m, naliczana za każdą ciężarówkę (PLN). */
+  transportOversizeLongPln: number;
+  /** Cennik przewoźnika w PLN. Pusta tablica = brak cennika, licz transport ręcznie. */
+  tariffBands: TariffBand[];
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -40,6 +59,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pglBaseZm: 650,
   transportBase: 20,
   minMarginPct: 7,
+  transportTruckCapacityT: DEFAULT_TRUCK_CAPACITY_T,
+  transportOriginAddress: DEFAULT_ORIGIN_ADDRESS,
+  transportOversizeLongPln: DEFAULT_OVERSIZE_LONG_PLN,
+  tariffBands: DEFAULT_TARIFF_BANDS,
 };
 
 // Wiersz app_settings z bazy -> kształt dla klienta. NUMERIC wraca z pg jako string,
@@ -55,7 +78,12 @@ export function settingsRowToAppSettings(row: {
   pgl_base_zm: string | number;
   transport_base: string | number;
   min_margin_pct: string | number;
-}): AppSettings {
+  // Kolumny z migracji 020. Opcjonalne, bo starsze zapytania (np. sprawdzanie progu
+  // marży przy wysyłce oferty) selectują tylko to, czego potrzebują — i mają tak zostać.
+  transport_truck_capacity_t?: string | number | null;
+  transport_origin_address?: string | null;
+  transport_oversize_long_pln?: string | number | null;
+}, bands?: TariffBand[]): AppSettings {
   return {
     eurPlnRate: Number(row.eur_pln_rate),
     pglBaseHrs: Number(row.pgl_base_hrs),
@@ -66,7 +94,22 @@ export function settingsRowToAppSettings(row: {
     pglBaseZm: Number(row.pgl_base_zm),
     transportBase: Number(row.transport_base),
     minMarginPct: Number(row.min_margin_pct),
+    transportTruckCapacityT: numberOr(row.transport_truck_capacity_t, DEFAULT_TRUCK_CAPACITY_T),
+    transportOriginAddress:
+      typeof row.transport_origin_address === 'string' && row.transport_origin_address.trim().length > 0
+        ? row.transport_origin_address
+        : DEFAULT_ORIGIN_ADDRESS,
+    transportOversizeLongPln: numberOr(row.transport_oversize_long_pln, DEFAULT_OVERSIZE_LONG_PLN),
+    // Brak wierszy w transport_tariff_bands (migracja nie puszczona) -> cennik domyślny,
+    // żeby kalkulator liczył od razu po wdrożeniu, a nie dopiero po wizycie w Ustawieniach.
+    tariffBands: bands && bands.length > 0 ? bands : DEFAULT_TARIFF_BANDS,
   };
+}
+
+/** NUMERIC z pg wraca jako string, a przy braku kolumny jako undefined. */
+function numberOr(value: string | number | null | undefined, fallback: number): number {
+  const n = typeof value === 'string' ? parseFloat(value) : value;
+  return typeof n === 'number' && Number.isFinite(n) ? n : fallback;
 }
 
 // PGL bazowe dla aktualnie wybranego typu stali w kalkulatorze.
