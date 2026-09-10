@@ -590,6 +590,10 @@ export default function OffersPage() {
           <div className="divide-y divide-[var(--border)]">
             {offerGroups.map(({ primary: offer, history: versions }) => {
               const p = perms(offer);
+              // Once the client has answered (won/lost), hide the accept/reject buttons and
+              // leave only "undo decision". Both buttons showing next to a recorded answer
+              // read as "overwrite" and confused users. To switch: undo first, then pick again.
+              const hasClientDecision = !!offer.client_decision && offer.client_decision !== 'pending';
               return (
               <div
                 key={offer.id}
@@ -853,7 +857,7 @@ export default function OffersPage() {
                     {/* Client's answer. A sent offer is read-only for everything else, but this is
                         the one fact that still arrives after sending, and without it the win
                         rate in the analytics panel has nothing to work with. */}
-                    {p.canDecide && offer.client_decision !== 'won' && (
+                    {p.canDecide && !hasClientDecision && (
                       <button
                         onClick={() => handleDecision(offer.id, 'won')}
                         disabled={actionLoading === offer.id}
@@ -864,7 +868,7 @@ export default function OffersPage() {
                       </button>
                     )}
 
-                    {p.canDecide && offer.client_decision !== 'lost' && (
+                    {p.canDecide && !hasClientDecision && (
                       <button
                         onClick={() => handleDecision(offer.id, 'lost')}
                         disabled={actionLoading === offer.id}
@@ -875,8 +879,8 @@ export default function OffersPage() {
                       </button>
                     )}
 
-                    {/* Undo, so a mis-click is not permanent. */}
-                    {p.canDecide && offer.client_decision && offer.client_decision !== 'pending' && (
+                    {/* Undo, so a mis-click is not permanent. Only action shown once decided. */}
+                    {p.canDecide && hasClientDecision && (
                       <button
                         onClick={() => handleDecision(offer.id, 'pending')}
                         disabled={actionLoading === offer.id}
