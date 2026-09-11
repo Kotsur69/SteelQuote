@@ -252,6 +252,8 @@ export interface Translations {
     transportTotalCost: string;
     transportManualKm: string;
     transportManualMode: string;
+    transportSelfPickup: string;
+    transportSelfPickupNotice: string;
     transportOversizeLong: string;
     transportOversizeManual: string;
     transportOversizeManualNotice: string;
@@ -948,6 +950,8 @@ export const pl: Translations = {
     transportTotalCost: 'Koszt transportu',
     transportManualKm: 'Kilometry ręcznie',
     transportManualMode: 'Wpisz kwotę ręcznie',
+    transportSelfPickup: 'Odbiór własny (klient odbiera towar sam)',
+    transportSelfPickupNotice: 'Transport = 0 — klient odbiera towar sam spod zakładu.',
     transportOversizeLong: 'Elementy 13,6–15,1 m (+{price} zł/kurs)',
     transportOversizeManual: 'Ponadgabaryt: >15,1 m lub >2,4 m',
     transportOversizeManualNotice: 'Ponadgabaryt wymaga wyceny indywidualnej u przewoźnika — wpisz kwotę transportu ręcznie.',
@@ -1614,6 +1618,8 @@ export const en: Translations = {
     transportTotalCost: 'Transport cost',
     transportManualKm: 'Kilometres by hand',
     transportManualMode: 'Enter amount manually',
+    transportSelfPickup: 'Self pickup (client collects the goods)',
+    transportSelfPickupNotice: 'Transport = 0 — the client picks up the goods from the plant themselves.',
     transportOversizeLong: 'Elements 13.6-15.1 m (+{price} PLN/truck)',
     transportOversizeManual: 'Oversize: >15.1 m or >2.4 m',
     transportOversizeManualNotice: 'Oversize loads are quoted individually by the carrier - enter the transport amount by hand.',
@@ -2279,6 +2285,8 @@ export const cs: Translations = {
     transportTotalCost: 'Náklady na dopravu',
     transportManualKm: 'Kilometry ručně',
     transportManualMode: 'Zadat částku ručně',
+    transportSelfPickup: 'Vlastní odběr (klient si zboží odveze sám)',
+    transportSelfPickupNotice: 'Doprava = 0 — klient si zboží vyzvedne sám v závodě.',
     transportOversizeLong: 'Prvky 13,6-15,1 m (+{price} zł/jízda)',
     transportOversizeManual: 'Nadrozměr: >15,1 m nebo >2,4 m',
     transportOversizeManualNotice: 'Nadrozměrný náklad oceňuje dopravce individuálně - zadejte částku dopravy ručně.',
@@ -2944,6 +2952,8 @@ export const de: Translations = {
     transportTotalCost: 'Transportkosten',
     transportManualKm: 'Kilometer manuell',
     transportManualMode: 'Betrag manuell eingeben',
+    transportSelfPickup: 'Selbstabholung (Kunde holt die Ware selbst ab)',
+    transportSelfPickupNotice: 'Transport = 0 — der Kunde holt die Ware selbst im Werk ab.',
     transportOversizeLong: 'Elemente 13,6-15,1 m (+{price} PLN/Fahrt)',
     transportOversizeManual: 'Übergröße: >15,1 m oder >2,4 m',
     transportOversizeManualNotice: 'Übergroße Ladungen werden vom Spediteur individuell kalkuliert - Transportbetrag manuell eingeben.',

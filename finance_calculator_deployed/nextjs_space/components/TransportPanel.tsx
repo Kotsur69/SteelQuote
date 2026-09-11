@@ -24,8 +24,10 @@ export interface TransportRoute {
   hasLongElements: boolean;
   /** Elementy >15,1 m lub >2,4 m: przewoźnik wycenia indywidualnie -> kwota ręczna. */
   oversizeManual: boolean;
-  /** Handlowiec świadomie wpisuje kwotę transportu sam (odbiór własny, nietypowa trasa). */
+  /** Handlowiec świadomie wpisuje kwotę transportu sam (nietypowa trasa). */
   manualMode: boolean;
+  /** Klient odbiera towar sam spod zakładu — transport = 0, reszta trasy nieistotna. */
+  selfPickup: boolean;
 }
 
 export const EMPTY_TRANSPORT_ROUTE: TransportRoute = {
@@ -35,6 +37,7 @@ export const EMPTY_TRANSPORT_ROUTE: TransportRoute = {
   hasLongElements: false,
   oversizeManual: false,
   manualMode: false,
+  selfPickup: false,
 };
 
 interface TransportPanelProps {
@@ -86,7 +89,9 @@ export default function TransportPanel({
 }: TransportPanelProps) {
   const s = t.summary;
   // Kwota liczona automatycznie tylko wtedy, gdy handlowiec nie przejął sterowania.
-  const isAuto = !route.manualMode && !route.oversizeManual;
+  const isAuto = !route.manualMode && !route.oversizeManual && !route.selfPickup;
+  // Przy odbiorze własnym reszta trasy jest nieistotna — transport i tak wynosi 0.
+  const routeDisabled = route.selfPickup;
 
   const lightBorder = !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : '';
 
@@ -110,6 +115,20 @@ export default function TransportPanel({
 
       {open && (
         <div className="px-4 pb-3 space-y-2.5">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={route.selfPickup}
+              onChange={e => onRouteChange({ selfPickup: e.target.checked })}
+              className="accent-[var(--accent-cr)]"
+            />
+            <span className="text-[10px] text-[var(--text-secondary)] font-semibold">{s.transportSelfPickup}</span>
+          </label>
+
+          <div
+            className={`space-y-2.5 ${routeDisabled ? 'opacity-40 pointer-events-none' : ''}`}
+            aria-disabled={routeDisabled}
+          >
           <div>
             <label className="block text-[10px] text-[var(--text-muted)] mb-1">{s.transportOrigin}</label>
             {/* Adres nadania jest globalny (Ustawienia) — tutaj tylko do wglądu, żeby
@@ -231,6 +250,11 @@ export default function TransportPanel({
             <p className="text-[10px] text-[var(--accent-hrs)] leading-snug">
               ⚠️ {s.transportOversizeManualNotice}
             </p>
+          )}
+          </div>
+
+          {route.selfPickup && (
+            <p className="text-[10px] text-[var(--text-muted)] leading-snug">🚚 {s.transportSelfPickupNotice}</p>
           )}
 
           {/* Rozbicie kosztu. To jest ten "widoczny banner": handlowiec widzi wprost,

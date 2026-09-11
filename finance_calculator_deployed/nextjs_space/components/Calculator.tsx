@@ -544,10 +544,10 @@ export default function Calculator() {
     [zestawienie, editingId, tons]
   );
 
-  // null = handlowiec liczy transport sam (tryb ręczny albo ponadgabaryt), nie ma jeszcze
-  // kilometrów, albo cennik nie ma stawki na tę odległość.
+  // null = handlowiec liczy transport sam (tryb ręczny, ponadgabaryt albo odbiór własny),
+  // nie ma jeszcze kilometrów, albo cennik nie ma stawki na tę odległość.
   const transportBreakdown = useMemo(() => {
-    if (transportRoute.manualMode || transportRoute.oversizeManual) return null;
+    if (transportRoute.selfPickup || transportRoute.manualMode || transportRoute.oversizeManual) return null;
     if (transportRoute.distanceKm === null) return null;
     return computeTransport({
       distanceKm: transportRoute.distanceKm,
@@ -560,13 +560,18 @@ export default function Calculator() {
     });
   }, [transportRoute, offerTons, settings, rate]);
 
+  // Przy odbiorze własnym transport jest wymuszony na 0 — klient sam odbiera towar spod
+  // zakładu, więc nie ma tu żadnej trasy do policzenia.
+  const forcedTransportEur = transportRoute.selfPickup ? 0 : transportBreakdown?.eurPerTon ?? null;
+
   // Wyliczony koszt wchodzi do pola Transport ORAZ do każdej pozycji już dodanej.
   // Dodanie pozycji może przekroczyć ładowność i dołożyć kolejny kurs — wtedy transport
   // €/t rośnie dla całej oferty, więc pozycje wpisane wcześniej muszą się przeliczyć,
-  // inaczej oferta zsumowałaby się z nieaktualnych stawek.
+  // inaczej oferta zsumowałaby się z nieaktualnych stawek. Ta sama ścieżka obsługuje
+  // odbiór własny (perTon = 0).
   useEffect(() => {
-    if (!transportBreakdown) return;
-    const perTon = transportBreakdown.eurPerTon;
+    if (forcedTransportEur === null) return;
+    const perTon = forcedTransportEur;
 
     setTransport(prev => (prev === perTon ? prev : perTon));
 
@@ -587,7 +592,7 @@ export default function Calculator() {
       });
       return changed ? next : prev;
     });
-  }, [transportBreakdown]);
+  }, [forcedTransportEur]);
 
   const handleCalculateRoute = useCallback(async () => {
     const destAddress = transportRoute.destAddress.trim();
@@ -2355,10 +2360,11 @@ export default function Calculator() {
             {/* Transport */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.transport}</span>
-              {/* Gdy transport liczy się z trasy, pole jest tylko do odczytu — ręczna
-                  edycja i tak zostałaby nadpisana przy następnym przeliczeniu. Żeby
-                  wpisać kwotę samemu, handlowiec włącza tryb ręczny w panelu niżej. */}
-              {transportBreakdown ? (
+              {/* Gdy transport liczy się z trasy (albo jest wymuszony na 0 przy odbiorze
+                  własnym), pole jest tylko do odczytu — ręczna edycja i tak zostałaby
+                  nadpisana przy następnym przeliczeniu. Żeby wpisać kwotę samemu,
+                  handlowiec włącza tryb ręczny w panelu niżej. */}
+              {transportBreakdown || transportRoute.selfPickup ? (
                 <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">
                   {money2(transport)}
                 </span>
