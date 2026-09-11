@@ -377,6 +377,12 @@ export interface Translations {
     contactNameRequired: string;
   };
 
+  // Calculation panel (collapsible wrapper around the whole item-pricing block)
+  calcPanel: {
+    title: string;
+    subtitle: string;
+  };
+
   // PDF Export
   pdf: {
     exportPdf: string;
@@ -1063,6 +1069,11 @@ export const pl: Translations = {
     contactNameRequired: 'Podaj imię lub nazwisko',
   },
 
+  calcPanel: {
+    title: 'Kalkulacja',
+    subtitle: 'panel kalkulacyjny',
+  },
+
   pdf: {
     exportPdf: 'Eksportuj do PDF',
     generating: 'Generowanie...',
@@ -1738,6 +1749,11 @@ export const en: Translations = {
     contactSaved: 'Contact saved to company directory',
     contactSaveFailed: 'Failed to save contact',
     contactNameRequired: 'Enter a first or last name',
+  },
+
+  calcPanel: {
+    title: 'Calculation',
+    subtitle: 'pricing panel',
   },
 
   pdf: {
@@ -2416,6 +2432,11 @@ export const cs: Translations = {
     contactNameRequired: 'Zadejte jméno nebo příjmení',
   },
 
+  calcPanel: {
+    title: 'Kalkulace',
+    subtitle: 'panel kalkulace',
+  },
+
   pdf: {
     exportPdf: 'Exportovat do PDF',
     generating: 'Generování...',
@@ -3090,6 +3111,11 @@ export const de: Translations = {
     contactSaved: 'Kontakt im Firmenverzeichnis gespeichert',
     contactSaveFailed: 'Kontakt konnte nicht gespeichert werden',
     contactNameRequired: 'Vor- oder Nachname angeben',
+  },
+
+  calcPanel: {
+    title: 'Kalkulation',
+    subtitle: 'Kalkulationsbereich',
   },
 
   pdf: {

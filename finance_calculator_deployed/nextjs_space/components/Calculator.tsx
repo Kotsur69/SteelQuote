@@ -279,6 +279,7 @@ export default function Calculator() {
   // Client info
   const [clientInfo, setClientInfo] = useState<ClientInfo>(EMPTY_CLIENT_INFO);
   const [showClientInfo, setShowClientInfo] = useState(false);
+  const [showCalcPanel, setShowCalcPanel] = useState(true);
   const [contactSaving, setContactSaving] = useState(false);
 
   // Klasy panelu klienta wyciągnięte do stałych. Ten sam długi string powtarzał się
@@ -1654,6 +1655,28 @@ export default function Calculator() {
         )}
       </div>
 
+      {/* Calculation Panel — cały blok liczenia jednej pozycji (typ blachy, tryb,
+          parametry wejściowe, siatka wynikowa z dopłatami i marżą), zwijany
+          dokładnie tak samo jak panel Danych Klienta powyżej. */}
+      <div className="mb-6 bg-[var(--bg-card)] border border-[var(--border)] rounded-md">
+        <button
+          onClick={() => setShowCalcPanel(!showCalcPanel)}
+          className="w-full flex items-center gap-2.5 px-4 py-3 rounded-t-md border-b border-[var(--border)] hover:bg-[rgba(255,255,255,0.025)] transition-colors"
+        >
+          <span className="w-2 h-2 rounded-full bg-[var(--accent-cr)]" />
+          <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">
+            {t.calcPanel?.title || 'Kalkulacja'}
+          </h2>
+          <span className="text-[10px] text-[var(--text-secondary)] font-mono ml-1">{t.calcPanel?.subtitle || 'panel kalkulacyjny'}</span>
+          <span className="ml-auto text-[10px] text-[var(--text-muted)]">
+            {showCalcPanel ? (t.client?.collapse || 'Zwiń') : (t.client?.expand || 'Rozwiń')}
+            <span className="ml-1">{showCalcPanel ? '▲' : '▼'}</span>
+          </span>
+        </button>
+
+      {showCalcPanel && (
+      <div className="p-4 flex flex-col animate-[fadeIn_0.2s_ease]">
+
       {/* Steel Type Selector — 2 rzędy po 3 (HRS/CR/HDG, PICKLED/TEARDROP/ZM), nie 6 obok siebie */}
       <div ref={calculatorTopRef} className="grid grid-cols-3 gap-2.5 mb-6">
         {(['HRS', 'CR', 'HDG', 'PICKLED', 'TEARDROP', 'ZM'] as SteelType[]).map(type => {
@@ -2463,6 +2486,10 @@ export default function Calculator() {
             <span className="text-[11px] text-[var(--text-secondary)] font-mono ml-1.5">{symbol}</span>
           </div>
         </div>
+      </div>
+
+      </div>
+      )}
       </div>
 
       {/* Zestawienie Section */}
