@@ -106,7 +106,7 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
   sscLenTol: 0, sscFlatness: 0, sscSurface: 10,
   sscMaxWeight: 0, sscMarking: 0, sscEdging: 0,
   sscPacking: 0, sscPackingIdx: 0, sscLabels: 0,
-  pglBase: 645, marginPct: 7, extra: 0, transport: 20, tons: 1,
+  pglBase: 645, marginPct: 7, extra: 0, extraComment: '', extraCommentInPdf: false, transport: 20, tons: 1,
   zestawienie: [],
   clientInfo: EMPTY_CLIENT_INFO,
   transportRoute: EMPTY_TRANSPORT_ROUTE,
@@ -215,6 +215,11 @@ export default function Calculator() {
   const [pglBase, setPglBase] = useState(645);
   const [marginPct, setMarginPct] = useState(7);
   const [extra, setExtra] = useState(0);
+  // Komentarz do dopłaty dodatkowej — pojawia się w UI tylko gdy extra !== 0, ale
+  // wartość NIE jest czyszczona przy powrocie do 0 (żeby przypadkowe wyzerowanie
+  // pola przez handlowca nie skasowało już wpisanej notatki).
+  const [extraComment, setExtraComment] = useState('');
+  const [extraCommentInPdf, setExtraCommentInPdf] = useState(false);
   const [transport, setTransport] = useState(20);
   const [tons, setTons] = useState(1);
 
@@ -618,13 +623,37 @@ export default function Calculator() {
     return activeGradeTable.filter(g => g.name.toLowerCase().includes(q));
   }, [gradeInput, activeGradeTable]);
   
+  // Gatunek jednorazowy: wybrany gatunek, którego NIE ma w cenniku danego typu. Stan
+  // wyliczany, nie zapisywany — dzięki temu nie zmienia się kształt Grade/ItemInputs ani
+  // zapisanych ofert. Efekt uboczny (pożądany): pozycja ze starej oferty, której gatunek
+  // zniknął potem z cennika, zamiast liczyć się po cichu jako 0 staje się edytowalna.
+  const isCustomGrade = useMemo(
+    () => selectedGrade !== null && !activeGradeTable.some(g => g.name === selectedGrade.name),
+    [selectedGrade, activeGradeTable]
+  );
+
+  // Propozycja gatunku jednorazowego pojawia się tylko wtedy, gdy wpisana nazwa nie jest
+  // dokładną nazwą z cennika — częściowe trafienia zostawiamy zwykłej liście podpowiedzi.
+  const oneTimeGradeName = gradeInput.trim();
+  const showOneTimeGradeOption =
+    oneTimeGradeName.length > 0 &&
+    !activeGradeTable.some(g => g.name.toLowerCase() === oneTimeGradeName.toLowerCase());
+
   // Select grade from dropdown
   const selectGrade = (grade: Grade) => {
     setGradeInput(grade.name);
     setSelectedGrade(grade);
     setShowGradeDropdown(false);
   };
-  
+
+  // Włącza gatunek jednorazowy: nazwa z pola wyszukiwania, dopłata startowo 0 (handlowiec
+  // wpisuje ją w polu obok). Żyje wyłącznie w tej ofercie — cennik zostaje nietknięty.
+  const useOneTimeGrade = () => {
+    setGradeInput(oneTimeGradeName);
+    setSelectedGrade({ name: oneTimeGradeName, value: 0 });
+    setShowGradeDropdown(false);
+  };
+
   // Select steel type
   const selectType = (type: SteelType) => {
     setCurrentType(type);
@@ -798,7 +827,7 @@ export default function Calculator() {
         zmZabezp, zmZabezpIdx, zmOpak, zmOpakIdx, zmPowierz, zmZgrzew,
         sscLenTol, sscFlatness, sscSurface, sscMaxWeight, sscMarking, sscEdging,
         sscPacking, sscPackingIdx, sscLabels,
-        marginPct, extra, transport,
+        marginPct, extra, extraComment, extraCommentInPdf, transport,
       },
     };
     
@@ -851,6 +880,9 @@ export default function Calculator() {
       setSscMaxWeight(inp.sscMaxWeight); setSscMarking(inp.sscMarking); setSscEdging(inp.sscEdging);
       setSscPacking(inp.sscPacking); setSscPackingIdx(inp.sscPackingIdx); setSscLabels(inp.sscLabels);
       setMarginPct(inp.marginPct); setExtra(inp.extra); setTransport(inp.transport);
+      // Stare pozycje (sprzed dodania komentarza do dopłaty) nie mają tych pól.
+      setExtraComment(inp.extraComment ?? '');
+      setExtraCommentInPdf(inp.extraCommentInPdf ?? false);
     } else {
       // Stara pozycja bez snapshotu (oferta zapisana przed tą poprawką): najlepszy wysiłek —
       // odtwarzamy przynajmniej obiekt gatunku po nazwie, żeby dopłata gatunkowa się zgadzała.
@@ -902,7 +934,7 @@ export default function Calculator() {
     sscLenTol, sscFlatness, sscSurface,
     sscMaxWeight, sscMarking, sscEdging,
     sscPacking, sscPackingIdx, sscLabels,
-    pglBase, marginPct, extra, transport, tons,
+    pglBase, marginPct, extra, extraComment, extraCommentInPdf, transport, tons,
     zestawienie,
     clientInfo,
     // Trasa zamrażana razem z ofertą — po ponownym otwarciu widać, na jakim adresie
@@ -962,6 +994,8 @@ export default function Calculator() {
     if (data.pglBase !== undefined) setPglBase(data.pglBase);
     if (data.marginPct !== undefined) setMarginPct(data.marginPct);
     if (data.extra !== undefined) setExtra(data.extra);
+    if (data.extraComment !== undefined) setExtraComment(data.extraComment);
+    if (data.extraCommentInPdf !== undefined) setExtraCommentInPdf(data.extraCommentInPdf);
     if (data.transport !== undefined) setTransport(data.transport);
     if (data.tons !== undefined) setTons(data.tons);
     if (data.zestawienie !== undefined) setZestawienie(data.zestawienie);
@@ -1724,8 +1758,16 @@ export default function Calculator() {
             type="text"
             value={gradeInput}
             onChange={e => {
-              setGradeInput(e.target.value);
-              setSelectedGrade(null);
+              const next = e.target.value;
+              setGradeInput(next);
+              // Przy gatunku jednorazowym poprawka nazwy NIE kasuje wpisanej dopłaty —
+              // ta sama zasada co przy komentarzu do dopłaty dodatkowej: nie gubimy tego,
+              // co handlowiec już wpisał. Powrót do cennika = wybór pozycji z listy.
+              setSelectedGrade(prev =>
+                isCustomGrade && prev && next.trim().length > 0
+                  ? { name: next.trim(), value: prev.value }
+                  : null
+              );
             }}
             onFocus={() => setShowGradeDropdown(true)}
             onBlur={() => setTimeout(() => setShowGradeDropdown(false), 150)}
@@ -1734,9 +1776,29 @@ export default function Calculator() {
             className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none transition-colors w-full
               ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
           />
-          {showGradeDropdown && filteredGrades.length > 0 && (
+          {showGradeDropdown && (filteredGrades.length > 0 || showOneTimeGradeOption) && (
             <div className={`absolute top-full left-0 right-0 mt-1 bg-[var(--bg-panel)] border border-[var(--border-hi)] rounded-md z-50 max-h-60 overflow-y-auto shadow-lg
               ${!isDark ? 'border-[#7e90c0] shadow-[0_8px_32px_rgba(0,0,0,0.15)]' : 'shadow-[0_8px_32px_rgba(0,0,0,0.6)]'}`}>
+              {/* Gatunek jednorazowy — przypięty nad listą z cennika. Celowo renderowany
+                  także wtedy, gdy nic nie pasuje: wcześniej lista znikała całkowicie i
+                  wpisanie nieznanego gatunku kończyło się dopłatą 0 bez ostrzeżenia. */}
+              {showOneTimeGradeOption && (
+                <div
+                  onClick={useOneTimeGrade}
+                  className={`flex items-center justify-between gap-2 px-3 py-2 cursor-pointer text-xs border-b border-[var(--border-hi)] hover:bg-[rgba(59,142,245,0.12)] transition-colors
+                    ${!isDark ? 'hover:bg-[rgba(0,0,0,0.05)]' : ''}`}
+                >
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-[var(--accent-cr)] font-semibold">+</span>
+                    <span className="text-[10px] font-semibold tracking-wider uppercase text-[var(--text-secondary)] shrink-0">
+                      {t.inputs.oneTimeGradeAdd}
+                    </span>
+                    <span className="font-mono text-[11px] text-[var(--text-value)] truncate">
+                      {oneTimeGradeName}
+                    </span>
+                  </span>
+                </div>
+              )}
               {filteredGrades.map(grade => (
                 <div
                   key={grade.name}
@@ -1752,6 +1814,26 @@ export default function Calculator() {
                   </span>
                 </div>
               ))}
+            </div>
+          )}
+          {/* Dopłata gatunku jednorazowego. Pole trzyma €/t (jak `extra` i `transport`) —
+              moneyInput/fromDisplay tylko przeliczają widok, gdy handlowiec pracuje w PLN.
+              Wartość wchodzi do sumaHuta przez selectedGrade.value, bez osobnej ścieżki. */}
+          {isCustomGrade && selectedGrade && (
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[9px] font-semibold tracking-wider uppercase text-[var(--accent-cr)] border border-[var(--accent-cr)] rounded px-1.5 py-0.5 shrink-0">
+                {t.inputs.oneTimeGradeBadge}
+              </span>
+              <span className="text-[10px] text-[var(--text-secondary)] shrink-0">
+                {t.inputs.oneTimeGradeSurcharge}
+              </span>
+              <NumericField
+                value={moneyInput(selectedGrade.value)}
+                onChange={v => setSelectedGrade({ name: selectedGrade.name, value: fromDisplay(v) })}
+                className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
+                  ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+              />
+              <span className="text-[10px] text-[var(--text-muted)] font-mono">{symbol}</span>
             </div>
           )}
         </div>
@@ -2245,7 +2327,31 @@ export default function Calculator() {
               />
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
-            
+
+            {/* Komentarz do dopłaty dodatkowej — widoczny tylko gdy dopłata != 0. Ukryty
+                (nie skasowany) po powrocie do 0, żeby przypadkowe wyzerowanie pola nie
+                skasowało już wpisanej notatki handlowca. */}
+            {extra !== 0 && (
+              <div className="px-4 py-2 border-b border-[rgba(42,48,72,0.5)]">
+                <input
+                  type="text"
+                  value={extraComment}
+                  onChange={e => setExtraComment(e.target.value)}
+                  placeholder={t.summary.extraCommentPlaceholder}
+                  className={`w-full bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] text-xs outline-none focus:border-[var(--accent-cr)]
+                    ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                />
+                <label className="flex items-center gap-1.5 mt-1.5 text-[10px] text-[var(--text-secondary)] cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={extraCommentInPdf}
+                    onChange={e => setExtraCommentInPdf(e.target.checked)}
+                  />
+                  {t.summary.extraCommentInPdf}
+                </label>
+              </div>
+            )}
+
             {/* Transport */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.transport}</span>
@@ -2432,7 +2538,18 @@ export default function Calculator() {
                     >
                       <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{idx + 1}</td>
                       <td className="px-3.5 py-2 text-left">
-                        <div className="font-semibold text-xs text-[var(--text-primary)]">{item.grade}</div>
+                        <div className="font-semibold text-xs text-[var(--text-primary)] flex items-center gap-1.5">
+                          {item.grade}
+                          {/* Znacznik gatunku jednorazowego — wyłącznie wewnętrzny (PDF i Excel
+                              pokazują samą nazwę). Sprawdzamy snapshot, a nie item.grade, żeby
+                              stare pozycje bez `inputs` nigdy nie dostały fałszywej etykiety. */}
+                          {item.inputs?.selectedGrade &&
+                            !GRADE_TABLES[item.type].some(g => g.name === item.inputs!.selectedGrade!.name) && (
+                              <span className="text-[9px] font-semibold tracking-wider uppercase text-[var(--accent-cr)] border border-[var(--accent-cr)] rounded px-1.5 py-0.5">
+                                {t.inputs.oneTimeGradeBadge}
+                              </span>
+                            )}
+                        </div>
                         <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">
                           {item.thickness} × {item.width}{item.isCoil ? '' : ` × ${item.length}`} mm
                           {item.isCoil && <span className="ml-1.5 text-[9px] font-semibold text-[#a855f7] bg-[rgba(168,85,247,0.12)] px-1.5 py-0.5 rounded">{t.inputs.coilMode}</span>}

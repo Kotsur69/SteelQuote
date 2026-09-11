@@ -169,6 +169,9 @@ export interface Translations {
     length: string;
     grade: string;
     searchGrade: string;
+    oneTimeGradeAdd: string;
+    oneTimeGradeBadge: string;
+    oneTimeGradeSurcharge: string;
     coilMode: string;
     coilModeShort: string;
     sheetMode: string;
@@ -234,6 +237,8 @@ export interface Translations {
     margin: string;
     marginBelowMinWarning: string;
     extra: string;
+    extraCommentPlaceholder: string;
+    extraCommentInPdf: string;
     transport: string;
     transportRouteTitle: string;
     transportOrigin: string;
@@ -863,6 +868,9 @@ export const pl: Translations = {
     length: 'Długość (mm)',
     grade: 'Gatunek',
     searchGrade: 'Szukaj gatunku…',
+    oneTimeGradeAdd: 'Gatunek jednorazowy',
+    oneTimeGradeBadge: 'jednorazowy',
+    oneTimeGradeSurcharge: 'Dopłata',
     coilMode: 'KRĄG',
     coilModeShort: 'Krąg (bez cięcia)',
     sheetMode: 'Arkusz',
@@ -925,6 +933,8 @@ export const pl: Translations = {
     margin: 'Marża',
     marginBelowMinWarning: 'Marża poniżej wymaganego minimum — ta pozycja będzie wymagać zatwierdzenia',
     extra: 'Dopłata dodatkowa',
+    extraCommentPlaceholder: 'Komentarz do dopłaty (opcjonalnie)',
+    extraCommentInPdf: 'Dołącz komentarz do PDF',
     transport: 'Transport',
     transportRouteTitle: 'Trasa i transport',
     transportOrigin: 'Wysyłka z',
@@ -1524,6 +1534,9 @@ export const en: Translations = {
     length: 'Length (mm)',
     grade: 'Grade',
     searchGrade: 'Search grade...',
+    oneTimeGradeAdd: 'One-time grade',
+    oneTimeGradeBadge: 'one-time',
+    oneTimeGradeSurcharge: 'Surcharge',
     coilMode: 'COIL',
     coilModeShort: 'Coil (no cutting)',
     sheetMode: 'Sheet',
@@ -1586,6 +1599,8 @@ export const en: Translations = {
     margin: 'Margin',
     marginBelowMinWarning: 'Margin is below the required minimum — this position will require approval',
     extra: 'Extra',
+    extraCommentPlaceholder: 'Comment on the surcharge (optional)',
+    extraCommentInPdf: 'Include comment in PDF',
     transport: 'Transport',
     transportRouteTitle: 'Route & transport',
     transportOrigin: 'Sent from',
@@ -2184,6 +2199,9 @@ export const cs: Translations = {
     length: 'Délka (mm)',
     grade: 'Jakost',
     searchGrade: 'Hledat jakost...',
+    oneTimeGradeAdd: 'Jednorázová jakost',
+    oneTimeGradeBadge: 'jednorázová',
+    oneTimeGradeSurcharge: 'Příplatek',
     coilMode: 'SVITEK',
     coilModeShort: 'Svitek (bez dělení)',
     sheetMode: 'Tabule',
@@ -2246,6 +2264,8 @@ export const cs: Translations = {
     margin: 'Marže',
     marginBelowMinWarning: 'Marže je pod požadovaným minimem — tato položka bude vyžadovat schválení',
     extra: 'Příplatek',
+    extraCommentPlaceholder: 'Komentář k příplatku (volitelné)',
+    extraCommentInPdf: 'Zahrnout komentář do PDF',
     transport: 'Doprava',
     transportRouteTitle: 'Trasa a doprava',
     transportOrigin: 'Odesláno z',
@@ -2844,6 +2864,9 @@ export const de: Translations = {
     length: 'Länge (mm)',
     grade: 'Güte',
     searchGrade: 'Güte suchen...',
+    oneTimeGradeAdd: 'Einmalige Güte',
+    oneTimeGradeBadge: 'einmalig',
+    oneTimeGradeSurcharge: 'Zuschlag',
     coilMode: 'COIL',
     coilModeShort: 'Coil (kein Schnitt)',
     sheetMode: 'Tafel',
@@ -2906,6 +2929,8 @@ export const de: Translations = {
     margin: 'Marge',
     marginBelowMinWarning: 'Marge liegt unter dem erforderlichen Minimum — diese Position erfordert eine Genehmigung',
     extra: 'Zuschlag',
+    extraCommentPlaceholder: 'Kommentar zum Zuschlag (optional)',
+    extraCommentInPdf: 'Kommentar im PDF einschließen',
     transport: 'Transport',
     transportRouteTitle: 'Route & Transport',
     transportOrigin: 'Versand ab',

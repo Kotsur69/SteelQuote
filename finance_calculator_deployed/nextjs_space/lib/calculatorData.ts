@@ -1147,6 +1147,10 @@ export interface ItemInputs {
   sscLabels: number;
   marginPct: number;
   extra: number;
+  // Komentarz do dopłaty dodatkowej (opcjonalny) i to, czy ma trafić do PDF — oba
+  // pola opcjonalne, żeby stare zapisane oferty (sprzed tej funkcji) zostały bez zmian.
+  extraComment?: string;
+  extraCommentInPdf?: boolean;
   transport: number;
 }
 

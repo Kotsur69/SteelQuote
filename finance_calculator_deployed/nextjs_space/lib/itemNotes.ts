@@ -79,6 +79,12 @@ export function buildItemNotes(
   push(t.ssc.packaging, byIdx(SSC_PACKING_OPTIONS, inputs.sscPackingIdx));
   push(t.ssc.labels, byValue(opts.labels, inputs.sscLabels));
 
+  // Komentarz do dopłaty dodatkowej — tylko gdy handlowiec jawnie zaznaczył, że ma
+  // trafić do PDF (opt-in), i tylko gdy dopłata faktycznie jest niezerowa.
+  if (inputs.extra !== 0 && inputs.extraCommentInPdf && inputs.extraComment?.trim()) {
+    lines.push(`${t.summary.extra}: ${inputs.extraComment.trim()}`);
+  }
+
   return lines;
 }
 
