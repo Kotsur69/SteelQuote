@@ -1074,8 +1074,8 @@
         </div>
 
         <div class="data-row">
-          <span class="row-label" data-i18n="scrap">Złom <small style="color:var(--text-muted)">(stała)</small></span>
-          <span class="row-value" id="val-scrap">10</span>
+          <span class="row-label"><span data-i18n="scrap">Złom</span> <small style="color:var(--text-muted)">(<span id="val-scrap-pct">2</span>%)</small></span>
+          <span class="row-value" id="val-scrap">—</span>
           <span class="row-unit">€/t</span>
         </div>
       </div>
@@ -1810,7 +1810,9 @@
 
     /* ==== CONSTANTS ==== */
     const HUTA_CONSTANTS = { pglPeriod: 0 };
-    const SCRAP_CONSTANT = 10;
+    // Złom = % ceny wsadu (PGL + Σ Huta). Zmień tę wartość, żeby zmienić procent — plik
+    // statyczny nie ma panelu admina, więc to jedyne miejsce do edycji.
+    const SCRAP_PCT = 2;
     const YIELD_GRADES = ['S550MC', 'S550MC-CAT_A', 'S650MC', 'S700MC', 'S700MC-CAT_A', 'Amstrong® Ultra 650MC', 'Amstrong® Ultra 700MC_B', 'AMSTRONG®550MC'];
 
     let currentType = 'HRS';
@@ -2087,22 +2089,24 @@
         document.getElementById('ssc-base-display').textContent = '—';
       }
 
-      const sumaSSC = [
-        baseVal, numVal('ssc-len-tol'), numVal('ssc-flatness'),
-        numVal('ssc-surface'), numVal('ssc-maxweight'), numVal('ssc-marking'),
-        numVal('ssc-edging'), numVal('ssc-yield'), numVal('ssc-packing'),
-        numVal('ssc-labels'), SCRAP_CONSTANT,
-      ].reduce((a, v) => a + v, 0);
-
-      document.getElementById('val-scrap').textContent = SCRAP_CONSTANT;
-      document.getElementById('sum-ssc').textContent = sumaSSC.toFixed(2);
-
       const pglBase = numVal('sum-pgl-input');
       const marginPct = numVal('sum-margin-pct');
       const extra = numVal('sum-extra');
       const transport = numVal('sum-transport');
 
       const cenaWsadu = pglBase + sumaHuta;
+      const scrapAmount = cenaWsadu * (SCRAP_PCT / 100);
+
+      const sumaSSC = [
+        baseVal, numVal('ssc-len-tol'), numVal('ssc-flatness'),
+        numVal('ssc-surface'), numVal('ssc-maxweight'), numVal('ssc-marking'),
+        numVal('ssc-edging'), numVal('ssc-yield'), numVal('ssc-packing'),
+        numVal('ssc-labels'), scrapAmount,
+      ].reduce((a, v) => a + v, 0);
+
+      document.getElementById('val-scrap').textContent = scrapAmount.toFixed(2);
+      document.getElementById('val-scrap-pct').textContent = SCRAP_PCT;
+      document.getElementById('sum-ssc').textContent = sumaSSC.toFixed(2);
       const marzaNetto = cenaWsadu * (marginPct / 100);
       const cenaKoncowa = cenaWsadu + marzaNetto + extra + transport + sumaSSC;
 
