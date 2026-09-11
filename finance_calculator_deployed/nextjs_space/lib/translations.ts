@@ -521,6 +521,14 @@ export interface Translations {
       historyFilterTo: string;
       historyFilterReset: string;
       historyNoResults: string;
+      quarterlyTitle: string;
+      quarterlyNowLabel: string;
+      quarterlyYearPrev: string;
+      quarterlyYearNext: string;
+      quarterlySaveFailed: string;
+      quarterlyLoading: string;
+      quarterlyNotice: string;
+      quarterlyActiveBadge: string;
     };
     totalOffers: string;
     activeSalespeople: string;
@@ -1191,6 +1199,15 @@ export const pl: Translations = {
       historyFilterTo: 'Do',
       historyFilterReset: 'Wyczyść filtry',
       historyNoResults: 'Brak zmian spełniających wybrane filtry.',
+      quarterlyTitle: 'PGL bazowe — bieżący miesiąc i kwartały',
+      quarterlyNowLabel: 'Teraz',
+      quarterlyYearPrev: 'Poprzedni rok',
+      quarterlyYearNext: 'Następny rok',
+      quarterlySaveFailed: 'Nie udało się zapisać harmonogramu kwartalnego.',
+      quarterlyLoading: 'Wczytywanie harmonogramu…',
+      quarterlyNotice:
+        'Cena wpisana na dany kwartał wchodzi do kalkulatora automatycznie z chwilą rozpoczęcia tego kwartału (wg daty serwera) — bez żadnej dodatkowej akcji. Kolumna bieżącego miesiąca pokazuje cenę działającą teraz: gdy pochodzi z kwartału, edytuj ją w kolumnie tego kwartału; gdy kwartał jest pusty, wpisz wartość wprost w kolumnie miesiąca.',
+      quarterlyActiveBadge: 'aktywny kwartał',
     },
     totalOffers: 'Oferty łącznie',
     activeSalespeople: 'Aktywni handlowcy',
@@ -1859,6 +1876,15 @@ export const en: Translations = {
       historyFilterTo: 'To',
       historyFilterReset: 'Reset filters',
       historyNoResults: 'No changes match the selected filters.',
+      quarterlyTitle: 'Base PGL — current month and quarters',
+      quarterlyNowLabel: 'Now',
+      quarterlyYearPrev: 'Previous year',
+      quarterlyYearNext: 'Next year',
+      quarterlySaveFailed: 'Could not save the quarterly schedule.',
+      quarterlyLoading: 'Loading schedule…',
+      quarterlyNotice:
+        'A price entered for a quarter reaches the calculator automatically the moment that quarter starts (server date) — no manual action needed. The current-month column shows the price in effect right now: when it comes from a quarter, edit it in that quarter\'s column; when the quarter is empty, type the value straight into the month column.',
+      quarterlyActiveBadge: 'active quarter',
     },
     totalOffers: 'Total offers',
     activeSalespeople: 'Active salespeople',
@@ -2526,6 +2552,15 @@ export const cs: Translations = {
       historyFilterTo: 'Do',
       historyFilterReset: 'Vymazat filtry',
       historyNoResults: 'Žádné změny neodpovídají vybraným filtrům.',
+      quarterlyTitle: 'Základní PGL — aktuální měsíc a čtvrtletí',
+      quarterlyNowLabel: 'Nyní',
+      quarterlyYearPrev: 'Předchozí rok',
+      quarterlyYearNext: 'Další rok',
+      quarterlySaveFailed: 'Čtvrtletní harmonogram se nepodařilo uložit.',
+      quarterlyLoading: 'Načítání harmonogramu…',
+      quarterlyNotice:
+        'Cena zadaná pro dané čtvrtletí se do kalkulačky dostane automaticky v okamžiku začátku tohoto čtvrtletí (podle data serveru) — bez jakéhokoli dalšího zásahu. Sloupec aktuálního měsíce ukazuje cenu platnou teď: pokud pochází ze čtvrtletí, upravte ji ve sloupci daného čtvrtletí; pokud je čtvrtletí prázdné, zadejte hodnotu přímo do sloupce měsíce.',
+      quarterlyActiveBadge: 'aktivní čtvrtletí',
     },
     totalOffers: 'Celkem nabídek',
     activeSalespeople: 'Aktivní obchodníci',
@@ -3193,6 +3228,15 @@ export const de: Translations = {
       historyFilterTo: 'Bis',
       historyFilterReset: 'Filter zurücksetzen',
       historyNoResults: 'Keine Änderungen entsprechen den gewählten Filtern.',
+      quarterlyTitle: 'Basis-PGL — aktueller Monat und Quartale',
+      quarterlyNowLabel: 'Jetzt',
+      quarterlyYearPrev: 'Vorheriges Jahr',
+      quarterlyYearNext: 'Nächstes Jahr',
+      quarterlySaveFailed: 'Quartalsplan konnte nicht gespeichert werden.',
+      quarterlyLoading: 'Plan wird geladen…',
+      quarterlyNotice:
+        'Ein für ein Quartal eingetragener Preis gelangt automatisch in den Rechner, sobald dieses Quartal beginnt (Serverdatum) — ohne weiteres Zutun. Die Spalte des aktuellen Monats zeigt den gerade gültigen Preis: stammt er aus einem Quartal, bearbeiten Sie ihn in dessen Spalte; ist das Quartal leer, tragen Sie den Wert direkt in der Monatsspalte ein.',
+      quarterlyActiveBadge: 'aktives Quartal',
     },
     totalOffers: 'Angebote gesamt',
     activeSalespeople: 'Aktive Vertriebsmitarbeiter',

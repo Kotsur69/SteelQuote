@@ -3,6 +3,7 @@ import pool from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { DEFAULT_SETTINGS, settingsRowToAppSettings, type AppSettings } from '@/lib/currency';
 import type { TariffBand } from '@/lib/transportTariff';
+import { applyQuarterlyPglOverride } from '@/lib/pglQuarterly';
 
 // Kolumny app_settings sprzed migracji 020. Trzymamy je osobno, żeby GET umiał się
 // wycofać do starszego schematu, gdy kod jest wdrożony przed puszczeniem migracji.
@@ -64,8 +65,9 @@ export async function GET() {
     if (result.rows.length === 0) {
       return NextResponse.json({ settings: DEFAULT_SETTINGS });
     }
+    const settings = settingsRowToAppSettings(result.rows[0], await readTariffBands());
     return NextResponse.json({
-      settings: settingsRowToAppSettings(result.rows[0], await readTariffBands()),
+      settings: await applyQuarterlyPglOverride(settings),
     });
   } catch (error) {
     // 42P01 = undefined_table. Zdarza się, gdy kod jest wdrożony, a migracja 007 jeszcze

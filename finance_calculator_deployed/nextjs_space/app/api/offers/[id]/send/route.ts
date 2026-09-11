@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { DEFAULT_SETTINGS, settingsRowToAppSettings } from '@/lib/currency';
+import { applyQuarterlyPglOverride } from '@/lib/pglQuarterly';
 import { offerNeedsReview } from '@/lib/offerReview';
 import { normalizeClientInfo, hasRequiredCompanyDetails } from '@/lib/pdfGenerator';
 
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         const settings = settingsResult.rows.length > 0
           ? settingsRowToAppSettings(settingsResult.rows[0])
           : DEFAULT_SETTINGS;
-        canSendDirect = !offerNeedsReview(owned.offer_data?.zestawienie, settings);
+        canSendDirect = !offerNeedsReview(owned.offer_data?.zestawienie, await applyQuarterlyPglOverride(settings));
       }
 
       // status = $3 (a nie tylko id/user_id) domyka okno między odczytem a zapisem -

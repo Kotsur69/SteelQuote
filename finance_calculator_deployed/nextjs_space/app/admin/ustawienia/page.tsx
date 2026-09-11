@@ -5,9 +5,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 import { DEFAULT_SETTINGS, type AppSettings } from '@/lib/currency';
 import { DEFAULT_TARIFF_BANDS, type TariffBand } from '@/lib/transportTariff';
-import type { Translations } from '@/lib/translations';
+import type { Language, Translations } from '@/lib/translations';
 import type { PglPriceHistoryEntry } from '@/app/api/settings/pgl-history/route';
 import { exportPglHistoryToExcel } from '@/lib/pglHistoryExport';
+import type { PglQuarterlyEntry, Quarter } from '@/lib/pglQuarterly';
 
 type SteelType = 'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | 'ZM';
 
@@ -23,6 +24,37 @@ const STEEL_TYPE_COLOR: Record<SteelType, string> = {
 };
 
 const STEEL_TYPES: SteelType[] = ['HRS', 'CR', 'HDG', 'PICKLED', 'TEARDROP', 'ZM'];
+const QUARTERS: Quarter[] = [1, 2, 3, 4];
+
+// Ręczna wartość bazowa PGL (app_settings.pgl_base_*) dla danego typu — to ona stoi za kolumną
+// "bieżący miesiąc", dopóki dla trwającego kwartału nie ma zaplanowanej ceny.
+const PGL_FORM_KEY_BY_TYPE: Record<SteelType, SettingFormKey> = {
+  HRS: 'pglBaseHrs',
+  CR: 'pglBaseCr',
+  HDG: 'pglBaseHdg',
+  PICKLED: 'pglBasePickled',
+  TEARDROP: 'pglBaseTeardrop',
+  ZM: 'pglBaseZm',
+};
+
+// Nazwa bieżącego miesiąca w języku panelu — nagłówek pierwszej kolumny kwot.
+const MONTH_LOCALE: Record<Language, string> = {
+  pl: 'pl-PL',
+  en: 'en-GB',
+  cs: 'cs-CZ',
+  de: 'de-DE',
+};
+
+// Siatka wpisów harmonogramu kwartalnego w formularzu: pusty string = "nie zaplanowano".
+type QuarterlyGrid = Record<SteelType, Record<Quarter, string>>;
+
+function emptyQuarterlyGrid(): QuarterlyGrid {
+  const grid = {} as QuarterlyGrid;
+  for (const type of STEEL_TYPES) {
+    grid[type] = { 1: '', 2: '', 3: '', 4: '' };
+  }
+  return grid;
+}
 
 type HistorySortKey = 'steelType' | 'oldPrice' | 'newPrice' | 'delta' | 'changedByName' | 'changedAt';
 
@@ -48,6 +80,15 @@ const HISTORY_COLUMNS: { key: HistorySortKey; labelKey: keyof Translations['admi
 // z własnym zapisem (PUT /api/settings/tariff), więc wypada z FormState.
 type SettingFormKey = Exclude<keyof AppSettings, 'tariffBands'>;
 type FormState = Record<SettingFormKey, string>;
+
+type SettingField = {
+  key: SettingFormKey;
+  label: string;
+  hint: string;
+  unit: string;
+  step: string;
+  inputType?: 'number' | 'text';
+};
 
 function toForm(s: AppSettings): FormState {
   return {
@@ -81,7 +122,7 @@ function toBandForm(band: TariffBand): BandForm {
 }
 
 export default function AdminSettingsPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(toForm(DEFAULT_SETTINGS));
@@ -96,6 +137,14 @@ export default function AdminSettingsPage() {
   const [bands, setBands] = useState<BandForm[]>(DEFAULT_TARIFF_BANDS.map(toBandForm));
   const [tariffSaving, setTariffSaving] = useState(false);
   const [tariffMessage, setTariffMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const [quarterlyYear, setQuarterlyYear] = useState<number>(() => new Date().getFullYear());
+  const [quarterlyGrid, setQuarterlyGrid] = useState<QuarterlyGrid>(emptyQuarterlyGrid());
+  const [quarterlyNow, setQuarterlyNow] = useState<{ year: number; quarter: Quarter } | null>(null);
+  // Ceny obowiązujące w TYM kwartale — per typ, tylko te faktycznie zaplanowane. Niezależne od
+  // roku przeglądanego w siatce, bo kolumna "bieżący miesiąc" ma zawsze mówić prawdę o dziś.
+  const [quarterlyCurrentPrices, setQuarterlyCurrentPrices] = useState<Partial<Record<SteelType, number>>>({});
+  const [quarterlyLoading, setQuarterlyLoading] = useState(true);
 
   const hasActiveFilters = typeFilter !== 'ALL' || dateFrom !== '' || dateTo !== '';
 
@@ -220,14 +269,37 @@ export default function AdminSettingsPage() {
         }),
       });
       const data = await res.json();
-      if (res.ok) {
-        setForm(toForm(data.settings as AppSettings));
-        setMessage({ type: 'success', text: t.admin.settings.saved });
-        loadHistory();
-      } else {
+      if (!res.ok) {
         // Serwer zwraca konkretny powód (np. "Kurs EUR/PLN: wartość musi być w zakresie 0.0001-100").
         setMessage({ type: 'error', text: data.error || t.admin.settings.saveFailed });
+        return;
       }
+      setForm(toForm(data.settings as AppSettings));
+      loadHistory();
+
+      // Harmonogram kwartalny jedzie tym samym przyciskiem — dla admina to jedna tabela,
+      // więc jeden zapis. Osobny endpoint, bo to osobna tabela z własną walidacją.
+      const quarterlyRes = await fetch('/api/settings/pgl-quarterly', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          year: quarterlyYear,
+          entries: STEEL_TYPES.flatMap((type) =>
+            QUARTERS.map((quarter) => ({
+              steelType: type,
+              quarter,
+              price: quarterlyGrid[type][quarter] === '' ? null : quarterlyGrid[type][quarter],
+            }))
+          ),
+        }),
+      });
+      if (!quarterlyRes.ok) {
+        const quarterlyData = await quarterlyRes.json();
+        setMessage({ type: 'error', text: quarterlyData.error || t.admin.settings.quarterlySaveFailed });
+        return;
+      }
+      await loadQuarterly(quarterlyYear);
+      setMessage({ type: 'success', text: t.admin.settings.saved });
     } catch (error) {
       console.error('Error saving settings:', error);
       setMessage({ type: 'error', text: t.admin.settings.saveFailed });
@@ -279,7 +351,38 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const fields: { key: SettingFormKey; label: string; hint: string; unit: string; step: string; color?: string; inputType?: 'number' | 'text' }[] = [
+  const loadQuarterly = useCallback(async (year: number) => {
+    setQuarterlyLoading(true);
+    try {
+      const res = await fetch(`/api/settings/pgl-quarterly?year=${year}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        const grid = emptyQuarterlyGrid();
+        for (const entry of data.entries as PglQuarterlyEntry[]) {
+          grid[entry.steelType][entry.quarter] = String(entry.price);
+        }
+        setQuarterlyGrid(grid);
+        setQuarterlyNow({ year: data.currentYear, quarter: data.currentQuarter });
+        setQuarterlyCurrentPrices(data.currentPrices ?? {});
+      }
+    } catch (error) {
+      console.error('Error loading PGL quarterly schedule:', error);
+    } finally {
+      setQuarterlyLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadQuarterly(quarterlyYear);
+  }, [quarterlyYear, loadQuarterly]);
+
+  const updateQuarterlyCell = (type: SteelType, quarter: Quarter, value: string) => {
+    setQuarterlyGrid((prev) => ({ ...prev, [type]: { ...prev[type], [quarter]: value } }));
+  };
+
+  // Kurs stoi NAD tabelą PGL, reszta pod nią — PGL jest tu najważniejsze i ma być widoczne
+  // od razu, bez przewijania przez ustawienia transportu.
+  const rateFields: SettingField[] = [
     {
       key: 'eurPlnRate',
       label: t.admin.settings.eurPlnRate,
@@ -287,54 +390,9 @@ export default function AdminSettingsPage() {
       unit: 'PLN / 1 EUR',
       step: '0.0001',
     },
-    {
-      key: 'pglBaseHrs',
-      label: t.admin.settings.pglBaseHrs,
-      hint: t.admin.settings.pglBaseHint,
-      unit: '€/t',
-      step: '0.01',
-      color: STEEL_TYPE_COLOR.HRS,
-    },
-    {
-      key: 'pglBaseCr',
-      label: t.admin.settings.pglBaseCr,
-      hint: t.admin.settings.pglBaseHint,
-      unit: '€/t',
-      step: '0.01',
-      color: STEEL_TYPE_COLOR.CR,
-    },
-    {
-      key: 'pglBaseHdg',
-      label: t.admin.settings.pglBaseHdg,
-      hint: t.admin.settings.pglBaseHint,
-      unit: '€/t',
-      step: '0.01',
-      color: STEEL_TYPE_COLOR.HDG,
-    },
-    {
-      key: 'pglBasePickled',
-      label: t.admin.settings.pglBasePickled,
-      hint: t.admin.settings.pglBaseHint,
-      unit: '€/t',
-      step: '0.01',
-      color: STEEL_TYPE_COLOR.PICKLED,
-    },
-    {
-      key: 'pglBaseTeardrop',
-      label: t.admin.settings.pglBaseTeardrop,
-      hint: t.admin.settings.pglBaseHint,
-      unit: '€/t',
-      step: '0.01',
-      color: STEEL_TYPE_COLOR.TEARDROP,
-    },
-    {
-      key: 'pglBaseZm',
-      label: t.admin.settings.pglBaseZm,
-      hint: t.admin.settings.pglBaseHint,
-      unit: '€/t',
-      step: '0.01',
-      color: STEEL_TYPE_COLOR.ZM,
-    },
+  ];
+
+  const otherFields: SettingField[] = [
     {
       key: 'transportBase',
       label: t.admin.settings.transportBase,
@@ -373,6 +431,35 @@ export default function AdminSettingsPage() {
     },
   ];
 
+  // Nagłówek kolumny "teraz" — nazwa bieżącego miesiąca w języku panelu, z wielkiej litery
+  // (polski i czeski zwracają ją małą).
+  const monthName = new Date().toLocaleDateString(MONTH_LOCALE[language], { month: 'long' });
+  const currentMonthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+
+  const renderField = (field: SettingField) => (
+    <div key={field.key} className="px-4 py-3 border-b border-[rgba(42,48,72,0.5)] last:border-b-0">
+      <div className="flex items-center gap-3">
+        <label htmlFor={field.key} className="flex-1 text-xs text-[var(--text-secondary)]">
+          {field.label}
+        </label>
+        <input
+          id={field.key}
+          type={field.inputType ?? 'number'}
+          // Adres jest tekstem — min/step dotyczą tylko pól liczbowych, a szerokie
+          // pole i wyrównanie do lewej są tu czytelniejsze niż wąska kolumna liczb.
+          {...(field.inputType === 'text' ? {} : { min: '0', step: field.step })}
+          value={form[field.key]}
+          onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
+          className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium focus:border-[var(--accent-cr)] outline-none ${
+            field.inputType === 'text' ? 'flex-1 min-w-0 text-left' : 'text-right w-[120px]'
+          }`}
+        />
+        <span className="text-[10px] text-[var(--text-muted)] font-mono w-[70px]">{field.unit}</span>
+      </div>
+      <p className="text-[10px] text-[var(--text-muted)] mt-1.5">{field.hint}</p>
+    </div>
+  );
+
   return (
     <AdminLayout>
       {loading ? (
@@ -390,43 +477,146 @@ export default function AdminSettingsPage() {
               </span>
             </div>
 
-            <div className="py-2">
-              {fields.map((field) => (
-                <div key={field.key} className="px-4 py-3 border-b border-[rgba(42,48,72,0.5)]">
-                  <div className="flex items-center gap-3">
-                    <label
-                      htmlFor={field.key}
-                      className="flex-1 flex items-center gap-1.5 text-xs"
-                      style={{ color: field.color ?? 'var(--text-secondary)' }}
-                    >
-                      {field.color && (
-                        <span
-                          className="w-1.5 h-1.5 rounded-full shrink-0"
-                          style={{ backgroundColor: field.color }}
-                        />
-                      )}
-                      {field.label}
-                    </label>
-                    <input
-                      id={field.key}
-                      type={field.inputType ?? 'number'}
-                      // Adres jest tekstem — min/step dotyczą tylko pól liczbowych, a szerokie
-                      // pole i wyrównanie do lewej są tu czytelniejsze niż wąska kolumna liczb.
-                      {...(field.inputType === 'text' ? {} : { min: '0', step: field.step })}
-                      value={form[field.key]}
-                      onChange={(e) => setForm({ ...form, [field.key]: e.target.value })}
-                      className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium focus:border-[var(--accent-cr)] outline-none ${
-                        field.inputType === 'text' ? 'flex-1 min-w-0 text-left' : 'text-right w-[120px]'
-                      }`}
-                    />
-                    <span className="text-[10px] text-[var(--text-muted)] font-mono w-[70px]">
-                      {field.unit}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-[var(--text-muted)] mt-1.5">{field.hint}</p>
+            <div className="py-2">{rateFields.map(renderField)}</div>
+
+            {/* PGL: bieżący miesiąc + cztery kwartały w jednej tabeli. Kolumna miesiąca pokazuje
+                cenę, która działa TERAZ — zaplanowaną (tylko do odczytu, źródłem jest kwartał)
+                albo ręczną wartość bazową, którą wtedy da się tu wprost edytować. */}
+            <div className="border-t border-[var(--border)]">
+              <div className="flex flex-wrap items-center gap-2 px-4 py-3 bg-[rgba(15,20,35,0.3)]">
+                <h3 className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
+                  {t.admin.settings.quarterlyTitle}
+                </h3>
+                <span className="text-[10px] font-mono text-[var(--text-muted)]">€/t</span>
+                <div className="ml-auto flex items-center gap-1.5">
+                  <button
+                    onClick={() => setQuarterlyYear((y) => y - 1)}
+                    aria-label={t.admin.settings.quarterlyYearPrev}
+                    className="px-2 py-0.5 rounded border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent-cr)] hover:text-[var(--text-primary)] transition-colors text-xs font-mono"
+                  >
+                    ‹
+                  </button>
+                  <span className="font-mono text-xs font-semibold text-[var(--text-primary)] w-11 text-center">
+                    {quarterlyYear}
+                  </span>
+                  <button
+                    onClick={() => setQuarterlyYear((y) => y + 1)}
+                    aria-label={t.admin.settings.quarterlyYearNext}
+                    className="px-2 py-0.5 rounded border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent-cr)] hover:text-[var(--text-primary)] transition-colors text-xs font-mono"
+                  >
+                    ›
+                  </button>
                 </div>
-              ))}
+              </div>
+
+              {quarterlyLoading ? (
+                <div className="p-6 text-center text-xs text-[var(--text-secondary)]">
+                  {t.admin.settings.quarterlyLoading}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[560px]">
+                    <thead>
+                      <tr className="border-b border-[var(--border)]">
+                        <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-wide text-[var(--text-secondary)]">
+                          {t.admin.settings.historyColType}
+                        </th>
+                        <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-wide text-[var(--text-primary)]">
+                          {currentMonthLabel}
+                          <span className="block normal-case font-sans text-[9px] text-[var(--text-muted)]">
+                            {t.admin.settings.quarterlyNowLabel}
+                          </span>
+                        </th>
+                        {QUARTERS.map((q) => {
+                          const isActive = quarterlyNow?.year === quarterlyYear && quarterlyNow?.quarter === q;
+                          return (
+                            <th
+                              key={q}
+                              className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-wide"
+                              style={{ color: isActive ? 'var(--accent-hdg)' : 'var(--text-secondary)' }}
+                            >
+                              Q{q}
+                              {isActive && (
+                                <span className="block normal-case font-sans text-[9px] text-[var(--accent-hdg)]">
+                                  {t.admin.settings.quarterlyActiveBadge}
+                                </span>
+                              )}
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {STEEL_TYPES.map((type) => {
+                        const scheduledNow = quarterlyCurrentPrices[type];
+                        const manualKey = PGL_FORM_KEY_BY_TYPE[type];
+                        return (
+                          <tr key={type} className="border-b border-[rgba(42,48,72,0.5)] last:border-b-0">
+                            <td className="px-3 py-2 font-mono font-semibold">
+                              <span
+                                className="inline-flex items-center gap-1.5"
+                                style={{ color: STEEL_TYPE_COLOR[type] }}
+                              >
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                                  style={{ backgroundColor: STEEL_TYPE_COLOR[type] }}
+                                />
+                                {type}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2">
+                              {scheduledNow === undefined ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  aria-label={`${type} — ${currentMonthLabel}`}
+                                  value={form[manualKey]}
+                                  onChange={(e) => setForm({ ...form, [manualKey]: e.target.value })}
+                                  className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-full outline-none focus:border-[var(--accent-cr)]"
+                                />
+                              ) : (
+                                <div
+                                  title={`Q${quarterlyNow?.quarter} ${quarterlyNow?.year}`}
+                                  className="flex items-center justify-end gap-1.5 px-2 py-1 font-mono text-[13px] font-medium text-[var(--accent-hdg)]"
+                                >
+                                  {scheduledNow.toFixed(2)}
+                                  <span className="text-[9px] opacity-70">Q{quarterlyNow?.quarter}</span>
+                                </div>
+                              )}
+                            </td>
+                            {QUARTERS.map((q) => {
+                              const isActive = quarterlyNow?.year === quarterlyYear && quarterlyNow?.quarter === q;
+                              return (
+                                <td key={q} className="px-3 py-2">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="—"
+                                    aria-label={`${type} Q${q} ${quarterlyYear}`}
+                                    value={quarterlyGrid[type][q]}
+                                    onChange={(e) => updateQuarterlyCell(type, q, e.target.value)}
+                                    className="bg-[var(--bg-input)] border rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] text-right w-full outline-none focus:border-[var(--accent-cr)]"
+                                    style={{ borderColor: isActive ? 'var(--accent-hdg)' : 'var(--border)' }}
+                                  />
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <p className="px-4 py-2.5 text-[10px] text-[var(--text-muted)] border-t border-[rgba(42,48,72,0.5)]">
+                {t.admin.settings.pglBaseHint}
+              </p>
             </div>
+
+            <div className="py-2 border-t border-[var(--border)]">{otherFields.map(renderField)}</div>
 
             <div className="flex items-center gap-3 px-4 py-3 border-t border-[var(--border)]">
               <button
@@ -447,6 +637,13 @@ export default function AdminSettingsPage() {
                 </span>
               )}
             </div>
+          </div>
+
+          <div className="flex gap-2.5 px-4 py-3 rounded-md border-l-[3px] border-[var(--accent-zm)] bg-[rgba(139,124,246,0.08)]">
+            <span className="text-base leading-none">ℹ</span>
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              {t.admin.settings.quarterlyNotice}
+            </p>
           </div>
 
           {/* Bez tego ostrzeżenia admin nie ma jak wiedzieć, że zmiana kursu NIE rusza ofert

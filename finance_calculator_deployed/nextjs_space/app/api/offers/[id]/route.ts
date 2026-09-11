@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/rbac';
 import { upsertClientFromOffer } from '@/lib/clientDirectory';
 import { normalizeClientInfo } from '@/lib/pdfGenerator';
 import { DEFAULT_SETTINGS, settingsRowToAppSettings } from '@/lib/currency';
+import { applyQuarterlyPglOverride } from '@/lib/pglQuarterly';
 import { offerNeedsReview, type ReviewableItem } from '@/lib/offerReview';
 
 interface RouteParams {
@@ -179,7 +180,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
               const settings = settingsResult.rows.length > 0
                 ? settingsRowToAppSettings(settingsResult.rows[0])
                 : DEFAULT_SETTINGS;
-              if (offerNeedsReview((offer_data as { zestawienie?: ReviewableItem[] })?.zestawienie, settings)) {
+              const liveSettings = await applyQuarterlyPglOverride(settings);
+              if (offerNeedsReview((offer_data as { zestawienie?: ReviewableItem[] })?.zestawienie, liveSettings)) {
                 versionStatus = 'pending_review';
               }
             }
