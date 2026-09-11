@@ -486,6 +486,8 @@ export interface Translations {
       pglBaseHint: string;
       minMarginPct: string;
       minMarginPctHint: string;
+      scrapPct: string;
+      scrapPctHint: string;
       transportBase: string;
       transportBaseHint: string;
       transportOrigin: string;
@@ -1169,6 +1171,8 @@ export const pl: Translations = {
       transportBase: 'Transport bazowy',
       minMarginPct: 'Minimalna marża (%)',
       minMarginPctHint: 'Poniżej tego progu marża pozycji wymaga zatwierdzenia przez seniora lub admina.',
+      scrapPct: 'Złom (%)',
+      scrapPctHint: 'Procent ceny wsadu (PGL + Σ Huta) doliczany w podsumowaniu SSC jako "Złom".',
       transportBaseHint: 'Wartość startowa transportu w nowej kalkulacji. Handlowiec może ją nadpisać.',
       transportOrigin: 'Adres nadania',
       transportOriginHint: 'Punkt A każdej trasy — magazyn, z którego wychodzi towar.',
@@ -1851,6 +1855,8 @@ export const en: Translations = {
       transportBase: 'Base transport',
       minMarginPct: 'Minimum margin (%)',
       minMarginPctHint: 'Below this margin threshold, a position requires senior or admin approval.',
+      scrapPct: 'Scrap (%)',
+      scrapPctHint: 'Percentage of the input price (PGL + Σ Mill) added in the SSC summary as "Scrap".',
       transportBaseHint: 'Starting transport value for a new calculation. Salespeople can override it.',
       transportOrigin: 'Origin address',
       transportOriginHint: 'Point A of every route - the warehouse the goods leave from.',
@@ -2532,6 +2538,8 @@ export const cs: Translations = {
       transportBase: 'Základní doprava',
       minMarginPct: 'Minimální marže (%)',
       minMarginPctHint: 'Pod touto hranicí marže položka vyžaduje schválení seniorem nebo adminem.',
+      scrapPct: 'Šrot (%)',
+      scrapPctHint: 'Procento ceny vsázky (PGL + Σ Huť) připočítané v souhrnu SSC jako "Šrot".',
       transportBaseHint: 'Výchozí hodnota dopravy pro novou kalkulaci. Obchodník ji může přepsat.',
       transportOrigin: 'Adresa odeslání',
       transportOriginHint: 'Bod A každé trasy - sklad, ze kterého zboží vyjíždí.',
@@ -3213,6 +3221,8 @@ export const de: Translations = {
       transportBase: 'Basis-Transport',
       minMarginPct: 'Mindestmarge (%)',
       minMarginPctHint: 'Unterhalb dieser Marge erfordert eine Position die Genehmigung durch Senior oder Admin.',
+      scrapPct: 'Schrott (%)',
+      scrapPctHint: 'Prozentsatz des Einsatzpreises (PGL + Σ Werk), der in der SSC-Summe als "Schrott" berechnet wird.',
       transportBaseHint: 'Startwert für Transport in einer neuen Kalkulation. Vertrieb kann ihn überschreiben.',
       transportOrigin: 'Versandadresse',
       transportOriginHint: 'Punkt A jeder Route - das Lager, aus dem die Ware herausgeht.',

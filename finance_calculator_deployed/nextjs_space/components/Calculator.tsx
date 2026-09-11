@@ -28,7 +28,6 @@ import {
   getTeardropSurcharge,
   TOL_THICK_OPTIONS,
   YIELD_GRADES,
-  SCRAP_CONSTANT,
   SteelType,
   Grade,
   ItemInputs,
@@ -523,16 +522,22 @@ export default function Calculator() {
       zmZabezp, zmOpak, zmPowierz, zmZgrzew,
       picklingSurcharge, teardropSurcharge]);
   
+  // Cena wsadu (PGL + Σ Huta) — potrzebna już tutaj, bo złom (niżej) jest jej procentem.
+  const cenaWsadu = pglBase + sumaHuta;
+
+  // Złom: % ceny wsadu, konfigurowalny w Ustawieniach (migracja 022). Dawniej stała
+  // kwota SCRAP_CONSTANT = 10 €/t.
+  const scrapAmount = cenaWsadu * (settings.scrapPct / 100);
+
   // Calculate SSC sum
   const sumaSSC = useMemo(() => {
     if (isCoilMode) return 0;
     return baseSurcharge + sscLenTol + sscFlatness + sscSurface + sscMaxWeight +
-           sscMarking + sscEdging + yieldValue + sscPacking + sscLabels + SCRAP_CONSTANT;
+           sscMarking + sscEdging + yieldValue + sscPacking + sscLabels + scrapAmount;
   }, [baseSurcharge, sscLenTol, sscFlatness, sscSurface, sscMaxWeight,
-      sscMarking, sscEdging, yieldValue, sscPacking, sscLabels, isCoilMode]);
-  
+      sscMarking, sscEdging, yieldValue, sscPacking, sscLabels, isCoilMode, scrapAmount]);
+
   // Calculate final values
-  const cenaWsadu = pglBase + sumaHuta;
   const marzaNetto = cenaWsadu * (marginPct / 100);
   const cenaKoncowa = cenaWsadu + marzaNetto + extra + transport + sumaSSC;
 
@@ -2251,12 +2256,12 @@ export default function Calculator() {
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
             
-            {/* Scrap */}
+            {/* Scrap — % ceny wsadu (migracja 022), procent konfigurowalny w Ustawieniach */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">
-                {t.ssc.scrap} <span className="text-[var(--text-muted)]">({language === 'pl' ? 'stała' : 'const'})</span>
+                {t.ssc.scrap} <span className="text-[var(--text-muted)]">({settings.scrapPct}%)</span>
               </span>
-              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money(SCRAP_CONSTANT)}</span>
+              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money2(scrapAmount)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
           </div>

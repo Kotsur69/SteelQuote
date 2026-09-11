@@ -1102,8 +1102,6 @@ export const YIELD_GRADES = [
   'Amstrong® Ultra 700MCT', 'Amstrong® Ultra 700MCT_A', 'AMSTRONG®550MC'
 ];
 
-export const SCRAP_CONSTANT = 10;
-
 export type SteelType = 'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | 'ZM';
 export type Grade = { name: string; value: number };
 

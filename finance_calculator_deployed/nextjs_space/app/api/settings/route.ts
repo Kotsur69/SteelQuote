@@ -11,6 +11,10 @@ const LEGACY_SETTINGS_COLUMNS =
   'eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, pgl_base_pickled, pgl_base_teardrop, pgl_base_zm, transport_base, min_margin_pct';
 const TRANSPORT_SETTINGS_COLUMNS =
   'transport_truck_capacity_t, transport_origin_address, transport_oversize_long_pln';
+// Kolumna z migracji 022 (scrap_pct). Osobno od reszty z tego samego powodu co
+// TRANSPORT_SETTINGS_COLUMNS wyżej — GET ma się wycofać do wartości domyślnej, a nie
+// wywrócić, gdy migracja 022 jeszcze nie została puszczona na danej bazie.
+const SCRAP_SETTINGS_COLUMNS = 'scrap_pct';
 
 /**
  * Cennik transportowy. Pusta tablica (brak tabeli albo brak wierszy) oznacza dla
@@ -51,14 +55,22 @@ export async function GET() {
     let result;
     try {
       result = await pool.query(
-        `SELECT ${LEGACY_SETTINGS_COLUMNS}, ${TRANSPORT_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`
+        `SELECT ${LEGACY_SETTINGS_COLUMNS}, ${TRANSPORT_SETTINGS_COLUMNS}, ${SCRAP_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`
       );
     } catch (error) {
-      // 42703 = undefined_column: migracja 020 jeszcze nie puszczona. Czytamy sam
-      // stary zestaw kolumn — parametry transportu wejdą wtedy z wartości domyślnych.
+      // 42703 = undefined_column: migracja 020 i/lub 022 jeszcze nie puszczona. Cofamy się
+      // stopniowo do starszych zestawów kolumn — brakujące parametry wejdą z wartości domyślnych.
       if ((error as { code?: string })?.code !== '42703') throw error;
-      console.warn('Brak kolumn transportowych w app_settings — uruchom migrations/020_transport_tariff.sql.');
-      result = await pool.query(`SELECT ${LEGACY_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`);
+      console.warn('Brak kolumny scrap_pct w app_settings — uruchom migrations/022_add_scrap_pct.sql.');
+      try {
+        result = await pool.query(
+          `SELECT ${LEGACY_SETTINGS_COLUMNS}, ${TRANSPORT_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`
+        );
+      } catch (innerError) {
+        if ((innerError as { code?: string })?.code !== '42703') throw innerError;
+        console.warn('Brak kolumn transportowych w app_settings — uruchom migrations/020_transport_tariff.sql.');
+        result = await pool.query(`SELECT ${LEGACY_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`);
+      }
     }
     // Brak wiersza = migracja 007 nie została puszczona. Nie wywracamy kalkulatora —
     // oddajemy wartości domyślne (identyczne z seedem migracji).
@@ -133,6 +145,7 @@ export async function PATCH(request: NextRequest) {
       { key: 'pglBaseZm', column: 'pgl_base_zm', label: 'PGL bazowe ZM', min: 0, max: 100000, steelType: 'ZM' },
       { key: 'transportBase', column: 'transport_base', label: 'Transport bazowy', min: 0, max: 100000, steelType: null },
       { key: 'minMarginPct', column: 'min_margin_pct', label: 'Minimalna marża', min: 0, max: 100, steelType: null },
+      { key: 'scrapPct', column: 'scrap_pct', label: 'Złom (%)', min: 0, max: 100, steelType: null },
       // Ładowność 0 dzieliłaby przez zero przy liczbie kursów, dlatego minimum > 0.
       { key: 'transportTruckCapacityT', column: 'transport_truck_capacity_t', label: 'Ładowność ciężarówki', min: 0.01, max: 100, steelType: null },
       { key: 'transportOversizeLongPln', column: 'transport_oversize_long_pln', label: 'Dopłata za elementy 13,6-15,1 m', min: 0, max: 100000, steelType: null },
@@ -211,7 +224,7 @@ export async function PATCH(request: NextRequest) {
 
       const result = await db.query(
         `UPDATE app_settings SET ${sets.join(', ')} WHERE id = 1
-         RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, pgl_base_pickled, pgl_base_teardrop, pgl_base_zm, transport_base, min_margin_pct`,
+         RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, pgl_base_pickled, pgl_base_teardrop, pgl_base_zm, transport_base, min_margin_pct, scrap_pct`,
         values
       );
 
