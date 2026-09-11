@@ -115,6 +115,17 @@ function validateEntries(year: unknown, raw: unknown): { year: number; cells: Va
   return { year: parsedYear, cells };
 }
 
+// app_settings kolumna dla każdego typu stali — fallback, gdy dany typ nie ma zaplanowanej
+// ceny na bieżący kwartał (patrz applyQuarterlyPglOverride w lib/pglQuarterly.ts).
+const BASE_COLUMN_BY_STEEL_TYPE: Record<SteelType, string> = {
+  HRS: 'pgl_base_hrs',
+  CR: 'pgl_base_cr',
+  HDG: 'pgl_base_hdg',
+  PICKLED: 'pgl_base_pickled',
+  TEARDROP: 'pgl_base_teardrop',
+  ZM: 'pgl_base_zm',
+};
+
 // PUT - podmiana całej siatki zaplanowanych cen PGL dla jednego roku. Tylko admin.
 //
 // Zapis jest CAŁOŚCIOWY (DELETE + INSERT w jednej transakcji, per rok) — ten sam wzorzec co
@@ -134,9 +145,39 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
+    // Gdy admin edytuje siatkę BIEŻĄCEGO roku, komórka bieżącego kwartału decyduje o cenie
+    // faktycznie używanej "teraz" (patrz applyQuarterlyPglOverride) — dokładnie tak samo jak
+    // ręczna wartość pgl_base_* w PATCH /api/settings. Taka zmiana musi więc trafić do tego
+    // samego logu pgl_price_history, inaczej zmiana ceny "znika" z historii mimo że realnie
+    // zaszła (dla typów z aktywnym harmonogramem pole ręczne jest w panelu read-only, więc
+    // jedyny sposób na zmianę ceny "teraz" to właśnie ta komórka).
+    const { year: curYear, quarter: curQuarter } = currentQuarter();
+    const logsCurrentQuarter = parsed.year === curYear;
+
     const db = await pool.connect();
     try {
       await db.query('BEGIN');
+
+      const oldEffectiveByType: Partial<Record<SteelType, number>> = {};
+      if (logsCurrentQuarter) {
+        const baseRow = await db.query(
+          `SELECT ${STEEL_TYPES.map((t) => BASE_COLUMN_BY_STEEL_TYPE[t]).join(', ')} FROM app_settings WHERE id = 1`
+        );
+        const oldQuarterly = await db.query(
+          `SELECT steel_type, price FROM pgl_quarterly_prices WHERE year = $1 AND quarter = $2`,
+          [curYear, curQuarter]
+        );
+        const oldQuarterlyByType: Partial<Record<SteelType, number>> = {};
+        for (const row of oldQuarterly.rows) {
+          oldQuarterlyByType[row.steel_type as SteelType] = Number(row.price);
+        }
+        for (const type of STEEL_TYPES) {
+          const manual = baseRow.rows[0]?.[BASE_COLUMN_BY_STEEL_TYPE[type]];
+          oldEffectiveByType[type] =
+            oldQuarterlyByType[type] ?? (manual === undefined ? undefined : Number(manual));
+        }
+      }
+
       await db.query('DELETE FROM pgl_quarterly_prices WHERE year = $1', [parsed.year]);
 
       for (const cell of parsed.cells) {
@@ -145,6 +186,35 @@ export async function PUT(request: NextRequest) {
            VALUES ($1, $2, $3, $4, $5)`,
           [parsed.year, cell.quarter, cell.steelType, cell.price, session.userId]
         );
+      }
+
+      if (logsCurrentQuarter) {
+        const newQuarterlyByType: Partial<Record<SteelType, number>> = {};
+        for (const cell of parsed.cells) {
+          if (cell.quarter === curQuarter) newQuarterlyByType[cell.steelType] = cell.price;
+        }
+        for (const type of STEEL_TYPES) {
+          const oldValue = oldEffectiveByType[type];
+          // Gdy typ traci zaplanowaną cenę na ten kwartał, newQuarterlyByType nie ma wpisu i
+          // wracamy do tej samej ręcznej wartości, którą oldEffectiveByType już uwzględniał
+          // jako fallback — to poprawne "brak zmiany", nie bug.
+          const newValue = newQuarterlyByType[type] ?? oldEffectiveByType[type];
+          if (oldValue === undefined || newValue === undefined || oldValue === newValue) continue;
+          try {
+            await db.query('SAVEPOINT pgl_history_insert');
+            await db.query(
+              `INSERT INTO pgl_price_history (steel_type, old_price, new_price, changed_by)
+               VALUES ($1, $2, $3, $4)`,
+              [type, oldValue, newValue, session.userId]
+            );
+          } catch (historyError) {
+            // 42P01 = undefined_table. Migracja 013 jeszcze nie puszczona — nie wywracamy
+            // zapisu harmonogramu, tylko pomijamy log (patrz GET /api/settings/pgl-history).
+            if ((historyError as { code?: string })?.code !== '42P01') throw historyError;
+            await db.query('ROLLBACK TO SAVEPOINT pgl_history_insert');
+            console.warn('Tabela pgl_price_history nie istnieje — uruchom migrations/013_create_pgl_price_history.sql.');
+          }
+        }
       }
 
       await db.query('COMMIT');
