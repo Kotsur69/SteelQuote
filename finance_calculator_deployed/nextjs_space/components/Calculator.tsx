@@ -2297,7 +2297,7 @@ export default function Calculator() {
               </div>
               {/* Poniżej bazy z Ustawień -> ta pozycja będzie wymagać zatwierdzenia (patrz lib/offerReview.ts) */}
               {pglBase < pglBaseForType(currentType, settings) && (
-                <p className="mt-1 text-[10px] text-[var(--accent-hrs)]">
+                <p className="mt-1.5 px-2 py-1 rounded border border-[#ef4444] bg-[rgba(239,68,68,0.12)] text-[11px] font-semibold text-[#ef4444]">
                   ⚠️ {t.summary.pglBelowBaseWarning} ({pglBaseForType(currentType, settings)} €/t)
                 </p>
               )}
@@ -2328,7 +2328,7 @@ export default function Calculator() {
               </div>
               {/* Poniżej minimum z Ustawień -> ta pozycja będzie wymagać zatwierdzenia (patrz lib/offerReview.ts) */}
               {marginPct < settings.minMarginPct && (
-                <p className="mt-1 text-[10px] text-[var(--accent-hrs)]">
+                <p className="mt-1.5 px-2 py-1 rounded border border-[#ef4444] bg-[rgba(239,68,68,0.12)] text-[11px] font-semibold text-[#ef4444]">
                   ⚠️ {t.summary.marginBelowMinWarning} ({settings.minMarginPct}%)
                 </p>
               )}
