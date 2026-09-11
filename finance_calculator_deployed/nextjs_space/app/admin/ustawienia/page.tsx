@@ -250,17 +250,22 @@ export default function AdminSettingsPage() {
     setSaving(true);
     setMessage(null);
     try {
+      // Typ z ceną zaplanowaną na TEN kwartał ma pole miesiąca tylko do odczytu, a w `form`
+      // siedzi wtedy wartość Z HARMONOGRAMU (GET /api/settings nakłada ją na pgl_base_*).
+      // Odesłanie jej z powrotem nadpisałoby ręczną wartość bazową ceną kwartalną — przy
+      // każdym zapisie karty, nawet gdy admin zmieniał tylko kurs. Takie typy pomijamy.
+      const manualPglFields = Object.fromEntries(
+        STEEL_TYPES
+          .filter((type) => quarterlyCurrentPrices[type] === undefined)
+          .map((type) => [PGL_FORM_KEY_BY_TYPE[type], form[PGL_FORM_KEY_BY_TYPE[type]]])
+      );
+
       const res = await fetch('/api/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           eurPlnRate: form.eurPlnRate,
-          pglBaseHrs: form.pglBaseHrs,
-          pglBaseCr: form.pglBaseCr,
-          pglBaseHdg: form.pglBaseHdg,
-          pglBasePickled: form.pglBasePickled,
-          pglBaseTeardrop: form.pglBaseTeardrop,
-          pglBaseZm: form.pglBaseZm,
+          ...manualPglFields,
           transportBase: form.transportBase,
           minMarginPct: form.minMarginPct,
           transportTruckCapacityT: form.transportTruckCapacityT,
