@@ -535,8 +535,8 @@ export default function Calculator() {
   const cenaWsadu = pglBase + sumaHuta;
 
   // Złom: % ceny wsadu, konfigurowalny w Ustawieniach (migracja 022). Dawniej stała
-  // kwota SCRAP_CONSTANT = 10 €/t.
-  const scrapAmount = cenaWsadu * (settings.scrapPct / 100);
+  // kwota SCRAP_CONSTANT = 10 €/t. Zaokrąglone do liczby całkowitej na polecenie zarządu.
+  const scrapAmount = Math.round(cenaWsadu * (settings.scrapPct / 100));
 
   // Calculate SSC sum
   const sumaSSC = useMemo(() => {
@@ -2342,7 +2342,7 @@ export default function Calculator() {
               <span className="flex-1 text-xs text-[var(--text-secondary)]">
                 {t.ssc.scrap} <span className="text-[var(--text-muted)]">({settings.scrapPct}%)</span>
               </span>
-              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money2(scrapAmount)}</span>
+              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money(scrapAmount)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
           </div>
