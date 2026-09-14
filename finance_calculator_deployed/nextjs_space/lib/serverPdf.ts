@@ -43,6 +43,23 @@ export interface ServerPdfInput {
   eurPlnRate?: number;
   // Język UI handlowca w momencie eksportu — PDF renderuje się w tym języku.
   language: Language;
+  // Okres ważności oferty (Ważna od/do) wybrany w kalkulatorze — surowy string YYYY-MM-DD
+  // z <input type="date">, formatowany na wyświetlanie niżej (ten sam wzorzec co
+  // createdAt -> offerDate). Brak = PDF nie pokazuje dodatkowej linijki.
+  validFrom?: string;
+  validTo?: string;
+}
+
+/**
+ * Formatuje surowy string YYYY-MM-DD na lokalną datę do wyświetlenia. Rozbijamy cyfry ręcznie
+ * i budujemy Date z lokalnych składowych — NIE przez `new Date(string)`, który czyta datę jako
+ * UTC północ i w strefach na zachód od UTC cofnąłby wyświetlany dzień o jeden.
+ */
+function formatDateOnly(value: string | undefined, locale: string): string | undefined {
+  const match = value ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null;
+  if (!match) return undefined;
+  const [, year, month, day] = match;
+  return new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString(locale);
 }
 
 // Mapuje pozycje zestawienia na ksztalt oczekiwany przez /api/generate-pdf,
@@ -72,6 +89,8 @@ export async function downloadServerPdf(input: ServerPdfInput): Promise<void> {
   const offerDate = input.createdAt
     ? new Date(input.createdAt).toLocaleDateString(dateLocale)
     : new Date().toLocaleDateString(dateLocale);
+  const validFrom = formatDateOnly(input.validFrom, dateLocale);
+  const validTo = formatDateOnly(input.validTo, dateLocale);
 
   const res = await fetch('/api/generate-pdf', {
     method: 'POST',
@@ -84,6 +103,8 @@ export async function downloadServerPdf(input: ServerPdfInput): Promise<void> {
       currency: input.currency,
       eurPlnRate: input.eurPlnRate,
       language: input.language,
+      validFrom,
+      validTo,
     }),
   });
 

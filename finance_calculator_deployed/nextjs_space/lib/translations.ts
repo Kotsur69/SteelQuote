@@ -177,6 +177,8 @@ export interface Translations {
     sheetMode: string;
     sheetModeShort: string;
     sheetWeight: string;
+    offerValidFrom: string;
+    offerValidTo: string;
   };
   
   // Mill surcharges (Huta)
@@ -343,6 +345,7 @@ export interface Translations {
     widthOutOfRange: string;
     baseSurchargeFallback: string;
     legacyItemEdit: string;
+    offerValiditySpansQuarters: string;
   };
 
   // Client information
@@ -894,6 +897,8 @@ export const pl: Translations = {
     sheetMode: 'Arkusz',
     sheetModeShort: 'Arkusz (cięcie na wymiar)',
     sheetWeight: 'Waga arkusza',
+    offerValidFrom: 'Ważna od',
+    offerValidTo: 'Ważna do',
   },
   
   huta: {
@@ -1043,6 +1048,7 @@ export const pl: Translations = {
     widthOutOfRange: 'Szerokość <strong>{width} mm</strong> jest poza zakresem tabeli.',
     baseSurchargeFallback: 'Grubość <strong>{thickness} mm</strong> jest poza zakresem tabeli dopłat bazowych SSC — użyto szacunkowej dopłaty <strong>{value} €/t</strong>, która może być niedokładna.',
     legacyItemEdit: 'Ta pozycja została dodana przed wprowadzeniem szczegółowej edycji — przełączniki dopłat po lewej NIE zostały automatycznie odtworzone z oryginału. Sprawdź je ręcznie przed zapisaniem, inaczej cena może się zmienić.',
+    offerValiditySpansQuarters: 'Okres ważności oferty obejmuje więcej niż jeden kwartał — PGL nie zostanie dobrane automatycznie. Zawęź zakres do jednego kwartału albo ustaw PGL ręcznie.',
   },
 
   client: {
@@ -1578,6 +1584,8 @@ export const en: Translations = {
     sheetMode: 'Sheet',
     sheetModeShort: 'Sheet (cut to size)',
     sheetWeight: 'Sheet weight',
+    offerValidFrom: 'Valid from',
+    offerValidTo: 'Valid to',
   },
   
   huta: {
@@ -1727,6 +1735,7 @@ export const en: Translations = {
     widthOutOfRange: 'Width <strong>{width} mm</strong> is out of table range.',
     baseSurchargeFallback: 'Thickness <strong>{thickness} mm</strong> is out of the SSC base surcharge table range — an estimated surcharge of <strong>{value} €/t</strong> was used, which may not be accurate.',
     legacyItemEdit: 'This item was added before detailed editing existed — the surcharge toggles on the left were NOT automatically restored from the original. Check them manually before saving, or the price may change.',
+    offerValiditySpansQuarters: 'The offer validity period spans more than one quarter — PGL will not be selected automatically. Narrow the range to a single quarter or set PGL manually.',
   },
 
   client: {
@@ -2261,6 +2270,8 @@ export const cs: Translations = {
     sheetMode: 'Tabule',
     sheetModeShort: 'Tabule (dělení na míru)',
     sheetWeight: 'Hmotnost tabule',
+    offerValidFrom: 'Platná od',
+    offerValidTo: 'Platná do',
   },
 
   huta: {
@@ -2410,6 +2421,7 @@ export const cs: Translations = {
     widthOutOfRange: 'Šířka <strong>{width} mm</strong> je mimo rozsah tabulky.',
     baseSurchargeFallback: 'Tloušťka <strong>{thickness} mm</strong> je mimo rozsah tabulky základních přirážek SSC — byla použita odhadovaná přirážka <strong>{value} €/t</strong>, která nemusí být přesná.',
     legacyItemEdit: 'Tato položka byla přidána před zavedením podrobné editace — přepínače příplatků vlevo NEBYLY automaticky obnoveny z originálu. Před uložením je ručně zkontrolujte, jinak se cena může změnit.',
+    offerValiditySpansQuarters: 'Doba platnosti nabídky přesahuje jedno čtvrtletí — PGL nebude vybráno automaticky. Zúžte rozsah na jedno čtvrtletí nebo nastavte PGL ručně.',
   },
 
   client: {
@@ -2944,6 +2956,8 @@ export const de: Translations = {
     sheetMode: 'Tafel',
     sheetModeShort: 'Tafel (Zuschnitt)',
     sheetWeight: 'Tafelgewicht',
+    offerValidFrom: 'Gültig ab',
+    offerValidTo: 'Gültig bis',
   },
 
   huta: {
@@ -3093,6 +3107,7 @@ export const de: Translations = {
     widthOutOfRange: 'Die Breite <strong>{width} mm</strong> liegt außerhalb des Tabellenbereichs.',
     baseSurchargeFallback: 'Die Dicke <strong>{thickness} mm</strong> liegt außerhalb des Tabellenbereichs für SSC-Grundzuschläge — es wurde ein geschätzter Zuschlag von <strong>{value} €/t</strong> verwendet, der möglicherweise ungenau ist.',
     legacyItemEdit: 'Diese Position wurde vor Einführung der Detailbearbeitung hinzugefügt — die Zuschlagsschalter links wurden NICHT automatisch aus dem Original wiederhergestellt. Bitte vor dem Speichern manuell prüfen, sonst kann sich der Preis ändern.',
+    offerValiditySpansQuarters: 'Der Gültigkeitszeitraum des Angebots umfasst mehr als ein Quartal — PGL wird nicht automatisch ausgewählt. Grenzen Sie den Zeitraum auf ein Quartal ein oder legen Sie PGL manuell fest.',
   },
 
   client: {

@@ -31,7 +31,7 @@ interface CurrencyContextType {
    * zależy na aktualnym stanie przy każdym wejściu (patrz Calculator.tsx), wołają to same
    * przy montowaniu zamiast polegać wyłącznie na jednorazowym fetchu poniżej.
    */
-  refreshSettings: () => Promise<AppSettings | null>;
+  refreshSettings: (quarterlyTarget?: { year: number; quarter: 1 | 2 | 3 | 4 }) => Promise<AppSettings | null>;
   /** Nadpisuje kurs kursem zamrożonym w ofercie. null = wróć do bieżącego kursu z ustawień. */
   setRateOverride: (rate: number | null) => void;
   /** EUR -> waluta wyświetlania. */
@@ -59,9 +59,14 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   // Pobiera świeże ustawienia z /api/settings i aktualizuje kontekst. Błąd (np. wygasła
   // sesja, brak migracji) nie może wywrócić kalkulatora - zostajemy przy tym, co już mamy
   // (na starcie to DEFAULT_SETTINGS, kopia seeda z migracji 007/011).
-  const refreshSettings = useCallback(async (): Promise<AppSettings | null> => {
+  const refreshSettings = useCallback(async (
+    quarterlyTarget?: { year: number; quarter: 1 | 2 | 3 | 4 }
+  ): Promise<AppSettings | null> => {
     try {
-      const res = await fetch('/api/settings');
+      const url = quarterlyTarget
+        ? `/api/settings?year=${quarterlyTarget.year}&quarter=${quarterlyTarget.quarter}`
+        : '/api/settings';
+      const res = await fetch(url);
       if (!res.ok) return null;
       const data = await res.json();
       if (data?.settings) {

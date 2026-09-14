@@ -38,6 +38,9 @@ export interface PdfLabels {
   rateNote: (rate: string) => string;
   invoiceNote: string;
   validityNote: string;
+  // Zakres dat "okresu ważności oferty" (od-do) wybranego w kalkulatorze — dodatkowa linijka
+  // OBOK stałego validityNote (48h), nie zamiast niego. Renderowana tylko gdy obie daty przyszły.
+  validityRangeNote: (from: string, to: string) => string;
   paymentNote: string;
   minQuantityNote: string;
   deliveryNote: string;
@@ -91,6 +94,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     rateNote: (rate) => `Kurs przeliczeniowy: 1 EUR = ${rate} PLN (kurs z dnia wyceny).`,
     invoiceNote: 'Faktura wystawiana na podstawie wagi brutto.',
     validityNote: 'Ważność oferty: 48h od daty wystawienia.',
+    validityRangeNote: (from, to) => `Okres ważności oferty: ${from} – ${to}.`,
     paymentNote: 'Warunki płatności: wg ustaleń indywidualnych.',
     minQuantityNote: 'Minimalna ilość: 5 ton na pozycję.',
     deliveryNote: 'Termin dostawy: po potwierdzeniu dostępności materiału.',
@@ -132,6 +136,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     rateNote: (rate) => `Exchange rate: 1 EUR = ${rate} PLN (rate as of valuation date).`,
     invoiceNote: 'Invoice issued based on gross weight.',
     validityNote: 'Offer validity: 48h from issue date.',
+    validityRangeNote: (from, to) => `Offer validity period: ${from} – ${to}.`,
     paymentNote: 'Payment terms: as individually agreed.',
     minQuantityNote: 'Minimum quantity: 5 tons per item.',
     deliveryNote: 'Delivery time: upon confirmation of material availability.',
@@ -173,6 +178,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     rateNote: (rate) => `Směnný kurz: 1 EUR = ${rate} PLN (kurz ke dni ocenění).`,
     invoiceNote: 'Faktura vystavena na základě hrubé hmotnosti.',
     validityNote: 'Platnost nabídky: 48h od data vystavení.',
+    validityRangeNote: (from, to) => `Doba platnosti nabídky: ${from} – ${to}.`,
     paymentNote: 'Platební podmínky: dle individuální dohody.',
     minQuantityNote: 'Minimální množství: 5 tun na položku.',
     deliveryNote: 'Termín dodání: po potvrzení dostupnosti materiálu.',
@@ -214,6 +220,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     rateNote: (rate) => `Wechselkurs: 1 EUR = ${rate} PLN (Kurs zum Bewertungsdatum).`,
     invoiceNote: 'Rechnungsstellung auf Basis des Bruttogewichts.',
     validityNote: 'Angebotsgültigkeit: 48h ab Ausstellungsdatum.',
+    validityRangeNote: (from, to) => `Gültigkeitszeitraum des Angebots: ${from} – ${to}.`,
     paymentNote: 'Zahlungsbedingungen: nach individueller Vereinbarung.',
     minQuantityNote: 'Mindestmenge: 5 Tonnen pro Position.',
     deliveryNote: 'Liefertermin: nach Bestätigung der Materialverfügbarkeit.',
