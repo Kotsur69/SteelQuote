@@ -45,6 +45,7 @@ import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
 import { useUnsavedGuard } from '@/lib/unsavedGuard';
 import { pglBaseForType } from '@/lib/currency';
+import { quarterOfDateString } from '@/lib/quarterUtils';
 import { formatWarning } from '@/lib/translations';
 import {
   ClientInfo,
@@ -106,6 +107,7 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
   sscMaxWeight: 0, sscMarking: 0, sscEdging: 0,
   sscPacking: 0, sscPackingIdx: 0, sscLabels: 0,
   pglBase: 645, marginPct: 7, extra: 0, extraComment: '', extraCommentInPdf: false, transport: 20, tons: 1,
+  validFrom: '', validTo: '',
   zestawienie: [],
   clientInfo: EMPTY_CLIENT_INFO,
   transportRoute: EMPTY_TRANSPORT_ROUTE,
@@ -164,6 +166,13 @@ export default function Calculator() {
   const [width, setWidth] = useState(1500);
   const [length, setLength] = useState(3000);
   const [isCoilMode, setIsCoilMode] = useState(false);
+
+  // Okres ważności oferty (Ważna od/do, YYYY-MM-DD) — decyduje, z którego kwartału harmonogramu
+  // PGL (lib/pglQuarterly.ts) kalkulator bierze cenę bazową zamiast kwartału "teraz". Osobne pole
+  // od trybu Arkusz/Krąg powyżej — patrz efekt niżej, który przelicza PGL po zmianie tych dat.
+  const [validFrom, setValidFrom] = useState('');
+  const [validTo, setValidTo] = useState('');
+
   const [gradeInput, setGradeInput] = useState('S235JR+N');
   const [selectedGrade, setSelectedGrade] = useState<Grade | null>({ name: 'S235JR+N', value: 24 });
   
@@ -946,6 +955,9 @@ export default function Calculator() {
     sscMaxWeight, sscMarking, sscEdging,
     sscPacking, sscPackingIdx, sscLabels,
     pglBase, marginPct, extra, extraComment, extraCommentInPdf, transport, tons,
+    // Okres ważności oferty — mrożony razem z resztą, tak jak pglBase/transport: po ponownym
+    // otwarciu widać dokładnie te daty, na które oferta była wyceniona.
+    validFrom, validTo,
     zestawienie,
     clientInfo,
     // Trasa zamrażana razem z ofertą — po ponownym otwarciu widać, na jakim adresie
@@ -1009,6 +1021,8 @@ export default function Calculator() {
     if (data.extraCommentInPdf !== undefined) setExtraCommentInPdf(data.extraCommentInPdf);
     if (data.transport !== undefined) setTransport(data.transport);
     if (data.tons !== undefined) setTons(data.tons);
+    if (data.validFrom !== undefined) setValidFrom(data.validFrom);
+    if (data.validTo !== undefined) setValidTo(data.validTo);
     if (data.zestawienie !== undefined) setZestawienie(data.zestawienie);
     // normalizeClientInfo, a nie surowe przypisanie: oferta zapisana przed dodaniem
     // SAP_ID nie ma tego pola, a niekontrolowany input to ostrzeżenie Reacta i pole,
@@ -1060,6 +1074,8 @@ export default function Calculator() {
         currency,
         eurPlnRate: rate,
         language,
+        validFrom,
+        validTo,
       });
       setSaveMessage({ type: 'success', text: language === 'pl' ? 'PDF wygenerowany!' : 'PDF generated!' });
     } catch (error) {
@@ -1147,6 +1163,36 @@ export default function Calculator() {
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Kwartał wyliczony z "Ważna od"/"Ważna do" — steruje ostrzeżeniem, gdy zakres wykracza poza
+  // jeden kwartał (harmonogram PGL ma granulację kwartalną, więc taki zakres jest niejednoznaczny
+  // co do tego, która cena obowiązuje). Czysto wyświetleniowe, bez efektów ubocznych — bezpieczne
+  // także podczas wczytywania zapisanej oferty (restoreOfferData ustawia te same stany).
+  const validFromQuarter = useMemo(() => (validFrom ? quarterOfDateString(validFrom) : null), [validFrom]);
+  const validToQuarter = useMemo(() => (validTo ? quarterOfDateString(validTo) : null), [validTo]);
+  const validitySpansQuarters = !!(
+    validFromQuarter &&
+    validToQuarter &&
+    (validFromQuarter.year !== validToQuarter.year || validFromQuarter.quarter !== validToQuarter.quarter)
+  );
+
+  // Auto-dobór PGL wg kwartału "Ważna od" — ten sam wzorzec co selectType() przy zmianie typu
+  // stali (setPglBase(pglBaseForType(...))), tylko sparametryzowany kwartałem oferty zamiast
+  // kwartału "teraz". Wołane WYŁĄCZNIE z onChange pól dat poniżej (nie z useEffect na stanie) —
+  // inaczej wczytanie zapisanej oferty (restoreOfferData ustawia validFrom z zamrożonych danych)
+  // nadpisałoby zamrożone pglBase tej oferty biężącą wartością z ustawień. Pusta data "od" albo
+  // zakres na styku dwóch kwartałów -> PGL zostaje bez zmian, użytkownik dostaje ostrzeżenie
+  // (patrz validitySpansQuarters) zamiast cichej, niejednoznacznej podmiany.
+  const applyQuarterlyPglForValidity = (fromValue: string, toValue: string) => {
+    const fromQ = fromValue ? quarterOfDateString(fromValue) : null;
+    const toQ = toValue ? quarterOfDateString(toValue) : null;
+    const spans = !!(fromQ && toQ && (fromQ.year !== toQ.year || fromQ.quarter !== toQ.quarter));
+    if (!fromQ || spans) return;
+    (async () => {
+      const next = await refreshSettings(fromQ);
+      if (next) setPglBase(pglBaseForType(currentType, next));
+    })();
+  };
 
   // Save offer function. Returns true on a successful save so the unsaved-changes guard
   // can chain "Zapisz i kontynuuj" -> proceed with the pending navigation.
@@ -1718,7 +1764,8 @@ export default function Calculator() {
       </div>
 
       {/* Tryb ARKUSZ / KRĄG — etykieta i kolor zawsze pokazują aktywny tryb, nie tylko "wyłączony" stan */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="mb-4">
+      <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={() => setIsCoilMode(!isCoilMode)}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-md font-mono text-[12px] font-semibold tracking-wider border-[1.5px] transition-all
@@ -1735,6 +1782,40 @@ export default function Calculator() {
             {isCoilMode ? t.inputs.coilModeShort : t.inputs.sheetModeShort}
           </span>
         </button>
+
+        {/* Okres ważności oferty — osobne pole OBOK trybu Arkusz/Krąg (nie w środku toggle'a).
+            Decyduje o automatycznym doborze PGL kwartalnego (patrz efekt wyżej) i trafia
+            dodatkowo na PDF, obok istniejącej stałej formułki "48h od daty wystawienia". */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md border-[1.5px] border-[var(--border)] bg-[var(--bg-panel)]">
+          <label className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
+            {t.inputs.offerValidFrom}
+            <input
+              type="date"
+              value={validFrom}
+              onChange={e => { setValidFrom(e.target.value); applyQuarterlyPglForValidity(e.target.value, validTo); }}
+              className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[12px] normal-case tracking-normal outline-none focus:border-[var(--accent-cr)]
+                ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+            />
+          </label>
+          <label className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
+            {t.inputs.offerValidTo}
+            <input
+              type="date"
+              value={validTo}
+              onChange={e => { setValidTo(e.target.value); applyQuarterlyPglForValidity(validFrom, e.target.value); }}
+              min={validFrom || undefined}
+              className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[12px] normal-case tracking-normal outline-none focus:border-[var(--accent-cr)]
+                ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+            />
+          </label>
+        </div>
+      </div>
+
+      {validitySpansQuarters && (
+        <p className="mt-2 px-2 py-1 rounded border border-[#ef4444] bg-[rgba(239,68,68,0.12)] text-[11px] font-semibold text-[#ef4444] inline-block">
+          ⚠️ {t.warnings.offerValiditySpansQuarters}
+        </p>
+      )}
       </div>
 
       {/* Input Parameters Bar */}

@@ -70,7 +70,9 @@ function buildHtml(
   userName: string,
   currency: Currency,
   eurPlnRate: number,
-  language: Language
+  language: Language,
+  validFrom?: string,
+  validTo?: string
 ): string {
   const logo = getLogoBase64();
   const L = PDF_LABELS[language];
@@ -232,6 +234,7 @@ function buildHtml(
       ${isPln ? `<li>${L.rateNote(eurPlnRate.toFixed(4).replace(/0+$/, '').replace(/\.$/, ''))}</li>` : ''}
       <li>${L.invoiceNote}</li>
       <li>${L.validityNote}</li>
+      ${validFrom && validTo ? `<li>${escapeHtml(L.validityRangeNote(validFrom, validTo))}</li>` : ''}
       <li>${L.paymentNote}</li>
       <li>${L.minQuantityNote}</li>
       <li>${L.deliveryNote}</li>
@@ -261,7 +264,7 @@ export async function POST(request: Request) {
     }
     const session = auth.session;
 
-    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language } = await request.json();
+    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language, validFrom, validTo } = await request.json();
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'No items provided' }, { status: 400 });
     }
@@ -278,7 +281,12 @@ export async function POST(request: Request) {
     const pdfCurrency: Currency = isCurrency(currency) ? currency : DEFAULT_CURRENCY;
     const pdfRate = sanitizeRate(eurPlnRate);
 
-    const html_content = buildHtml(items, client, offerName || '', date, userName, pdfCurrency, pdfRate, pdfLanguage);
+    // Zakres "okresu ważności oferty" — opcjonalny, już sformatowany string od klienta
+    // (ten sam wzorzec co `offerDate` powyżej). Puste/brak = linijka po prostu się nie pojawia.
+    const validFromStr: string | undefined = typeof validFrom === 'string' && validFrom ? validFrom : undefined;
+    const validToStr: string | undefined = typeof validTo === 'string' && validTo ? validTo : undefined;
+
+    const html_content = buildHtml(items, client, offerName || '', date, userName, pdfCurrency, pdfRate, pdfLanguage, validFromStr, validToStr);
 
     // Step 1: Create PDF request
     const createResponse = await fetch('https://apps.abacus.ai/api/createConvertHtmlToPdfRequest', {

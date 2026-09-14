@@ -3,7 +3,7 @@ import pool from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { DEFAULT_SETTINGS, settingsRowToAppSettings, type AppSettings } from '@/lib/currency';
 import type { TariffBand } from '@/lib/transportTariff';
-import { applyQuarterlyPglOverride } from '@/lib/pglQuarterly';
+import { applyQuarterlyPglOverride, type Quarter } from '@/lib/pglQuarterly';
 
 // Kolumny app_settings sprzed migracji 020. Trzymamy je osobno, żeby GET umiał się
 // wycofać do starszego schematu, gdy kod jest wdrożony przed puszczeniem migracji.
@@ -41,15 +41,41 @@ async function readTariffBands(): Promise<TariffBand[]> {
   }
 }
 
+const MIN_QUARTERLY_YEAR = 2020;
+const MAX_QUARTERLY_YEAR = 2100;
+
+/**
+ * Opcjonalny cel `?year=&quarter=` — pozwala kalkulatorowi zapytać o PGL zaplanowane na kwartał
+ * wybranego "okresu ważności oferty" zamiast na bieżący (patrz lib/pglQuarterly.ts). Brak/błędne
+ * parametry -> undefined, GET wraca do domyślnego zachowania (kwartał "teraz").
+ */
+function parseQuarterlyTarget(searchParams: URLSearchParams): { year: number; quarter: Quarter } | undefined {
+  const yearRaw = searchParams.get('year');
+  const quarterRaw = searchParams.get('quarter');
+  if (yearRaw === null || quarterRaw === null) return undefined;
+
+  const year = parseInt(yearRaw, 10);
+  const quarter = parseInt(quarterRaw, 10);
+  if (!Number.isFinite(year) || year < MIN_QUARTERLY_YEAR || year > MAX_QUARTERLY_YEAR) return undefined;
+  if (quarter !== 1 && quarter !== 2 && quarter !== 3 && quarter !== 4) return undefined;
+
+  return { year, quarter };
+}
+
 // GET - Globalne ustawienia. Dostępne dla KAŻDEJ zalogowanej roli: junior i senior
 // potrzebują kursu, żeby w ogóle wyświetlić cenę w PLN, a PGL/transport są ich
 // domyślnymi wartościami startowymi. Zapis jest osobno chroniony (PATCH = tylko admin).
 //
 // Te wartości dotyczą WYŁĄCZNIE nowej kalkulacji. Zapisana oferta trzyma własne kopie
 // pglBase/transport oraz własny zamrożony kurs w offer_data.
-export async function GET() {
+//
+// Opcjonalne ?year=&quarter= (patrz parseQuarterlyTarget) — kalkulator używa ich, żeby dostać
+// PGL zaplanowane na kwartał wybranego "okresu ważności oferty" zamiast na bieżący.
+export async function GET(request: NextRequest) {
   const auth = await requireRole(['junior', 'senior', 'admin']);
   if ('error' in auth) return auth.error;
+
+  const quarterlyTarget = parseQuarterlyTarget(new URL(request.url).searchParams);
 
   try {
     let result;
@@ -78,8 +104,9 @@ export async function GET() {
       return NextResponse.json({ settings: DEFAULT_SETTINGS });
     }
     const settings = settingsRowToAppSettings(result.rows[0], await readTariffBands());
+    // `quarterlyTarget` undefined -> applyQuarterlyPglOverride używa domyślnego celu (kwartał "teraz").
     return NextResponse.json({
-      settings: await applyQuarterlyPglOverride(settings),
+      settings: await applyQuarterlyPglOverride(settings, quarterlyTarget),
     });
   } catch (error) {
     // 42P01 = undefined_table. Zdarza się, gdy kod jest wdrożony, a migracja 007 jeszcze

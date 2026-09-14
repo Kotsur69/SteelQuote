@@ -9,8 +9,9 @@
 import pool from './db';
 import type { AppSettings } from './currency';
 import type { SteelType } from './calculatorData';
+import { quarterOf, type Quarter } from './quarterUtils';
 
-export type Quarter = 1 | 2 | 3 | 4;
+export type { Quarter };
 
 export const STEEL_TYPES: SteelType[] = ['HRS', 'CR', 'HDG', 'PICKLED', 'TEARDROP', 'ZM'];
 
@@ -35,10 +36,7 @@ const SETTINGS_KEY_BY_STEEL_TYPE: Record<SteelType, NumericPglKey> = {
 
 /** Rok + kwartał (1-4) dla podanej daty — domyślnie "teraz" wg zegara serwera. */
 export function currentQuarter(date: Date = new Date()): { year: number; quarter: Quarter } {
-  return {
-    year: date.getFullYear(),
-    quarter: (Math.floor(date.getMonth() / 3) + 1) as Quarter,
-  };
+  return quarterOf(date);
 }
 
 export interface PglQuarterlyEntry {
@@ -52,14 +50,13 @@ export interface PglQuarterlyEntry {
 }
 
 /**
- * Ceny zaplanowane na AKTUALNY kwartał (wg zegara serwera), per typ stali. Brak wpisu dla typu
- * = ten typ nie ma zaplanowanej ceny i jedzie dalej na ręcznej wartości pgl_base_*.
+ * Ceny zaplanowane na PODANY rok+kwartał, per typ stali. Brak wpisu dla typu = ten typ nie ma
+ * zaplanowanej ceny i jedzie dalej na ręcznej wartości pgl_base_*.
  * Brak tabeli (migracja 021 jeszcze nie puszczona) -> pusty wynik, tak samo jak przy
  * transport_tariff_bands w app/api/settings/route.ts — kalkulator ma dalej działać na
  * wartościach ręcznych, a nie sypać 500.
  */
-export async function readCurrentQuarterPrices(): Promise<Partial<Record<SteelType, number>>> {
-  const { year, quarter } = currentQuarter();
+export async function readQuarterPrices(year: number, quarter: Quarter): Promise<Partial<Record<SteelType, number>>> {
   try {
     const result = await pool.query(
       `SELECT steel_type, price FROM pgl_quarterly_prices WHERE year = $1 AND quarter = $2`,
@@ -76,12 +73,24 @@ export async function readCurrentQuarterPrices(): Promise<Partial<Record<SteelTy
   }
 }
 
+/** Ceny zaplanowane na AKTUALNY kwartał (wg zegara serwera) — patrz readQuarterPrices. */
+export async function readCurrentQuarterPrices(): Promise<Partial<Record<SteelType, number>>> {
+  const { year, quarter } = currentQuarter();
+  return readQuarterPrices(year, quarter);
+}
+
 /**
- * Nakłada na `settings` ceny zaplanowane na aktualny kwartał — jeśli admin zaplanował cenę dla
- * danego typu na ten kwartał, wygrywa ona z ręczną wartością pgl_base_*.
+ * Nakłada na `settings` ceny zaplanowane na dany rok+kwartał — jeśli admin zaplanował cenę dla
+ * danego typu na ten kwartał, wygrywa ona z ręczną wartością pgl_base_*. Domyślnie (bez `target`)
+ * to bieżący kwartał wg zegara serwera — dotychczasowe zachowanie dla wszystkich istniejących
+ * wywołań. Kalkulator może podać `target` wyliczony z wybranego "okresu ważności oferty", żeby
+ * dostać PGL zaplanowane na kwartał, w którym ta oferta ma obowiązywać, a nie na "teraz".
  */
-export async function applyQuarterlyPglOverride(settings: AppSettings): Promise<AppSettings> {
-  const prices = await readCurrentQuarterPrices();
+export async function applyQuarterlyPglOverride(
+  settings: AppSettings,
+  target: { year: number; quarter: Quarter } = currentQuarter()
+): Promise<AppSettings> {
+  const prices = await readQuarterPrices(target.year, target.quarter);
   const types = Object.keys(prices) as SteelType[];
   if (types.length === 0) return settings;
 

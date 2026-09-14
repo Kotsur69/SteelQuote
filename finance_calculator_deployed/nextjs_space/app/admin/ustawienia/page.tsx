@@ -306,6 +306,10 @@ export default function AdminSettingsPage() {
         return;
       }
       await loadQuarterly(quarterlyYear);
+      // Zmiana komórki bieżącego kwartału też może trafić do historii cen (patrz PUT
+      // /api/settings/pgl-quarterly) — bez tego drugiego odświeżenia panel pokazywałby
+      // nieaktualną historię do czasu ręcznego przeładowania strony.
+      loadHistory();
       setMessage({ type: 'success', text: t.admin.settings.saved });
     } catch (error) {
       console.error('Error saving settings:', error);
