@@ -46,6 +46,7 @@ import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
 import { useUnsavedGuard } from '@/lib/unsavedGuard';
 import { pglBaseForType } from '@/lib/currency';
 import { quarterOfDateString } from '@/lib/quarterUtils';
+import { addDaysToDateString } from '@/lib/dateUtils';
 import { formatWarning } from '@/lib/translations';
 import {
   ClientInfo,
@@ -107,7 +108,7 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
   sscMaxWeight: 0, sscMarking: 0, sscEdging: 0,
   sscPacking: 0, sscPackingIdx: 0, sscLabels: 0,
   pglBase: 645, marginPct: 7, extra: 0, extraComment: '', extraCommentInPdf: false, transport: 20, tons: 1,
-  validFrom: '', validTo: '',
+  validFrom: '', validTo: '', paymentTermFrom: '', paymentTermTo: '',
   zestawienie: [],
   clientInfo: EMPTY_CLIENT_INFO,
   transportRoute: EMPTY_TRANSPORT_ROUTE,
@@ -172,6 +173,16 @@ export default function Calculator() {
   // od trybu Arkusz/Krąg powyżej — patrz efekt niżej, który przelicza PGL po zmianie tych dat.
   const [validFrom, setValidFrom] = useState('');
   const [validTo, setValidTo] = useState('');
+
+  // Termin płatności — WŁASNY zakres od-do, niezależny od okresu ważności oferty powyżej
+  // (osobna para pól, obok Ważna od/do, nie ta sama). Wybranie paymentTermFrom dolicza
+  // paymentTermTo jako paymentTermFrom + N dni (klienta z bazy albo globalny domyślny
+  // z Ustawień) — ale "do" zostaje w pełni edytowalne ręcznie. `resolvedPaymentTermDays`
+  // pamięta N z ostatnio wybranego klienta, żeby kolejna zmiana "od" doliczyła ten sam termin
+  // bez ponownego wyszukiwania klienta.
+  const [paymentTermFrom, setPaymentTermFrom] = useState('');
+  const [paymentTermTo, setPaymentTermTo] = useState('');
+  const [resolvedPaymentTermDays, setResolvedPaymentTermDays] = useState<number | null>(null);
 
   const [gradeInput, setGradeInput] = useState('S235JR+N');
   const [selectedGrade, setSelectedGrade] = useState<Grade | null>({ name: 'S235JR+N', value: 24 });
@@ -317,6 +328,16 @@ export default function Calculator() {
       address: client.address,
       sapId: client.sapId,
     }));
+
+    // Termin płatności klienta (albo globalny domyślny, gdy klient go nie ma) — zapamiętany
+    // do przeliczenia przy każdej zmianie "Termin płatności od" (patrz onChange pola niżej).
+    // Jeśli "od" jest już wypełnione, doliczamy "do" od razu tym nowym terminem.
+    const days = client.paymentTermDays ?? settings.paymentTermDays;
+    setResolvedPaymentTermDays(days);
+    if (paymentTermFrom !== '') {
+      const due = addDaysToDateString(paymentTermFrom, days);
+      if (due) setPaymentTermTo(due);
+    }
   };
 
   // Wybór osoby z listy uzupełnia KOMPLET danych kontaktowych. Dane firmy zostają
@@ -958,6 +979,8 @@ export default function Calculator() {
     // Okres ważności oferty — mrożony razem z resztą, tak jak pglBase/transport: po ponownym
     // otwarciu widać dokładnie te daty, na które oferta była wyceniona.
     validFrom, validTo,
+    // Termin płatności (własny zakres od-do) — mrożony razem z resztą, tak samo jak okres ważności.
+    paymentTermFrom, paymentTermTo,
     zestawienie,
     clientInfo,
     // Trasa zamrażana razem z ofertą — po ponownym otwarciu widać, na jakim adresie
@@ -1023,6 +1046,8 @@ export default function Calculator() {
     if (data.tons !== undefined) setTons(data.tons);
     if (data.validFrom !== undefined) setValidFrom(data.validFrom);
     if (data.validTo !== undefined) setValidTo(data.validTo);
+    if (data.paymentTermFrom !== undefined) setPaymentTermFrom(data.paymentTermFrom);
+    if (data.paymentTermTo !== undefined) setPaymentTermTo(data.paymentTermTo);
     if (data.zestawienie !== undefined) setZestawienie(data.zestawienie);
     // normalizeClientInfo, a nie surowe przypisanie: oferta zapisana przed dodaniem
     // SAP_ID nie ma tego pola, a niekontrolowany input to ostrzeżenie Reacta i pole,
@@ -1076,6 +1101,8 @@ export default function Calculator() {
         language,
         validFrom,
         validTo,
+        paymentTermFrom,
+        paymentTermTo,
       });
       setSaveMessage({ type: 'success', text: language === 'pl' ? 'PDF wygenerowany!' : 'PDF generated!' });
     } catch (error) {
@@ -1804,6 +1831,42 @@ export default function Calculator() {
               value={validTo}
               onChange={e => { setValidTo(e.target.value); applyQuarterlyPglForValidity(validFrom, e.target.value); }}
               min={validFrom || undefined}
+              className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[12px] normal-case tracking-normal outline-none focus:border-[var(--accent-cr)]
+                ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+            />
+          </label>
+        </div>
+
+        {/* Termin płatności — WŁASNY zakres od-do, osobny od okresu ważności oferty powyżej.
+            Wybranie "od" dolicza "do" jako od + N dni (termin klienta z podpowiedzi, patrz
+            applyClientSuggestion, albo globalny domyślny z Ustawień) — "do" zostaje w pełni
+            edytowalne ręcznie, a kolejna zmiana "od" znów je przelicza. */}
+        <div className="flex items-center gap-2 px-3 py-2 rounded-md border-[1.5px] border-[var(--border)] bg-[var(--bg-panel)]">
+          <label className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
+            {t.inputs.paymentTermFrom}
+            <input
+              type="date"
+              value={paymentTermFrom}
+              onChange={e => {
+                const newFrom = e.target.value;
+                setPaymentTermFrom(newFrom);
+                if (newFrom !== '') {
+                  const days = resolvedPaymentTermDays ?? settings.paymentTermDays;
+                  const due = addDaysToDateString(newFrom, days);
+                  if (due) setPaymentTermTo(due);
+                }
+              }}
+              className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[12px] normal-case tracking-normal outline-none focus:border-[var(--accent-cr)]
+                ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+            />
+          </label>
+          <label className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
+            {t.inputs.paymentTermTo}
+            <input
+              type="date"
+              value={paymentTermTo}
+              onChange={e => setPaymentTermTo(e.target.value)}
+              min={paymentTermFrom || undefined}
               className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[12px] normal-case tracking-normal outline-none focus:border-[var(--accent-cr)]
                 ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
             />

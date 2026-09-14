@@ -15,6 +15,8 @@ const TRANSPORT_SETTINGS_COLUMNS =
 // TRANSPORT_SETTINGS_COLUMNS wyżej — GET ma się wycofać do wartości domyślnej, a nie
 // wywrócić, gdy migracja 022 jeszcze nie została puszczona na danej bazie.
 const SCRAP_SETTINGS_COLUMNS = 'scrap_pct';
+// Kolumna z migracji 023 (payment_term_days) — ten sam powód co SCRAP_SETTINGS_COLUMNS.
+const PAYMENT_TERM_SETTINGS_COLUMNS = 'payment_term_days';
 
 /**
  * Cennik transportowy. Pusta tablica (brak tabeli albo brak wierszy) oznacza dla
@@ -81,21 +83,29 @@ export async function GET(request: NextRequest) {
     let result;
     try {
       result = await pool.query(
-        `SELECT ${LEGACY_SETTINGS_COLUMNS}, ${TRANSPORT_SETTINGS_COLUMNS}, ${SCRAP_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`
+        `SELECT ${LEGACY_SETTINGS_COLUMNS}, ${TRANSPORT_SETTINGS_COLUMNS}, ${SCRAP_SETTINGS_COLUMNS}, ${PAYMENT_TERM_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`
       );
     } catch (error) {
-      // 42703 = undefined_column: migracja 020 i/lub 022 jeszcze nie puszczona. Cofamy się
+      // 42703 = undefined_column: migracja 020/022/023 jeszcze nie puszczona. Cofamy się
       // stopniowo do starszych zestawów kolumn — brakujące parametry wejdą z wartości domyślnych.
       if ((error as { code?: string })?.code !== '42703') throw error;
-      console.warn('Brak kolumny scrap_pct w app_settings — uruchom migrations/022_add_scrap_pct.sql.');
+      console.warn('Brak kolumny payment_term_days w app_settings — uruchom migrations/023_add_payment_term.sql.');
       try {
         result = await pool.query(
-          `SELECT ${LEGACY_SETTINGS_COLUMNS}, ${TRANSPORT_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`
+          `SELECT ${LEGACY_SETTINGS_COLUMNS}, ${TRANSPORT_SETTINGS_COLUMNS}, ${SCRAP_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`
         );
       } catch (innerError) {
         if ((innerError as { code?: string })?.code !== '42703') throw innerError;
-        console.warn('Brak kolumn transportowych w app_settings — uruchom migrations/020_transport_tariff.sql.');
-        result = await pool.query(`SELECT ${LEGACY_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`);
+        console.warn('Brak kolumny scrap_pct w app_settings — uruchom migrations/022_add_scrap_pct.sql.');
+        try {
+          result = await pool.query(
+            `SELECT ${LEGACY_SETTINGS_COLUMNS}, ${TRANSPORT_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`
+          );
+        } catch (innerError2) {
+          if ((innerError2 as { code?: string })?.code !== '42703') throw innerError2;
+          console.warn('Brak kolumn transportowych w app_settings — uruchom migrations/020_transport_tariff.sql.');
+          result = await pool.query(`SELECT ${LEGACY_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`);
+        }
       }
     }
     // Brak wiersza = migracja 007 nie została puszczona. Nie wywracamy kalkulatora —
@@ -173,6 +183,7 @@ export async function PATCH(request: NextRequest) {
       { key: 'transportBase', column: 'transport_base', label: 'Transport bazowy', min: 0, max: 100000, steelType: null },
       { key: 'minMarginPct', column: 'min_margin_pct', label: 'Minimalna marża', min: 0, max: 100, steelType: null },
       { key: 'scrapPct', column: 'scrap_pct', label: 'Złom (%)', min: 0, max: 100, steelType: null },
+      { key: 'paymentTermDays', column: 'payment_term_days', label: 'Domyślny termin płatności (dni)', min: 0, max: 365, steelType: null },
       // Ładowność 0 dzieliłaby przez zero przy liczbie kursów, dlatego minimum > 0.
       { key: 'transportTruckCapacityT', column: 'transport_truck_capacity_t', label: 'Ładowność ciężarówki', min: 0.01, max: 100, steelType: null },
       { key: 'transportOversizeLongPln', column: 'transport_oversize_long_pln', label: 'Dopłata za elementy 13,6-15,1 m', min: 0, max: 100000, steelType: null },
@@ -251,7 +262,7 @@ export async function PATCH(request: NextRequest) {
 
       const result = await db.query(
         `UPDATE app_settings SET ${sets.join(', ')} WHERE id = 1
-         RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, pgl_base_pickled, pgl_base_teardrop, pgl_base_zm, transport_base, min_margin_pct, scrap_pct`,
+         RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, pgl_base_pickled, pgl_base_teardrop, pgl_base_zm, transport_base, min_margin_pct, scrap_pct, payment_term_days`,
         values
       );
 

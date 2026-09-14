@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     // "Stalexport" ma być nad "Huta Stalowa Wola" — inaczej podpowiedzi wyglądają
     // na losowe. NULLS LAST, bo company bywa puste w rekordach z backfillu 006.
     const result = await pool.query(
-      `SELECT id, company, nip, address, sap_id
+      `SELECT id, company, nip, address, sap_id, payment_term_days
        FROM clients
        WHERE company ILIKE '%' || $1 || '%'
           OR nip     ILIKE '%' || $1 || '%'
@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
       nip: (row.nip as string | null) ?? '',
       address: (row.address as string | null) ?? '',
       sapId: (row.sap_id as string | null) ?? '',
+      paymentTermDays: row.payment_term_days === null ? null : Number(row.payment_term_days),
     }));
 
     return NextResponse.json({ clients });

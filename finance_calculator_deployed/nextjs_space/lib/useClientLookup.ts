@@ -15,6 +15,9 @@ export interface ClientSuggestion {
   nip: string;
   address: string;
   sapId: string;
+  // Własny termin płatności klienta (dni), null = brak nadpisania — kalkulator ma wtedy
+  // użyć globalnego domyślnego z Ustawień (AppSettings.paymentTermDays).
+  paymentTermDays: number | null;
 }
 
 interface ClientLookupResult {

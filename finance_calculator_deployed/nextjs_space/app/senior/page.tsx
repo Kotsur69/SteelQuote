@@ -15,6 +15,7 @@ import { getThemeVars } from '@/lib/themeVars';
 import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
+import ClientPaymentTermsPanel from '@/components/ClientPaymentTermsPanel';
 import {
   formatOfferMoney,
   formatOfferMoneyCeil,
@@ -25,7 +26,7 @@ import {
 } from '@/lib/currency';
 
 type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
-type FilterTab = 'pending' | 'awaitingSend' | 'reviewed' | 'all';
+type FilterTab = 'pending' | 'awaitingSend' | 'reviewed' | 'all' | 'clients';
 
 interface Offer {
   id: number;
@@ -388,9 +389,24 @@ export default function SeniorPage() {
             </button>
           );
         })}
+        {/* Osobny przycisk (nie w powyższej tablicy) — nie ma licznika jak reszta zakładek
+            i pokazuje inny panel (klienci), nie listę ofert. */}
+        <button
+          onClick={() => setActiveTab('clients')}
+          className={`px-4 py-2 rounded-lg text-xs font-medium border transition-all ${
+            activeTab === 'clients'
+              ? 'bg-[rgba(59,142,245,0.12)] border-[#3b8ef5] text-[#3b8ef5]'
+              : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]'
+          }`}
+        >
+          🏢 {t.senior.clientsTabLabel}
+        </button>
       </div>
 
-      {/* Offers List */}
+      {activeTab === 'clients' ? (
+        <ClientPaymentTermsPanel />
+      ) : (
+      /* Offers List */
       <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)] flex-wrap">
           <span className="w-2 h-2 rounded-full bg-[var(--accent-hrs)]" />
@@ -632,6 +648,7 @@ export default function SeniorPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Reject Modal */}
       {rejectModalOfferId !== null && (

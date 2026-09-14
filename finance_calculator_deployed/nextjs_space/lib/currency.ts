@@ -38,6 +38,10 @@ export interface AppSettings {
   // Złom (migracja 022) — % ceny wsadu (pglBase + sumaHuta) doliczany w sumie SSC.
   // Dawniej stała kwota (SCRAP_CONSTANT = 10 €/t), teraz konfigurowalny przez admina.
   scrapPct: number;
+  // Domyślny termin płatności w dniach (migracja 023), liczony od "Ważna od" oferty.
+  // Klient może mieć własny termin (clients.payment_term_days) — ten tutaj jest fallbackiem,
+  // gdy klient go nie ma. Konfigurowalny przez admina, tak jak scrapPct/minMarginPct.
+  paymentTermDays: number;
 
   // --- Transport liczony z trasy (migracja 020) ---
   // transportBase wyżej zostaje jako wartość startowa/awaryjna: handlowiec może nie
@@ -63,6 +67,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   transportBase: 20,
   minMarginPct: 7,
   scrapPct: 2,
+  paymentTermDays: 7,
   transportTruckCapacityT: DEFAULT_TRUCK_CAPACITY_T,
   transportOriginAddress: DEFAULT_ORIGIN_ADDRESS,
   transportOversizeLongPln: DEFAULT_OVERSIZE_LONG_PLN,
@@ -90,6 +95,8 @@ export function settingsRowToAppSettings(row: {
   // Kolumna z migracji 022. Opcjonalna z tego samego powodu co pola transportowe wyżej —
   // GET nie ma się wywalić, gdy migracja jeszcze nie została puszczona na danej bazie.
   scrap_pct?: string | number | null;
+  // Kolumna z migracji 023. Opcjonalna z tego samego powodu co scrap_pct wyżej.
+  payment_term_days?: string | number | null;
 }, bands?: TariffBand[]): AppSettings {
   return {
     eurPlnRate: Number(row.eur_pln_rate),
@@ -102,6 +109,7 @@ export function settingsRowToAppSettings(row: {
     transportBase: Number(row.transport_base),
     minMarginPct: Number(row.min_margin_pct),
     scrapPct: numberOr(row.scrap_pct, DEFAULT_SETTINGS.scrapPct),
+    paymentTermDays: numberOr(row.payment_term_days, DEFAULT_SETTINGS.paymentTermDays),
     transportTruckCapacityT: numberOr(row.transport_truck_capacity_t, DEFAULT_TRUCK_CAPACITY_T),
     transportOriginAddress:
       typeof row.transport_origin_address === 'string' && row.transport_origin_address.trim().length > 0

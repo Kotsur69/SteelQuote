@@ -66,6 +66,9 @@ export interface Translations {
     pendingOnly: string;
     reviewedByMe: string;
     awaitingSend: string;
+    // Zakładka "Klienci" (migracja 023) — senior ustawia tam własny termin płatności
+    // klienta. Panel dzieli etykiety pól z client.paymentTermDays/-Hint/-Placeholder.
+    clientsTabLabel: string;
   };
 
   // Team management (senior builds a team of juniors; shared by /senior and /admin/handlowcy)
@@ -179,8 +182,10 @@ export interface Translations {
     sheetWeight: string;
     offerValidFrom: string;
     offerValidTo: string;
+    paymentTermFrom: string;
+    paymentTermTo: string;
   };
-  
+
   // Mill surcharges (Huta)
   huta: {
     title: string;
@@ -358,6 +363,12 @@ export interface Translations {
     address: string;
     nip: string;
     sapId: string;
+    // Termin płatności klienta w dniach (migracja 023) — puste = dziedziczy globalny
+    // domyślny z Ustawień. Współdzielone przez panel admina (/admin/klienci) i
+    // zakładkę "Klienci" w Panelu Seniora (ClientPaymentTermsPanel).
+    paymentTermDays: string;
+    paymentTermDaysHint: string;
+    paymentTermDaysPlaceholder: string;
     phone: string;
     email: string;
     collapse: string;
@@ -491,6 +502,9 @@ export interface Translations {
       minMarginPctHint: string;
       scrapPct: string;
       scrapPctHint: string;
+      paymentTermDays: string;
+      paymentTermDaysHint: string;
+      daysUnit: string;
       transportBase: string;
       transportBaseHint: string;
       transportOrigin: string;
@@ -792,6 +806,7 @@ export const pl: Translations = {
     pendingOnly: 'Oczekujące na weryfikację',
     reviewedByMe: 'Zweryfikowane przeze mnie',
     awaitingSend: 'Oczekujące na wysłanie',
+    clientsTabLabel: 'Klienci',
   },
 
   team: {
@@ -899,6 +914,8 @@ export const pl: Translations = {
     sheetWeight: 'Waga arkusza',
     offerValidFrom: 'Ważna od',
     offerValidTo: 'Ważna do',
+    paymentTermFrom: 'Termin płatności od',
+    paymentTermTo: 'Termin płatności do',
   },
   
   huta: {
@@ -1060,6 +1077,9 @@ export const pl: Translations = {
     address: 'Adres',
     nip: 'NIP',
     sapId: 'SAP ID',
+    paymentTermDays: 'Termin płatności (dni)',
+    paymentTermDaysHint: 'Puste = domyślny termin z Ustawień',
+    paymentTermDaysPlaceholder: 'domyślny',
     phone: 'Nr telefonu',
     email: 'E-mail',
     collapse: 'Zwiń',
@@ -1179,6 +1199,9 @@ export const pl: Translations = {
       minMarginPctHint: 'Poniżej tego progu marża pozycji wymaga zatwierdzenia przez seniora lub admina.',
       scrapPct: 'Złom (%)',
       scrapPctHint: 'Procent ceny wsadu (PGL + Σ Huta) doliczany w podsumowaniu SSC jako "Złom".',
+      paymentTermDays: 'Domyślny termin płatności (dni)',
+      paymentTermDaysHint: 'Liczony od "Ważna od" oferty. Klient może mieć własny termin (panel Klienci) — wtedy ma pierwszeństwo przed tą wartością.',
+      daysUnit: 'dni',
       transportBaseHint: 'Wartość startowa transportu w nowej kalkulacji. Handlowiec może ją nadpisać.',
       transportOrigin: 'Adres nadania',
       transportOriginHint: 'Punkt A każdej trasy — magazyn, z którego wychodzi towar.',
@@ -1479,6 +1502,7 @@ export const en: Translations = {
     pendingOnly: 'Awaiting review',
     reviewedByMe: 'Reviewed by me',
     awaitingSend: 'Awaiting send',
+    clientsTabLabel: 'Clients',
   },
 
   team: {
@@ -1586,6 +1610,8 @@ export const en: Translations = {
     sheetWeight: 'Sheet weight',
     offerValidFrom: 'Valid from',
     offerValidTo: 'Valid to',
+    paymentTermFrom: 'Payment term from',
+    paymentTermTo: 'Payment term to',
   },
   
   huta: {
@@ -1747,6 +1773,9 @@ export const en: Translations = {
     address: 'Address',
     nip: 'Tax ID (NIP)',
     sapId: 'SAP ID',
+    paymentTermDays: 'Payment term (days)',
+    paymentTermDaysHint: 'Empty = default term from Settings',
+    paymentTermDaysPlaceholder: 'default',
     phone: 'Phone',
     email: 'E-mail',
     collapse: 'Collapse',
@@ -1866,6 +1895,9 @@ export const en: Translations = {
       minMarginPctHint: 'Below this margin threshold, a position requires senior or admin approval.',
       scrapPct: 'Scrap (%)',
       scrapPctHint: 'Percentage of the input price (PGL + Σ Mill) added in the SSC summary as "Scrap".',
+      paymentTermDays: 'Default payment term (days)',
+      paymentTermDaysHint: 'Counted from the offer\'s "Valid from" date. A client can have their own term (Clients panel) — that takes priority over this value.',
+      daysUnit: 'days',
       transportBaseHint: 'Starting transport value for a new calculation. Salespeople can override it.',
       transportOrigin: 'Origin address',
       transportOriginHint: 'Point A of every route - the warehouse the goods leave from.',
@@ -2165,6 +2197,7 @@ export const cs: Translations = {
     pendingOnly: 'Čekající na kontrolu',
     reviewedByMe: 'Zkontrolováno mnou',
     awaitingSend: 'Čekající na odeslání',
+    clientsTabLabel: 'Klienti',
   },
 
   team: {
@@ -2272,6 +2305,8 @@ export const cs: Translations = {
     sheetWeight: 'Hmotnost tabule',
     offerValidFrom: 'Platná od',
     offerValidTo: 'Platná do',
+    paymentTermFrom: 'Splatnost od',
+    paymentTermTo: 'Splatnost do',
   },
 
   huta: {
@@ -2433,6 +2468,9 @@ export const cs: Translations = {
     address: 'Adresa',
     nip: 'DIČ (NIP)',
     sapId: 'SAP ID',
+    paymentTermDays: 'Splatnost (dny)',
+    paymentTermDaysHint: 'Prázdné = výchozí splatnost z Nastavení',
+    paymentTermDaysPlaceholder: 'výchozí',
     phone: 'Telefon',
     email: 'E-mail',
     collapse: 'Sbalit',
@@ -2552,6 +2590,9 @@ export const cs: Translations = {
       minMarginPctHint: 'Pod touto hranicí marže položka vyžaduje schválení seniorem nebo adminem.',
       scrapPct: 'Šrot (%)',
       scrapPctHint: 'Procento ceny vsázky (PGL + Σ Huť) připočítané v souhrnu SSC jako "Šrot".',
+      paymentTermDays: 'Výchozí splatnost (dny)',
+      paymentTermDaysHint: 'Počítáno od data "Platná od" nabídky. Klient může mít vlastní splatnost (panel Klienti) — ta má přednost před touto hodnotou.',
+      daysUnit: 'dny',
       transportBaseHint: 'Výchozí hodnota dopravy pro novou kalkulaci. Obchodník ji může přepsat.',
       transportOrigin: 'Adresa odeslání',
       transportOriginHint: 'Bod A každé trasy - sklad, ze kterého zboží vyjíždí.',
@@ -2851,6 +2892,7 @@ export const de: Translations = {
     pendingOnly: 'Ausstehende Prüfung',
     reviewedByMe: 'Von mir geprüft',
     awaitingSend: 'Wartend auf Versand',
+    clientsTabLabel: 'Kunden',
   },
 
   team: {
@@ -2958,6 +3000,8 @@ export const de: Translations = {
     sheetWeight: 'Tafelgewicht',
     offerValidFrom: 'Gültig ab',
     offerValidTo: 'Gültig bis',
+    paymentTermFrom: 'Zahlungsziel von',
+    paymentTermTo: 'Zahlungsziel bis',
   },
 
   huta: {
@@ -3119,6 +3163,9 @@ export const de: Translations = {
     address: 'Adresse',
     nip: 'USt-IdNr. (NIP)',
     sapId: 'SAP ID',
+    paymentTermDays: 'Zahlungsziel (Tage)',
+    paymentTermDaysHint: 'Leer = Standard aus den Einstellungen',
+    paymentTermDaysPlaceholder: 'Standard',
     phone: 'Telefon',
     email: 'E-Mail',
     collapse: 'Einklappen',
@@ -3238,6 +3285,9 @@ export const de: Translations = {
       minMarginPctHint: 'Unterhalb dieser Marge erfordert eine Position die Genehmigung durch Senior oder Admin.',
       scrapPct: 'Schrott (%)',
       scrapPctHint: 'Prozentsatz des Einsatzpreises (PGL + Σ Werk), der in der SSC-Summe als "Schrott" berechnet wird.',
+      paymentTermDays: 'Standard-Zahlungsziel (Tage)',
+      paymentTermDaysHint: 'Berechnet ab "Gültig ab" des Angebots. Ein Kunde kann ein eigenes Zahlungsziel haben (Panel Kunden) — dieses hat Vorrang vor diesem Wert.',
+      daysUnit: 'Tage',
       transportBaseHint: 'Startwert für Transport in einer neuen Kalkulation. Vertrieb kann ihn überschreiben.',
       transportOrigin: 'Versandadresse',
       transportOriginHint: 'Punkt A jeder Route - das Lager, aus dem die Ware herausgeht.',

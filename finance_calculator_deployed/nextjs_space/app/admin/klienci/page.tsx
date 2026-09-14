@@ -14,6 +14,8 @@ interface Client {
   sap_id: string | null;
   phone: string | null;
   email: string | null;
+  // Migracja 023. null = klient dziedziczy globalny domyślny termin z Ustawień.
+  payment_term_days: number | null;
   offers_count: number;
 }
 
@@ -29,6 +31,7 @@ interface Contact {
 const EMPTY = {
   id: null as number | null,
   first_name: '', last_name: '', company: '', nip: '', address: '', sap_id: '', phone: '', email: '',
+  payment_term_days: '',
 };
 
 const EMPTY_CONTACT_FORM = { first_name: '', last_name: '', phone: '', email: '' };
@@ -189,6 +192,7 @@ export default function AdminClientsPage() {
       first_name: c.first_name || '', last_name: c.last_name || '', company: c.company || '',
       nip: c.nip || '', address: c.address || '', sap_id: c.sap_id || '',
       phone: c.phone || '', email: c.email || '',
+      payment_term_days: c.payment_term_days === null ? '' : String(c.payment_term_days),
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -248,6 +252,8 @@ export default function AdminClientsPage() {
             value={form.nip} onChange={(e) => setForm({ ...form, nip: e.target.value })} />
           <input className={inputCls} placeholder={t.client.sapId}
             value={form.sap_id} onChange={(e) => setForm({ ...form, sap_id: e.target.value })} />
+          <input className={inputCls} type="number" min="0" max="365" placeholder={t.client.paymentTermDaysPlaceholder}
+            value={form.payment_term_days} onChange={(e) => setForm({ ...form, payment_term_days: e.target.value })} />
           <input className={inputCls} placeholder={t.admin.phone}
             value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input className={inputCls} type="email" placeholder={t.admin.clientEmailLabel}
@@ -292,6 +298,7 @@ export default function AdminClientsPage() {
                   <th className="px-4 py-2.5 font-medium">{t.admin.firstName} {t.admin.lastName}</th>
                   <th className="px-4 py-2.5 font-medium">{t.admin.nip}</th>
                   <th className="px-4 py-2.5 font-medium">{t.client.sapId}</th>
+                  <th className="px-4 py-2.5 font-medium">{t.client.paymentTermDays}</th>
                   <th className="px-4 py-2.5 font-medium">{t.admin.phone} / {t.admin.clientEmailLabel}</th>
                   <th className="px-4 py-2.5 font-medium text-center">{t.admin.offersCount}</th>
                   <th className="px-4 py-2.5 font-medium text-right">{t.admin.actions}</th>
@@ -307,6 +314,9 @@ export default function AdminClientsPage() {
                     </td>
                     <td className="px-4 py-3 font-mono text-[var(--text-secondary)]">{c.nip || '—'}</td>
                     <td className="px-4 py-3 font-mono text-[var(--text-secondary)]">{c.sap_id || '—'}</td>
+                    <td className="px-4 py-3 font-mono text-[var(--text-secondary)]">
+                      {c.payment_term_days === null ? '—' : c.payment_term_days}
+                    </td>
                     <td className="px-4 py-3 text-[11px] text-[var(--text-secondary)] font-mono">
                       <div>{c.phone || '—'}</div>
                       <div>{c.email || '—'}</div>

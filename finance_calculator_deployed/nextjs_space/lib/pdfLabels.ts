@@ -42,6 +42,10 @@ export interface PdfLabels {
   // OBOK stałego validityNote (48h), nie zamiast niego. Renderowana tylko gdy obie daty przyszły.
   validityRangeNote: (from: string, to: string) => string;
   paymentNote: string;
+  // Zakres terminu płatności (od-do, drugie pole domyślnie = od + N dni klienta/globalnych,
+  // ale edytowalne ręcznie) — zastępuje paymentNote w stopce PDF, gdy obie daty są ustawione.
+  // Brak którejkolwiek = paymentNote zostaje bez zmian.
+  paymentDueNote: (from: string, to: string) => string;
   minQuantityNote: string;
   deliveryNote: string;
   toleranceNote: string;
@@ -96,6 +100,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     validityNote: 'Ważność oferty: 48h od daty wystawienia.',
     validityRangeNote: (from, to) => `Okres ważności oferty: ${from} – ${to}.`,
     paymentNote: 'Warunki płatności: wg ustaleń indywidualnych.',
+    paymentDueNote: (from, to) => `Termin płatności: ${from} – ${to}.`,
     minQuantityNote: 'Minimalna ilość: 5 ton na pozycję.',
     deliveryNote: 'Termin dostawy: po potwierdzeniu dostępności materiału.',
     toleranceNote: 'Tolerancja wagowa +/- 10%.',
@@ -138,6 +143,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     validityNote: 'Offer validity: 48h from issue date.',
     validityRangeNote: (from, to) => `Offer validity period: ${from} – ${to}.`,
     paymentNote: 'Payment terms: as individually agreed.',
+    paymentDueNote: (from, to) => `Payment term: ${from} – ${to}.`,
     minQuantityNote: 'Minimum quantity: 5 tons per item.',
     deliveryNote: 'Delivery time: upon confirmation of material availability.',
     toleranceNote: 'Weight tolerance +/- 10%.',
@@ -180,6 +186,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     validityNote: 'Platnost nabídky: 48h od data vystavení.',
     validityRangeNote: (from, to) => `Doba platnosti nabídky: ${from} – ${to}.`,
     paymentNote: 'Platební podmínky: dle individuální dohody.',
+    paymentDueNote: (from, to) => `Splatnost: ${from} – ${to}.`,
     minQuantityNote: 'Minimální množství: 5 tun na položku.',
     deliveryNote: 'Termín dodání: po potvrzení dostupnosti materiálu.',
     toleranceNote: 'Hmotnostní tolerance +/- 10 %.',
@@ -222,6 +229,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     validityNote: 'Angebotsgültigkeit: 48h ab Ausstellungsdatum.',
     validityRangeNote: (from, to) => `Gültigkeitszeitraum des Angebots: ${from} – ${to}.`,
     paymentNote: 'Zahlungsbedingungen: nach individueller Vereinbarung.',
+    paymentDueNote: (from, to) => `Zahlungsziel: ${from} – ${to}.`,
     minQuantityNote: 'Mindestmenge: 5 Tonnen pro Position.',
     deliveryNote: 'Liefertermin: nach Bestätigung der Materialverfügbarkeit.',
     toleranceNote: 'Gewichtstoleranz +/- 10%.',

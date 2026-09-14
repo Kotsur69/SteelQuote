@@ -72,7 +72,9 @@ function buildHtml(
   eurPlnRate: number,
   language: Language,
   validFrom?: string,
-  validTo?: string
+  validTo?: string,
+  paymentTermFrom?: string,
+  paymentTermTo?: string
 ): string {
   const logo = getLogoBase64();
   const L = PDF_LABELS[language];
@@ -235,7 +237,7 @@ function buildHtml(
       <li>${L.invoiceNote}</li>
       <li>${L.validityNote}</li>
       ${validFrom && validTo ? `<li>${escapeHtml(L.validityRangeNote(validFrom, validTo))}</li>` : ''}
-      <li>${L.paymentNote}</li>
+      <li>${paymentTermFrom && paymentTermTo ? escapeHtml(L.paymentDueNote(paymentTermFrom, paymentTermTo)) : L.paymentNote}</li>
       <li>${L.minQuantityNote}</li>
       <li>${L.deliveryNote}</li>
       <li>${L.toleranceNote}</li>
@@ -264,7 +266,7 @@ export async function POST(request: Request) {
     }
     const session = auth.session;
 
-    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language, validFrom, validTo } = await request.json();
+    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language, validFrom, validTo, paymentTermFrom, paymentTermTo } = await request.json();
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'No items provided' }, { status: 400 });
     }
@@ -285,8 +287,12 @@ export async function POST(request: Request) {
     // (ten sam wzorzec co `offerDate` powyżej). Puste/brak = linijka po prostu się nie pojawia.
     const validFromStr: string | undefined = typeof validFrom === 'string' && validFrom ? validFrom : undefined;
     const validToStr: string | undefined = typeof validTo === 'string' && validTo ? validTo : undefined;
+    const paymentTermFromStr: string | undefined =
+      typeof paymentTermFrom === 'string' && paymentTermFrom ? paymentTermFrom : undefined;
+    const paymentTermToStr: string | undefined =
+      typeof paymentTermTo === 'string' && paymentTermTo ? paymentTermTo : undefined;
 
-    const html_content = buildHtml(items, client, offerName || '', date, userName, pdfCurrency, pdfRate, pdfLanguage, validFromStr, validToStr);
+    const html_content = buildHtml(items, client, offerName || '', date, userName, pdfCurrency, pdfRate, pdfLanguage, validFromStr, validToStr, paymentTermFromStr, paymentTermToStr);
 
     // Step 1: Create PDF request
     const createResponse = await fetch('https://apps.abacus.ai/api/createConvertHtmlToPdfRequest', {

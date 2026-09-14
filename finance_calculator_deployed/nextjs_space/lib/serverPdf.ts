@@ -48,6 +48,12 @@ export interface ServerPdfInput {
   // createdAt -> offerDate). Brak = PDF nie pokazuje dodatkowej linijki.
   validFrom?: string;
   validTo?: string;
+  // Termin płatności — własny zakres od-do (niezależny od validFrom/validTo powyżej).
+  // "Do" domyślnie = "od" + N dni klienta/globalnych z Ustawień, ale edytowalne ręcznie
+  // w kalkulatorze. Surowe stringi YYYY-MM-DD, formatowane niżej tak samo jak validFrom/validTo.
+  // Brak którejkolwiek = PDF pokazuje generyczną formułkę "wg ustaleń indywidualnych".
+  paymentTermFrom?: string;
+  paymentTermTo?: string;
 }
 
 /**
@@ -91,6 +97,8 @@ export async function downloadServerPdf(input: ServerPdfInput): Promise<void> {
     : new Date().toLocaleDateString(dateLocale);
   const validFrom = formatDateOnly(input.validFrom, dateLocale);
   const validTo = formatDateOnly(input.validTo, dateLocale);
+  const paymentTermFrom = formatDateOnly(input.paymentTermFrom, dateLocale);
+  const paymentTermTo = formatDateOnly(input.paymentTermTo, dateLocale);
 
   const res = await fetch('/api/generate-pdf', {
     method: 'POST',
@@ -105,6 +113,8 @@ export async function downloadServerPdf(input: ServerPdfInput): Promise<void> {
       language: input.language,
       validFrom,
       validTo,
+      paymentTermFrom,
+      paymentTermTo,
     }),
   });
 
