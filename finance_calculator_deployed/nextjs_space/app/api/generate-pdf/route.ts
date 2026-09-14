@@ -113,12 +113,28 @@ function buildHtml(
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.thickness.toFixed(2)}</td>
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.width.toFixed(0)}</td>
         <td style="text-align:right;font-family:'Courier New',monospace;">${item.isCoil ? '-' : item.length.toFixed(0)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;">${item.quantity.toFixed(2)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;font-weight:600;">${Math.ceil(item.pricePerTon * fx)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;">${Math.ceil(item.pricePerTon * item.quantity * fx)}</td>
+        <td style="text-align:right;font-family:'Courier New',monospace;white-space:nowrap;">${item.quantity.toFixed(2)}</td>
+        <td style="text-align:right;font-family:'Courier New',monospace;font-weight:600;white-space:nowrap;">${Math.ceil(item.pricePerTon * fx)}</td>
+        <td style="text-align:right;font-family:'Courier New',monospace;white-space:nowrap;">${Math.ceil(item.pricePerTon * item.quantity * fx)}</td>
         <td style="font-size:8px;color:#64748b;line-height:1.5;">${notesHtml}</td>
       </tr>`;
   }).join('');
+
+  // Wspólny <colgroup> dla tabeli pozycji i tabeli podsumowania — muszą mieć
+  // identyczne szerokości kolumn, żeby "RAZEM" wizualnie wyrównywało się z
+  // kolumnami powyżej mimo że to teraz DWIE osobne tabele (patrz niżej, dlaczego).
+  const colgroup = `<colgroup>
+    <col style="width:30px">
+    <col>
+    <col style="width:45px">
+    <col style="width:55px">
+    <col style="width:55px">
+    <col style="width:55px">
+    <col style="width:50px">
+    <col style="width:78px">
+    <col style="width:98px">
+    <col style="width:220px">
+  </colgroup>`;
 
   return `<!DOCTYPE html>
 <html lang="${language}">
@@ -144,16 +160,18 @@ function buildHtml(
   .info-row { font-size: 10px; margin-bottom: 3px; }
   .info-row .lbl { color: #64748b; display: inline-block; width: 70px; }
   .info-row .val { font-weight: 600; color: #1e293b; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 16px; }
+  .items-table { margin-bottom: 0; }
   thead th { background: #1e40af; color: #fff; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; padding: 8px 10px; border: none; }
   thead th:first-child { border-radius: 6px 0 0 0; }
   thead th:last-child { border-radius: 0 6px 0 0; }
-  tbody td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; font-size: 11px; }
+  tbody td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; font-size: 11px; overflow: hidden; }
   tbody tr:nth-child(even) { background: #f8fafc; }
   tbody tr:hover { background: #eff6ff; }
-  tfoot td { padding: 10px; font-weight: 700; font-size: 12px; background: #1e293b; color: #fff; border: none; }
-  tfoot td:first-child { border-radius: 0 0 0 6px; }
-  tfoot td:last-child { border-radius: 0 0 6px 0; }
+  .totals-table { break-inside: avoid; page-break-inside: avoid; }
+  .totals-table td { padding: 10px; font-weight: 700; font-size: 12px; background: #1e293b; color: #fff; border: none; }
+  .totals-table td:first-child { border-radius: 0 0 0 6px; }
+  .totals-table td:last-child { border-radius: 0 0 6px 0; }
   .footer { margin-top: 24px; padding-top: 14px; border-top: 2px solid #e2e8f0; }
   .footer-notes { font-size: 10px; color: #64748b; line-height: 1.6; }
   .footer-notes li { margin-bottom: 2px; }
@@ -201,25 +219,33 @@ function buildHtml(
     </div>
   </div>
 
-  <table>
+  <table class="items-table">
+    ${colgroup}
     <thead>
       <tr>
-        <th style="width:30px;text-align:center;">${L.colNo}</th>
+        <th style="text-align:center;">${L.colNo}</th>
         <th style="text-align:left;">${L.colDesc}</th>
-        <th style="text-align:center;width:45px;">${L.colType}</th>
-        <th style="text-align:right;width:55px;">${L.colThickness}</th>
-        <th style="text-align:right;width:55px;">${L.colWidth}</th>
-        <th style="text-align:right;width:55px;">${L.colLength}</th>
-        <th style="text-align:right;width:50px;">${L.colQty}</th>
-        <th style="text-align:right;width:65px;">${L.colPrice} ${unit}/t</th>
-        <th style="text-align:right;width:75px;">${L.colValue} ${unit}</th>
-        <th style="width:250px;">${L.colNotes}</th>
+        <th style="text-align:center;">${L.colType}</th>
+        <th style="text-align:right;">${L.colThickness}</th>
+        <th style="text-align:right;">${L.colWidth}</th>
+        <th style="text-align:right;">${L.colLength}</th>
+        <th style="text-align:right;">${L.colQty}</th>
+        <th style="text-align:right;">${L.colPrice} ${unit}/t</th>
+        <th style="text-align:right;">${L.colValue} ${unit}</th>
+        <th>${L.colNotes}</th>
       </tr>
     </thead>
     <tbody>
       ${rows}
     </tbody>
-    <tfoot>
+  </table>
+  <!-- Podsumowanie jako OSOBNA tabela (nie <tfoot> tej samej tabeli) — silnik
+       druku Chrome powtarza <thead>/<tfoot> na KAŻDEJ stronie, na którą tabela
+       się rozleje. Jako osobny element idzie w flow strony jednorazowo, tuż po
+       ostatnim wierszu pozycji, niezależnie od tego ile stron zajęły pozycje. -->
+  <table class="totals-table">
+    ${colgroup}
+    <tbody>
       <tr>
         <td colspan="6" style="text-align:right;text-transform:uppercase;letter-spacing:1px;font-size:10px;">${L.totalRowLabel}</td>
         <td style="text-align:right;">${totalTons.toFixed(2)} t</td>
@@ -227,7 +253,7 @@ function buildHtml(
         <td style="text-align:right;"><span class="badge-total">${Math.ceil(totalValue)} ${unit}</span></td>
         <td></td>
       </tr>
-    </tfoot>
+    </tbody>
   </table>
 
   <div class="footer">
