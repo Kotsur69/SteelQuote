@@ -2741,18 +2741,22 @@ export default function Calculator() {
                   ))}
                 </Reorder.Group>
               )}
+              {/* Total — aligned under the Tons / Value columns above */}
+              <tfoot>
+                <tr className={`border-t-[1.5px] border-[var(--border-hi)] ${isDark ? 'bg-[rgba(0,0,0,0.10)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
+                  <td colSpan={8} className="px-3.5 py-3.5 text-[11px] font-bold tracking-widest uppercase text-[var(--text-secondary)] whitespace-nowrap">
+                    {t.zestawienie.total}
+                  </td>
+                  <td className="px-3.5 py-3.5 font-mono text-sm font-bold text-[var(--text-value)] text-right whitespace-nowrap">
+                    {zestTons.toFixed(2)} {t.common.tons}
+                  </td>
+                  <td className="px-3.5 py-3.5 font-mono text-base font-bold text-[var(--accent-sum)] text-right whitespace-nowrap">
+                    {moneyCeil(zestTotal)} {currencyUnit}
+                  </td>
+                  <td className="px-3.5 py-3.5" />
+                </tr>
+              </tfoot>
             </table>
-          </div>
-          
-          {/* Total */}
-          <div className={`flex items-center justify-between px-5 py-3.5 border-t-[1.5px] border-[var(--border-hi)] ${isDark ? 'bg-[rgba(0,0,0,0.10)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
-            <span className="text-[11px] font-bold tracking-widest uppercase text-[var(--text-secondary)]">
-              {t.zestawienie.total}
-            </span>
-            <span className="flex items-baseline gap-1.5">
-              <span className="font-mono text-xl font-bold text-[var(--accent-sum)]">{moneyCeil(zestTotal)}</span>
-              <span className="font-mono text-[11px] text-[var(--text-secondary)]">{currencyUnit} {language === 'pl' ? 'łącznie' : 'total'}</span>
-            </span>
           </div>
         </div>
       </div>
