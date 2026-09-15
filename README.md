@@ -6,14 +6,14 @@ costs, margin, transport) for **HRS, CR, HDG, PICKLED** (pickled HRS),
 an offer, run it through an approval workflow, and export it to PDF or Excel for
 a client.
 
-Current version: **1.8**.
+Current version: **1.9**.
 
 ![HRS pricing defaults](screenshot_hrs_defaults.png)
 ![CR pricing defaults](screenshot_cr_defaults.png)
 ![HDG pricing defaults](screenshot_hdg_defaults.png)
 
 Live at [steelpricinghub.abacusai.app](https://steelpricinghub.abacusai.app)
-(production currently runs 1.7; 1.8 is merged but not yet deployed).
+(production currently runs 1.8; 1.9 is in development on this repo).
 
 There's also a standalone prototype at the repo root (`index.html`,
 `steel_calculator_standalone.html`) — a single-file version of the calculator
