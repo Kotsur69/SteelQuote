@@ -24,9 +24,6 @@ import {
   MIN_THICKNESS_ZM,
   COATING_MATRIX_HDG,
   COATING_MATRIX_ZM,
-  LENGTH_SURCHARGE_HRS,
-  BASE_SURCHARGE_CR_HDG,
-  PICKLING_SURCHARGE,
   getTeardropSurcharge,
   TOL_THICK_OPTIONS,
   YIELD_GRADES,
@@ -46,9 +43,10 @@ import { offerNumberLabel } from '@/lib/offerVersions';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
 import { useUnsavedGuard } from '@/lib/unsavedGuard';
-import { pglBaseForType } from '@/lib/currency';
-import { quarterOfDateString } from '@/lib/quarterUtils';
-import { addDaysToDateString } from '@/lib/dateUtils';
+import { pglBaseForType, type AppSettings } from '@/lib/currency';
+import { quarterOfDateString, quarterOf, type Quarter } from '@/lib/quarterUtils';
+import { addDaysToDateString, todayDateString, daysBetweenDateStrings } from '@/lib/dateUtils';
+import * as pricingEngine from '@/lib/pricingEngine';
 import { formatWarning } from '@/lib/translations';
 import {
   ClientInfo,
@@ -65,6 +63,18 @@ import { exportZestawienieToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
 import { useHighContrast } from '@/lib/useHighContrast';
 import { getThemeVars } from '@/lib/themeVars';
+
+// Wynik migrateStaleOfferData() (patrz niżej) — steruje banerem "PGL zostało zaktualizowane".
+export interface StalePglMigrationInfo {
+  fromYear: number;
+  fromQuarter: Quarter;
+  toYear: number;
+  toQuarter: Quarter;
+  recalculatedCount: number;
+  // Pozycje sprzed ItemInputs (patrz legacyEditWarning) — dostały tylko podmienione pgl,
+  // bez przeliczenia marzy/ceny końcowej, bo brakuje zapisanej konfiguracji do przeliczenia.
+  legacyCount: number;
+}
 
 export interface ZestawienieItem {
   id: number;
@@ -117,6 +127,79 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
   displayCurrency: 'EUR',
   eurPlnRate: null,
 };
+
+/**
+ * Migracja przeterminowanego PGL — wołana wyłącznie przy wczytaniu zapisanej oferty do
+ * kalkulatora (loadOffer(), edit LUB duplikat otwarty do edycji — obie ścieżki lądują
+ * na tym samym `?edit=<id>`). "Stale" = kwartał zamrożonej "Ważna od" oferty różni się od
+ * kwartału "teraz" (wg zegara przeglądarki) — patrz plan: harmonogram PGL ma granulację
+ * kwartalną, więc upływ czasu między kwartałami jest jedynym sygnałem, że oferta mogła
+ * zostać wyceniona na nieaktualnej podstawie.
+ *
+ * NIE blokuje edycji — tylko po cichu podmienia dane na aktualne i zwraca `notice` do
+ * wyświetlenia w banerze. Nic nie jest zapisywane do bazy, dopóki użytkownik sam nie
+ * zapisze oferty (co i tak tworzy nową wersję, patrz app/api/offers/[id]/route.ts).
+ *
+ * Pozycje bez zapisanego `inputs` (sprzed wprowadzenia ItemInputs) nie dają się bezpiecznie
+ * przeliczyć — dostają tylko podmienione `pgl`, a ich liczbę zgłaszamy osobno w `notice`,
+ * żeby handlowiec wiedział, że marża/cena tych pozycji mogła zostać nietknięta.
+ */
+function migrateStaleOfferData(
+  data: Record<string, any>,
+  freshSettings: AppSettings
+): { data: Record<string, any>; notice: StalePglMigrationInfo | null } {
+  const rawValidFrom: string = typeof data.validFrom === 'string' ? data.validFrom : '';
+  const fromQ = rawValidFrom ? quarterOfDateString(rawValidFrom) : null;
+  // Brak "Ważna od" -> nie ma z czym porównać kwartału -> nic nie ruszamy.
+  if (!fromQ) return { data, notice: null };
+
+  const todayQ = quarterOf(new Date());
+  const isStale = fromQ.year !== todayQ.year || fromQ.quarter !== todayQ.quarter;
+  if (!isStale) return { data, notice: null };
+
+  // Przesuwamy okres ważności na "dziś", zachowując oryginalną długość zakresu w dniach.
+  const rawValidTo: string = typeof data.validTo === 'string' ? data.validTo : '';
+  const today = todayDateString();
+  let nextValidTo = rawValidTo;
+  if (rawValidTo) {
+    const rangeDays = daysBetweenDateStrings(rawValidFrom, rawValidTo);
+    nextValidTo = rangeDays !== null ? (addDaysToDateString(today, rangeDays) ?? rawValidTo) : rawValidTo;
+  }
+
+  const nextPglBase = pglBaseForType(data.currentType as SteelType, freshSettings);
+
+  let recalculatedCount = 0;
+  let legacyCount = 0;
+  const items: ZestawienieItem[] = Array.isArray(data.zestawienie) ? data.zestawienie : [];
+  const nextZestawienie = items.map((item) => {
+    const newPgl = pglBaseForType(item.type, freshSettings);
+    const recomputed = pricingEngine.computeItemPricing(item, newPgl, freshSettings);
+    if (recomputed) {
+      recalculatedCount += 1;
+      return { ...item, ...recomputed };
+    }
+    legacyCount += 1;
+    return { ...item, pgl: newPgl };
+  });
+
+  return {
+    data: {
+      ...data,
+      pglBase: nextPglBase,
+      validFrom: today,
+      validTo: nextValidTo,
+      zestawienie: nextZestawienie,
+    },
+    notice: {
+      fromYear: fromQ.year,
+      fromQuarter: fromQ.quarter,
+      toYear: todayQ.year,
+      toQuarter: todayQ.quarter,
+      recalculatedCount,
+      legacyCount,
+    },
+  };
+}
 
 export default function Calculator() {
   // Language
@@ -296,7 +379,12 @@ export default function Calculator() {
   const guard = useUnsavedGuard();
   const [baseline, setBaseline] = useState<string | null>(null);
   const [baselineNonce, setBaselineNonce] = useState(0);
-  
+
+  // Info banner po migracji przeterminowanego PGL (patrz migrateStaleOfferData niżej) —
+  // null, gdy nic nie zostało zmigrowane. Ustawiane wyłącznie w loadOffer() i czyszczone
+  // przy resetToNewOffer(), więc nie przeżywa przejścia do innej/nowej oferty.
+  const [staleOfferNotice, setStaleOfferNotice] = useState<StalePglMigrationInfo | null>(null);
+
   // Client info
   const [clientInfo, setClientInfo] = useState<ClientInfo>(EMPTY_CLIENT_INFO);
   const [showClientInfo, setShowClientInfo] = useState(false);
@@ -386,16 +474,10 @@ export default function Calculator() {
   
   const activeGradeTable = useMemo(() => GRADE_TABLES[currentType], [currentType]);
   
-  // Get dimension surcharge
-  const getDimensionSurcharge = useCallback((th: number, w: number): number | null => {
-    for (const row of activeDimensionMatrix) {
-      if (th >= row.thicknessMin && th <= row.thicknessMax &&
-          w >= row.widthMin && w <= row.widthMax) {
-        return row.value;
-      }
-    }
-    return null;
-  }, [activeDimensionMatrix]);
+  // Get dimension surcharge — deleguje do lib/pricingEngine.ts (jedyne źródło prawdy,
+  // współdzielone z migracją przeterminowanego PGL).
+  const getDimensionSurcharge = useCallback((th: number, w: number): number | null =>
+    pricingEngine.getDimensionSurcharge(currentType, th, w), [currentType]);
   
   // Get min thickness for width
   const getMinThicknessForWidth = useCallback((w: number): number | null => {
@@ -407,55 +489,22 @@ export default function Calculator() {
     return null;
   }, [activeMinThickness]);
   
-  // Get coating surcharge for HDG or ZM (matrix wybierana wg aktywnego typu)
-  const getCoatingSurcharge = useCallback((th: number, coating: string, matrix: typeof COATING_MATRIX_HDG | typeof COATING_MATRIX_ZM): number | null => {
-    for (const row of matrix) {
-      const thRange = row.th as { min: number; max: number };
-      if (th >= thRange.min && th <= thRange.max) {
-        const val = row[coating];
-        return typeof val === 'number' ? val : null;
-      }
-    }
-    return null;
-  }, []);
+  // Get coating surcharge for HDG or ZM (matrix wybierana wg aktywnego typu) — deleguje do
+  // lib/pricingEngine.ts.
+  const getCoatingSurcharge = useCallback((th: number, coating: string, matrix: typeof COATING_MATRIX_HDG | typeof COATING_MATRIX_ZM): number | null =>
+    pricingEngine.getCoatingSurcharge(th, coating, matrix), []);
 
   // Trawienie (PICKLED) — dopłata zależna wyłącznie od grubości.
-  const getPicklingSurcharge = useCallback((th: number): number | null => {
-    for (const row of PICKLING_SURCHARGE) {
-      if (th >= row.thicknessMin && th <= row.thicknessMax) return row.value;
-    }
-    return null;
-  }, []);
-  
+  const getPicklingSurcharge = useCallback((th: number): number | null =>
+    pricingEngine.getPicklingSurcharge(th), []);
+
   // Get base length surcharge for HRS
-  const getBaseLengthSurchargeHRS = useCallback((th: number, len: number): number | null => {
-    for (const row of LENGTH_SURCHARGE_HRS) {
-      if (th >= row.thMin && th <= row.thMax) {
-        if (len >= 650 && len <= 999) return row.l1;
-        if (len >= 1000 && len <= 1999) return row.l2;
-        if (len >= 2000 && len <= 6000) return row.l3;
-        if (len >= 6001 && len <= 8999) return row.l4;
-        if (len >= 9000 && len <= 12300) return row.l5;
-        return null;
-      }
-    }
-    return null;
-  }, []);
-  
+  const getBaseLengthSurchargeHRS = useCallback((th: number, len: number): number | null =>
+    pricingEngine.getBaseLengthSurchargeHRS(th, len), []);
+
   // Get base surcharge for CR/HDG
-  const getBaseSurchargeCRHDG = useCallback((th: number, w: number): number | null => {
-    for (const row of BASE_SURCHARGE_CR_HDG) {
-      if (th >= row.thMin && th <= row.thMax) {
-        if (w < 299) return row.w1;
-        if (w >= 300 && w <= 599) return row.w2;
-        if (w >= 600 && w <= 899) return row.w3;
-        if (w >= 900 && w <= 1500) return row.w4;
-        if (w > 1500) return row.w5;
-        return null;
-      }
-    }
-    return null;
-  }, []);
+  const getBaseSurchargeCRHDG = useCallback((th: number, w: number): number | null =>
+    pricingEngine.getBaseSurchargeCRHDG(th, w), []);
   
   // Calculate dimension surcharge and warning
   const dimSurcharge = getDimensionSurcharge(thickness, width);
@@ -530,48 +579,32 @@ export default function Calculator() {
   
   // Check yield visibility
   const showYield = currentType === 'HRS' && YIELD_GRADES.includes(gradeInput);
-  const yieldValue = showYield ? 7 : 0;
-  
-  // Calculate HUTA sum
-  const sumaHuta = useMemo(() => {
-    const effectiveDim = dimSurcharge !== null ? dimSurcharge : 0;
-    const gradeSurcharge = selectedGrade ? selectedGrade.value : 0;
 
-    let crExtra = 0;
-    if (currentType === 'CR') {
-      crExtra = crZabezp + crOpak + crPowierz + crWykon + crZgrzew;
-    } else if (currentType === 'HDG') {
-      crExtra = hdgZabezp + hdgOpak + hdgPowierz + hdgWykon + hdgZgrzew;
-    } else if (currentType === 'ZM') {
-      crExtra = zmZabezp + zmOpak + zmPowierz + zmZgrzew;
-    }
-
-    return 0 + effectiveDim + gradeSurcharge + tolThick + cert + coatingSurcharge + crExtra
-      + picklingSurcharge + teardropSurcharge;
-  }, [dimSurcharge, selectedGrade, tolThick, cert, coatingSurcharge, currentType,
+  // Calculate HUTA sum — deleguje do lib/pricingEngine.ts (jedyne źródło prawdy, współdzielone
+  // z migracją przeterminowanego PGL, patrz staleOfferCheck niżej w loadOffer()).
+  const sumaHuta = useMemo(() => pricingEngine.computeSumaHuta(
+    currentType, thickness, width, tolThick, cert,
+    selectedGrade ? selectedGrade.value : 0, selectedCoating,
+    { crZabezp, crOpak, crPowierz, crWykon, crZgrzew,
+      hdgZabezp, hdgOpak, hdgPowierz, hdgWykon, hdgZgrzew,
+      zmZabezp, zmOpak, zmPowierz, zmZgrzew }
+  ), [currentType, thickness, width, tolThick, cert, selectedGrade, selectedCoating,
       crZabezp, crOpak, crPowierz, crWykon, crZgrzew,
       hdgZabezp, hdgOpak, hdgPowierz, hdgWykon, hdgZgrzew,
-      zmZabezp, zmOpak, zmPowierz, zmZgrzew,
-      picklingSurcharge, teardropSurcharge]);
-  
+      zmZabezp, zmOpak, zmPowierz, zmZgrzew]);
+
   // Cena wsadu (PGL + Σ Huta) — potrzebna już tutaj, bo złom (niżej) jest jej procentem.
   const cenaWsadu = pglBase + sumaHuta;
 
-  // Złom: % ceny wsadu, konfigurowalny w Ustawieniach (migracja 022). Dawniej stała
-  // kwota SCRAP_CONSTANT = 10 €/t. Zaokrąglone do liczby całkowitej na polecenie zarządu.
-  const scrapAmount = Math.round(cenaWsadu * (settings.scrapPct / 100));
-
-  // Calculate SSC sum
-  const sumaSSC = useMemo(() => {
-    if (isCoilMode) return 0;
-    return baseSurcharge + sscLenTol + sscFlatness + sscSurface + sscMaxWeight +
-           sscMarking + sscEdging + yieldValue + sscPacking + sscLabels + scrapAmount;
-  }, [baseSurcharge, sscLenTol, sscFlatness, sscSurface, sscMaxWeight,
-      sscMarking, sscEdging, yieldValue, sscPacking, sscLabels, isCoilMode, scrapAmount]);
+  // Calculate SSC sum (w tym złom — % ceny wsadu, konfigurowalny w Ustawieniach, migracja 022)
+  const { sumaSSC, scrapAmount } = useMemo(() => pricingEngine.computeSumaSSC(
+    currentType, thickness, width, length, isCoilMode, gradeInput, cenaWsadu, settings.scrapPct,
+    { sscLenTol, sscFlatness, sscSurface, sscMaxWeight, sscMarking, sscEdging, sscPacking, sscLabels }
+  ), [currentType, thickness, width, length, isCoilMode, gradeInput, cenaWsadu, settings.scrapPct,
+      sscLenTol, sscFlatness, sscSurface, sscMaxWeight, sscMarking, sscEdging, sscPacking, sscLabels]);
 
   // Calculate final values
-  const marzaNetto = cenaWsadu * (marginPct / 100);
-  const cenaKoncowa = cenaWsadu + marzaNetto + extra + transport + sumaSSC;
+  const { marzaNetto, cenaKoncowa } = pricingEngine.computeCenaKoncowa(cenaWsadu, marginPct, extra, transport, sumaSSC);
 
   // --- Transport z trasy -----------------------------------------------------
 
@@ -1147,7 +1180,16 @@ export default function Calculator() {
             setCurrentOfferName(offer.display_name);
             setCurrentOfferRawName(offer.offer_name ?? '');
             setCurrentOfferLabel(offerNumberLabel(offer));
-            restoreOfferData(offer.offer_data);
+
+            // Przeterminowany PGL (inny kwartał niż "teraz") -> migrujemy na aktualne ceny
+            // PRZED odtworzeniem stanu, żeby kalkulator wystartował już z poprawnymi danymi
+            // (patrz migrateStaleOfferData powyżej). refreshSettings() bez argumentu = ustawienia
+            // z nałożonym harmonogramem kwartalnym dla BIEŻĄCEGO kwartału (to samo źródło co
+            // domyślne PGL dla nowej oferty).
+            const freshSettings = (await refreshSettings()) ?? settings;
+            const { data: maybeMigratedData, notice } = migrateStaleOfferData(offer.offer_data, freshSettings);
+            setStaleOfferNotice(notice);
+            restoreOfferData(maybeMigratedData);
             // Re-capture the dirty-check baseline once the restored state has settled.
             setBaselineNonce(n => n + 1);
             setSaveMessage({ type: 'success', text: t.offers?.offerLoaded || 'Offer loaded!' });
@@ -1316,6 +1358,7 @@ export default function Calculator() {
     setShowSaveModal(false);
     setSaveOfferName('');
     setSaveMessage(null);
+    setStaleOfferNotice(null);
 
     const hadEditParam = searchParams.get('edit') !== null;
     // Let the admin-defaults effect run again for the clean offer.
@@ -1548,6 +1591,43 @@ export default function Calculator() {
               {currentOfferLabel || `offer_${currentOfferId}`}
             </span>
           </span>
+        </div>
+      )}
+
+      {/* Stale PGL Banner — informacyjny, NIE blokuje edycji (patrz migrateStaleOfferData).
+          Pojawia się raz na wczytanie (edit lub otwarcie duplikatu), znika po odświeżeniu
+          strony albo po ręcznym zamknięciu. */}
+      {staleOfferNotice && (
+        <div className="flex items-start gap-2.5 mb-6 px-4 py-2.5 rounded-md border-2 border-[var(--accent-hrs)] bg-[rgba(245,166,59,0.12)] text-sm font-mono animate-[fadeIn_0.2s_ease]">
+          <span className="text-base">💶</span>
+          <div className="flex-1 text-[var(--text-primary)]">
+            <div className="font-bold text-[var(--accent-hrs)]">
+              {t.offers?.stalePglBannerTitle || 'PGL zaktualizowane'}
+            </div>
+            <div className="text-xs mt-0.5">
+              {formatWarning(t.offers?.stalePglBannerBody || '', {
+                fromQ: staleOfferNotice.fromQuarter,
+                fromYear: staleOfferNotice.fromYear,
+                toQ: staleOfferNotice.toQuarter,
+                toYear: staleOfferNotice.toYear,
+                count: staleOfferNotice.recalculatedCount,
+              })}
+            </div>
+            {staleOfferNotice.legacyCount > 0 && (
+              <div className="text-xs mt-1 text-[var(--accent-hrs)]">
+                {formatWarning(t.offers?.stalePglBannerLegacy || '', {
+                  count: staleOfferNotice.legacyCount,
+                })}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => setStaleOfferNotice(null)}
+            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs px-1.5"
+            title={language === 'pl' ? 'Zamknij' : 'Close'}
+          >
+            ✕
+          </button>
         </div>
       )}
 
