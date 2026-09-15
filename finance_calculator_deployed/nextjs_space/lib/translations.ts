@@ -3556,11 +3556,23 @@ export const translations: Record<Language, Translations> = {
   de,
 };
 
+// Warning templates carry inline HTML (e.g. <strong>) and some callers render the
+// result via dangerouslySetInnerHTML, so every substituted value must be escaped —
+// vars can originate from a saved offer's stored data, not just live numeric state.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // Helper function to format warning messages with variables
 export function formatWarning(template: string, vars: Record<string, string | number>): string {
   let result = template;
   for (const [key, value] of Object.entries(vars)) {
-    result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value));
+    result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), escapeHtml(String(value)));
   }
   return result;
 }
