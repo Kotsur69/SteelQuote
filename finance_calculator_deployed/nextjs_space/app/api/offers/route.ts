@@ -12,10 +12,19 @@ const OFFER_COLUMNS = `o.id, o.offer_name, o.display_name, o.offer_data, o.statu
   u.full_name AS owner_name, u.email AS owner_email`;
 
 // Wyszukiwarka: jedno pole `q` przeszukuje nazwę własną handlowca, nazwę zastępczą
-// ("offer_30") ORAZ surowe ID. display_name jest kolumną generowaną, więc pokrywa dwa
-// pierwsze przypadki jednym ILIKE. o.id::text (a nie o.id = $n) pozwala porównać ID z
-// dowolnym tekstem bez wywalania zapytania na niepoprawnej liczbie.
-const SEARCH_CLAUSE = `(o.display_name ILIKE '%' || $2 || '%' OR o.id::text = $2)`;
+// ("offer_30"), surowe ID ORAZ firmę/SAP ID klienta zapisane w samej ofercie.
+// display_name jest kolumną generowaną, więc pokrywa dwa pierwsze przypadki jednym
+// ILIKE. o.id::text (a nie o.id = $n) pozwala porównać ID z dowolnym tekstem bez
+// wywalania zapytania na niepoprawnej liczbie. Firma/SAP ID czytane z
+// offer_data->clientInfo (nie z tabeli clients) celowo — to dokładnie ten tekst,
+// który handlowiec widzi w wierszu listy (clientCompanyLine we froncie), więc
+// wynik wyszukiwania zawsze wizualnie pasuje do wpisanej frazy.
+const SEARCH_CLAUSE = `(
+  o.display_name ILIKE '%' || $2 || '%'
+  OR o.id::text = $2
+  OR o.offer_data->'clientInfo'->>'company' ILIKE '%' || $2 || '%'
+  OR o.offer_data->'clientInfo'->>'sapId' ILIKE '%' || $2 || '%'
+)`;
 
 // GET offers widoczne dla bieżącego użytkownika:
 //   junior  -> tylko własne

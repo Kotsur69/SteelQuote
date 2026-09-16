@@ -46,10 +46,16 @@ export async function GET(request: NextRequest) {
       values.push(dateTo);
     }
 
-    // Szukanie po nazwie własnej, nazwie zastępczej ("offer_30") i surowym ID — patrz /api/offers.
+    // Szukanie po nazwie własnej, nazwie zastępczej ("offer_30"), surowym ID oraz
+    // firmie/SAP ID klienta (z offer_data->clientInfo) — patrz /api/offers.
     const q = (sp.get('q') || '').trim();
     if (q) {
-      conditions.push(`(o.display_name ILIKE '%' || $${i} || '%' OR o.id::text = $${i})`);
+      conditions.push(`(
+        o.display_name ILIKE '%' || $${i} || '%'
+        OR o.id::text = $${i}
+        OR o.offer_data->'clientInfo'->>'company' ILIKE '%' || $${i} || '%'
+        OR o.offer_data->'clientInfo'->>'sapId' ILIKE '%' || $${i} || '%'
+      )`);
       values.push(escapeLikePattern(q));
       i++;
     }

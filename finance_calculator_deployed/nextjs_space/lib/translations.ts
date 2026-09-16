@@ -41,6 +41,8 @@ export interface Translations {
     label: string;
     date: string;
     name: string;
+    company: string;
+    sapId: string;
     value: string;
     status: string;
     ascending: string;
@@ -785,7 +787,9 @@ export const pl: Translations = {
   sort: {
     label: 'Sortuj wg',
     date: 'Data',
-    name: 'Nazwa',
+    name: 'Nazwa oferty',
+    company: 'Firma',
+    sapId: 'SAP ID',
     value: 'Wartość',
     status: 'Status',
     ascending: 'Rosnąco',
@@ -835,7 +839,7 @@ export const pl: Translations = {
     offerName: 'Nazwa oferty',
     offerNamePlaceholder: 'np. Oferta dla klienta ABC',
     offerNameOptionalHint: 'Możesz zostawić puste — oferta dostanie nazwę „offer_[numer]”.',
-    searchPlaceholder: 'Szukaj po nazwie lub numerze oferty...',
+    searchPlaceholder: 'Szukaj po nazwie oferty, firmie lub SAP ID...',
     searchNoResults: 'Brak ofert pasujących do wyszukiwania.',
     saving: 'Zapisywanie...',
     saved: 'Oferta zapisana pomyślnie!',
@@ -1485,7 +1489,9 @@ export const en: Translations = {
   sort: {
     label: 'Sort by',
     date: 'Date',
-    name: 'Name',
+    name: 'Offer name',
+    company: 'Company',
+    sapId: 'SAP ID',
     value: 'Value',
     status: 'Status',
     ascending: 'Ascending',
@@ -1535,7 +1541,7 @@ export const en: Translations = {
     offerName: 'Offer name',
     offerNamePlaceholder: 'e.g., Offer for client ABC',
     offerNameOptionalHint: 'You can leave this empty — the offer will be named "offer_[number]".',
-    searchPlaceholder: 'Search by offer name or number...',
+    searchPlaceholder: 'Search by offer name, company, or SAP ID...',
     searchNoResults: 'No offers match your search.',
     saving: 'Saving...',
     saved: 'Offer saved successfully!',
@@ -2184,7 +2190,9 @@ export const cs: Translations = {
   sort: {
     label: 'Řadit podle',
     date: 'Datum',
-    name: 'Název',
+    name: 'Název nabídky',
+    company: 'Firma',
+    sapId: 'SAP ID',
     value: 'Hodnota',
     status: 'Stav',
     ascending: 'Vzestupně',
@@ -2234,7 +2242,7 @@ export const cs: Translations = {
     offerName: 'Název nabídky',
     offerNamePlaceholder: 'např. Nabídka pro klienta ABC',
     offerNameOptionalHint: 'Můžete nechat prázdné — nabídka dostane název „offer_[číslo]“.',
-    searchPlaceholder: 'Hledat podle názvu nebo čísla nabídky...',
+    searchPlaceholder: 'Hledat podle názvu nabídky, firmy nebo SAP ID...',
     searchNoResults: 'Žádné nabídky neodpovídají hledání.',
     saving: 'Ukládání...',
     saved: 'Nabídka byla úspěšně uložena!',
@@ -2883,7 +2891,9 @@ export const de: Translations = {
   sort: {
     label: 'Sortieren nach',
     date: 'Datum',
-    name: 'Name',
+    name: 'Angebotsname',
+    company: 'Firma',
+    sapId: 'SAP ID',
     value: 'Wert',
     status: 'Status',
     ascending: 'Aufsteigend',
@@ -2933,7 +2943,7 @@ export const de: Translations = {
     offerName: 'Angebotsname',
     offerNamePlaceholder: 'z. B. Angebot für Kunde ABC',
     offerNameOptionalHint: 'Kann leer bleiben — das Angebot erhält den Namen „offer_[Nummer]“.',
-    searchPlaceholder: 'Suche nach Angebotsname oder -nummer...',
+    searchPlaceholder: 'Suche nach Angebotsname, Firma oder SAP-ID...',
     searchNoResults: 'Keine Angebote entsprechen der Suche.',
     saving: 'Wird gespeichert...',
     saved: 'Angebot erfolgreich gespeichert!',

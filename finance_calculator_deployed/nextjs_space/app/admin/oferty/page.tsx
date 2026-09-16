@@ -51,6 +51,15 @@ interface UserOption { id: number; email: string; full_name: string | null; }
 
 const STATUSES: OfferStatus[] = ['draft', 'pending_review', 'approved', 'rejected', 'sent'];
 
+// Kolejność statusów wg obiegu oferty — dla sortowania po statusie (patrz /offers).
+const STATUS_ORDER: Record<OfferStatus, number> = {
+  draft: 0,
+  pending_review: 1,
+  approved: 2,
+  rejected: 3,
+  sent: 4,
+};
+
 function statusBadgeClass(status: OfferStatus): string {
   switch (status) {
     case 'pending_review': return 'border-[var(--accent-hrs)] text-[var(--accent-hrs)] bg-[rgba(232,160,32,0.12)]';
@@ -107,6 +116,10 @@ function AdminOffersContent() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // Której rodziny ofert (id najnowszej wersji) ma rozwiniętą historię poprzednich wersji.
   const [expandedVersionsKey, setExpandedVersionsKey] = useState<number | null>(null);
+  // Sortowanie listy — jak w /offers. Domyślne 'date' odtwarza dotychczasową kolejność
+  // z backendu (ORDER BY created_at DESC).
+  const [sortKey, setSortKey] = useState<'date' | 'name' | 'company' | 'sap' | 'value' | 'status'>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Szukanie po nazwie własnej, nazwie zastępczej ("offer_30") albo numerze oferty.
   // Filtruje baza (?q=) — ta sama fraza działa tak samo jak w /offers i /senior.
@@ -166,9 +179,39 @@ function AdminOffersContent() {
   const offerTotal = (o: AdminOffer) =>
     (o.offer_data.zestawienie || []).reduce((sum, it) => sum + it.totalValue, 0);
 
+  // Posortowana kopia listy — nie mutujemy stanu `offers`.
+  const sortedOffers = (() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...offers].sort((a, b) => {
+      switch (sortKey) {
+        case 'name':
+          return a.display_name.localeCompare(b.display_name, undefined, { sensitivity: 'base' }) * dir;
+        case 'company':
+          return normalizeClientInfo(a.offer_data.clientInfo).company.localeCompare(
+            normalizeClientInfo(b.offer_data.clientInfo).company,
+            undefined,
+            { sensitivity: 'base' }
+          ) * dir;
+        case 'sap':
+          return normalizeClientInfo(a.offer_data.clientInfo).sapId.localeCompare(
+            normalizeClientInfo(b.offer_data.clientInfo).sapId,
+            undefined,
+            { sensitivity: 'base' }
+          ) * dir;
+        case 'value':
+          return (offerTotal(a) - offerTotal(b)) * dir;
+        case 'status':
+          return (STATUS_ORDER[a.status] - STATUS_ORDER[b.status]) * dir;
+        case 'date':
+        default:
+          return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * dir;
+      }
+    });
+  })();
+
   // Grupowanie: najnowsza wersja każdej rodziny jako wiersz w tabeli, starsze (w tym
   // oryginał) pod rozwijanym "poprzednie wersje" — patrz lib/offerVersions.ts.
-  const offerGroups = groupOffersByVersion(offers);
+  const offerGroups = groupOffersByVersion(sortedOffers);
 
   const handleEdit = (offerId: number) => {
     router.push(`/calculator?edit=${offerId}`);
@@ -364,6 +407,34 @@ function AdminOffersContent() {
             clearLabel={t.common.cancel}
             className="ml-auto"
           />
+          {/* Sortowanie — jak w /offers */}
+          {offers.length > 1 && (
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] text-[var(--text-secondary)] font-mono uppercase tracking-wider">
+                {t.sort.label}
+              </label>
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as typeof sortKey)}
+                className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--text-primary)] hover:border-[var(--border-hi)] focus:border-[var(--accent-cr)] focus:outline-none transition-colors cursor-pointer"
+              >
+                <option value="date">{t.sort.date}</option>
+                <option value="name">{t.sort.name}</option>
+                <option value="company">{t.sort.company}</option>
+                <option value="sap">{t.sort.sapId}</option>
+                <option value="value">{t.sort.value}</option>
+                <option value="status">{t.sort.status}</option>
+              </select>
+              <button
+                onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] transition-colors"
+                title={sortDir === 'asc' ? t.sort.ascending : t.sort.descending}
+                aria-label={sortDir === 'asc' ? t.sort.ascending : t.sort.descending}
+              >
+                {sortDir === 'asc' ? '▲' : '▼'}
+              </button>
+            </div>
+          )}
           <span className="text-[10px] text-[var(--text-secondary)] font-mono">{offers.length}</span>
         </div>
 

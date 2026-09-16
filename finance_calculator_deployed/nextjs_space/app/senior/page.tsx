@@ -83,6 +83,10 @@ export default function SeniorPage() {
   const [userId, setUserId] = useState<number | null>(null);
   // Której rodziny ofert (klucz z groupOffersByVersion) ma rozwiniętą historię wersji.
   const [expandedVersionsKey, setExpandedVersionsKey] = useState<number | null>(null);
+  // Sortowanie listy — jak w /offers. Domyślne 'date' odtwarza dotychczasową kolejność
+  // z backendu (pending_review zawsze na górze, potem wg daty), patrz sortedOffers niżej.
+  const [sortKey, setSortKey] = useState<'date' | 'name' | 'company' | 'sap' | 'value' | 'status'>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Reject modal state
   const [rejectModalOfferId, setRejectModalOfferId] = useState<number | null>(null);
@@ -278,9 +282,56 @@ export default function SeniorPage() {
     return true;
   });
 
+  // Kolejność statusów wg obiegu oferty — dla sortowania po statusie (patrz /offers).
+  const STATUS_ORDER: Record<OfferStatus, number> = {
+    draft: 0,
+    pending_review: 1,
+    approved: 2,
+    rejected: 3,
+    sent: 4,
+  };
+
+  // Posortowana kopia listy — nie mutujemy stanu `offers`.
+  const sortedOffers = (() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...filteredOffers].sort((a, b) => {
+      switch (sortKey) {
+        case 'name':
+          return a.display_name.localeCompare(b.display_name, undefined, { sensitivity: 'base' }) * dir;
+        case 'company':
+          return normalizeClientInfo(a.offer_data.clientInfo).company.localeCompare(
+            normalizeClientInfo(b.offer_data.clientInfo).company,
+            undefined,
+            { sensitivity: 'base' }
+          ) * dir;
+        case 'sap':
+          return normalizeClientInfo(a.offer_data.clientInfo).sapId.localeCompare(
+            normalizeClientInfo(b.offer_data.clientInfo).sapId,
+            undefined,
+            { sensitivity: 'base' }
+          ) * dir;
+        case 'value':
+          return (calculateOfferTotal(a) - calculateOfferTotal(b)) * dir;
+        case 'status':
+          return (STATUS_ORDER[a.status] - STATUS_ORDER[b.status]) * dir;
+        case 'date':
+        default: {
+          // Domyślna kolejność: pending_review ZAWSZE na górze (kolejka do recenzji) —
+          // ten podział nie zależy od kierunku sortowania, inaczej przełącznik asc/desc
+          // chowałby oferty czekające na recenzję pod zrecenzowanymi. Kierunek dotyczy
+          // tylko daty aktualizacji w obrębie każdej z tych dwóch grup.
+          const rank = (o: Offer) => (o.status === 'pending_review' ? 0 : 1);
+          const rankCmp = rank(a) - rank(b);
+          if (rankCmp !== 0) return rankCmp;
+          return (new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()) * dir;
+        }
+      }
+    });
+  })();
+
   // Grupowanie: najnowsza wersja każdej rodziny jako karta na liście, starsze (w tym
   // oryginał) pod rozwijanym "poprzednie wersje" - patrz lib/offerVersions.ts.
-  const offerGroups = groupOffersByVersion(filteredOffers);
+  const offerGroups = groupOffersByVersion(sortedOffers);
 
   const pendingCount = offers.filter((o) => o.status === 'pending_review').length;
   const awaitingSendCount = offers.filter((o) => o.status === 'approved').length;
@@ -420,6 +471,34 @@ export default function SeniorPage() {
             clearLabel={t.common.cancel}
             className="ml-auto"
           />
+          {/* Sortowanie — jak w /offers */}
+          {filteredOffers.length > 1 && (
+            <div className="flex items-center gap-1.5">
+              <label className="text-[10px] text-[var(--text-secondary)] font-mono uppercase tracking-wider">
+                {t.sort.label}
+              </label>
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as typeof sortKey)}
+                className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--text-primary)] hover:border-[var(--border-hi)] focus:border-[var(--accent-cr)] focus:outline-none transition-colors cursor-pointer"
+              >
+                <option value="date">{t.sort.date}</option>
+                <option value="name">{t.sort.name}</option>
+                <option value="company">{t.sort.company}</option>
+                <option value="sap">{t.sort.sapId}</option>
+                <option value="value">{t.sort.value}</option>
+                <option value="status">{t.sort.status}</option>
+              </select>
+              <button
+                onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[11px] font-mono text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] transition-colors"
+                title={sortDir === 'asc' ? t.sort.ascending : t.sort.descending}
+                aria-label={sortDir === 'asc' ? t.sort.ascending : t.sort.descending}
+              >
+                {sortDir === 'asc' ? '▲' : '▼'}
+              </button>
+            </div>
+          )}
           <span className="text-[10px] text-[var(--text-secondary)] font-mono">
             {filteredOffers.length} {t.offers.items}
           </span>

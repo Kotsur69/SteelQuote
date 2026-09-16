@@ -132,7 +132,7 @@ export default function OffersPage() {
   // Której oferty (root id) ma rozwiniętą listę poprzednich wersji. null = wszystkie zwinięte.
   const [expandedVersionsId, setExpandedVersionsId] = useState<number | null>(null);
   // Sortowanie listy ofert.
-  const [sortKey, setSortKey] = useState<'date' | 'name' | 'value' | 'status'>('date');
+  const [sortKey, setSortKey] = useState<'date' | 'name' | 'company' | 'sap' | 'value' | 'status'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   // Szukanie po nazwie (własnej lub zastępczej) albo po numerze oferty. Filtruje baza (?q=),
   // nie front — dzięki temu ta sama fraza działa tak samo z każdego panelu.
@@ -370,6 +370,20 @@ export default function OffersPage() {
         case 'name':
           cmp = a.display_name.localeCompare(b.display_name, undefined, { sensitivity: 'base' });
           break;
+        case 'company':
+          cmp = normalizeClientInfo(a.offer_data.clientInfo).company.localeCompare(
+            normalizeClientInfo(b.offer_data.clientInfo).company,
+            undefined,
+            { sensitivity: 'base' }
+          );
+          break;
+        case 'sap':
+          cmp = normalizeClientInfo(a.offer_data.clientInfo).sapId.localeCompare(
+            normalizeClientInfo(b.offer_data.clientInfo).sapId,
+            undefined,
+            { sensitivity: 'base' }
+          );
+          break;
         case 'value':
           cmp = calculateOfferTotal(a) - calculateOfferTotal(b);
           break;
@@ -557,6 +571,8 @@ export default function OffersPage() {
               >
                 <option value="date">{t.sort.date}</option>
                 <option value="name">{t.sort.name}</option>
+                <option value="company">{t.sort.company}</option>
+                <option value="sap">{t.sort.sapId}</option>
                 <option value="value">{t.sort.value}</option>
                 <option value="status">{t.sort.status}</option>
               </select>

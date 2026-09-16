@@ -11,8 +11,14 @@ const OFFER_COLUMNS = `o.id, o.offer_name, o.display_name, o.offer_data, o.statu
   u.full_name AS owner_name, u.email AS owner_email,
   r.full_name AS reviewer_name`;
 
-// Nazwa własna, nazwa zastępcza ("offer_30") i surowe ID w jednym polu — patrz /api/offers.
-const SEARCH_CLAUSE = `(o.display_name ILIKE '%' || $2 || '%' OR o.id::text = $2)`;
+// Nazwa własna, nazwa zastępcza ("offer_30"), surowe ID oraz firma/SAP ID klienta
+// (z offer_data->clientInfo) w jednym polu — patrz /api/offers.
+const SEARCH_CLAUSE = `(
+  o.display_name ILIKE '%' || $2 || '%'
+  OR o.id::text = $2
+  OR o.offer_data->'clientInfo'->>'company' ILIKE '%' || $2 || '%'
+  OR o.offer_data->'clientInfo'->>'sapId' ILIKE '%' || $2 || '%'
+)`;
 
 // GET — oferty widoczne dla seniora w panelu recenzji:
 //   - wszystkie cudze w pending_review
