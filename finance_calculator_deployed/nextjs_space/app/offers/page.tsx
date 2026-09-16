@@ -433,6 +433,11 @@ export default function OffersPage() {
   const hasClientDetails = (offer: Offer) =>
     hasRequiredCompanyDetails(normalizeClientInfo(offer.offer_data.clientInfo));
 
+  // Skraca powód odrzucenia/przegranej wpisany w badge status'u, żeby jeden długi
+  // zdaniowy powód nie rozciągał wiersza — pełny tekst zawsze zostaje w title (hover).
+  const truncateNote = (note: string, max = 24): string =>
+    note.length > max ? `${note.slice(0, max - 1)}…` : note;
+
   // Firma klienta + SAP ID w jednej linii pod numerem oferty. Bez firmy (draft bez
   // uzupełnionych danych klienta) pokazujemy placeholder, żeby wiersz nie "skakał"
   // wysokością po wypełnieniu danych.
@@ -635,10 +640,16 @@ export default function OffersPage() {
                       <h3 className="font-medium text-base text-[var(--text-primary)] truncate">
                         {offerNumberLabel(offer)}
                       </h3>
+                      {/* Powód odrzucenia dopisany wprost do badge'a statusu, zamiast osobnego
+                          pełnowymiarowego bloku pod nazwą firmy — pełny tekst w title (hover). */}
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase tracking-wider border ${statusBadgeClass(offer.status)}`}
+                        title={offer.status === 'rejected' ? offer.rejection_reason || undefined : undefined}
                       >
                         {t.offerStatus[offer.status]}
+                        {offer.status === 'rejected' && offer.rejection_reason
+                          ? `: ${truncateNote(offer.rejection_reason)}`
+                          : ''}
                       </span>
                       {/* Tylko draft ma dwie ścieżki (wysyłka wprost albo przez zatwierdzenie) —
                           badge tłumaczy, dlaczego przycisk Wyślij jest lub nie jest dostępny. */}
@@ -677,6 +688,7 @@ export default function OffersPage() {
                           {offer.client_decision === 'won'
                             ? t.analytics.decisionWon
                             : t.analytics.decisionLost}
+                          {offer.client_decision_note ? `: ${truncateNote(offer.client_decision_note)}` : ''}
                         </span>
                       )}
                     </div>
@@ -700,18 +712,9 @@ export default function OffersPage() {
                         👤 {offer.owner_name || offer.owner_email || t.admin.deletedUser}
                       </p>
                     )}
-                    {/* Powód odrzucenia widoczny przy ofercie odrzuconej */}
-                    {offer.status === 'rejected' && offer.rejection_reason && (
-                      <p className="mt-1.5 text-[11px] text-[var(--accent-sum)] bg-[rgba(245,71,90,0.08)] border border-[var(--accent-sum)] rounded px-2 py-1">
-                        ✖ {t.workflow.rejectionReason}: {offer.rejection_reason}
-                      </p>
-                    )}
-                    {/* Why the client said no - the single most useful field in the loss report. */}
-                    {offer.client_decision === 'lost' && offer.client_decision_note && (
-                      <p className="mt-1.5 text-[11px] text-[var(--accent-sum)] bg-[rgba(245,71,90,0.08)] border border-[var(--accent-sum)] rounded px-2 py-1">
-                        {DECISION_ICON.lost} {t.analytics.decisionLost}: {offer.client_decision_note}
-                      </p>
-                    )}
+                    {/* Powód odrzucenia i notatka "dlaczego przegrana" żyją teraz w badge'u
+                        statusu obok offer_id (patrz wyżej) — nie jako osobny pełnowymiarowy
+                        blok tutaj, żeby nie odciągać uwagi od nazwy firmy. */}
                     <div className="flex flex-wrap gap-4 mt-2 text-xs text-[var(--text-secondary)]">
                       <span>
                         📅 {t.offers.createdAt}: {formatDate(offer.created_at)}
