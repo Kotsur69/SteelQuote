@@ -123,6 +123,7 @@ export interface Translations {
     readyToSendBadge: string;
     missingClientBadge: string;
     missingClientHint: string;
+    noCompanyData: string;
     deleted: string;
     updated: string;
   };
@@ -862,6 +863,7 @@ export const pl: Translations = {
     readyToSendBadge: 'Gotowa do wysyłki',
     missingClientBadge: 'Brak danych klienta',
     missingClientHint: 'Uzupełnij nazwę firmy i NIP klienta, aby wysłać ofertę.',
+    noCompanyData: '— brak danych firmy —',
     deleted: 'Oferta usunięta pomyślnie!',
     updated: 'Oferta zaktualizowana pomyślnie!',
   },
@@ -1561,6 +1563,7 @@ export const en: Translations = {
     readyToSendBadge: 'Ready to send',
     missingClientBadge: 'Client data missing',
     missingClientHint: 'Fill in the client company name and Tax ID (NIP) to send the offer.',
+    noCompanyData: '— no company data —',
     deleted: 'Offer deleted successfully!',
     updated: 'Offer updated successfully!',
   },
@@ -2259,6 +2262,7 @@ export const cs: Translations = {
     readyToSendBadge: 'Připraveno k odeslání',
     missingClientBadge: 'Chybí údaje klienta',
     missingClientHint: 'Vyplňte název firmy klienta a DIČ (NIP), abyste mohli nabídku odeslat.',
+    noCompanyData: '— chybí údaje o firmě —',
     deleted: 'Nabídka byla úspěšně smazána!',
     updated: 'Nabídka byla úspěšně aktualizována!',
   },
@@ -2957,6 +2961,7 @@ export const de: Translations = {
     readyToSendBadge: 'Versandbereit',
     missingClientBadge: 'Kundendaten fehlen',
     missingClientHint: 'Firmenname und USt-IdNr. (NIP) des Kunden ausfüllen, um das Angebot zu senden.',
+    noCompanyData: '— keine Firmendaten —',
     deleted: 'Angebot erfolgreich gelöscht!',
     updated: 'Angebot erfolgreich aktualisiert!',
   },

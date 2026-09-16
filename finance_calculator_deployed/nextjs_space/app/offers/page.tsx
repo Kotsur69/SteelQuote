@@ -419,6 +419,15 @@ export default function OffersPage() {
   const hasClientDetails = (offer: Offer) =>
     hasRequiredCompanyDetails(normalizeClientInfo(offer.offer_data.clientInfo));
 
+  // Firma klienta + SAP ID w jednej linii pod numerem oferty. Bez firmy (draft bez
+  // uzupełnionych danych klienta) pokazujemy placeholder, żeby wiersz nie "skakał"
+  // wysokością po wypełnieniu danych.
+  const clientCompanyLine = (offer: Offer): string => {
+    const info = normalizeClientInfo(offer.offer_data.clientInfo);
+    if (!info.company) return t.offers.noCompanyData;
+    return info.sapId ? `${info.company} — SAP: ${info.sapId}` : info.company;
+  };
+
   // Uprawnienia do akcji na jednej ofercie, zależne od roli i statusu.
   const perms = (offer: Offer) => {
     const isOwner = currentUserId !== null && offer.user_id === currentUserId;
@@ -655,6 +664,11 @@ export default function OffersPage() {
                         </span>
                       )}
                     </div>
+                    {/* Firma klienta + SAP ID, tuż pod numerem oferty — najważniejszy kontekst
+                        handlowy w liście, więc zaraz po offer_id i przed nazwą własną. */}
+                    <p className="mt-0.5 text-sm text-[var(--text-secondary)] truncate">
+                      {clientCompanyLine(offer)}
+                    </p>
                     {/* Nazwa własna oferty pod numerem — drugorzędna wobec offer_id.
                         display_name to kolumna generowana: gdy brak nazwy własnej, baza
                         nadaje jej ten sam tekst co offerNumberLabel (np. "offer_19") —
