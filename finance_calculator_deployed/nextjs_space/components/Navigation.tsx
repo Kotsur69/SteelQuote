@@ -73,8 +73,9 @@ export default function Navigation({ isDark }: NavigationProps) {
           <Link
             key={tab.href}
             href={tab.href}
+            title={tab.label}
             onClick={(e) => handleNavClick(e, tab.href)}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm transition-all border
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg font-medium text-sm transition-all border
               ${isActive
                 ? 'bg-[rgba(59,142,245,0.12)] border-[#3b8ef5] text-[#3b8ef5]'
                 : `border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] hover:bg-[rgba(255,255,255,0.03)]
@@ -82,21 +83,22 @@ export default function Navigation({ isDark }: NavigationProps) {
               }`}
           >
             <span className="text-base">{tab.icon}</span>
-            <span>{tab.label}</span>
+            <span className="hidden sm:inline">{tab.label}</span>
           </Link>
         );
       })}
 
       {/* Prawy blok: „Nowa oferta" (tylko na kalkulatorze) + zalogowany użytkownik. */}
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex flex-wrap items-center gap-2">
         {newOfferAction && (
           <button
             type="button"
+            title={t.unsavedGuard?.newOffer || 'Nowa oferta'}
             onClick={() => run(newOfferAction)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm border border-[#1f8f4e] text-[#1f8f4e] transition-colors hover:bg-[rgba(31,143,78,0.12)]"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg font-medium text-sm border border-[#1f8f4e] text-[#1f8f4e] transition-colors hover:bg-[rgba(31,143,78,0.12)]"
           >
             <span className="text-base leading-none">＋</span>
-            <span>{t.unsavedGuard?.newOffer || 'Nowa oferta'}</span>
+            <span className="hidden sm:inline">{t.unsavedGuard?.newOffer || 'Nowa oferta'}</span>
           </button>
         )}
         {user && (
