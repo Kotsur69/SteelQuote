@@ -131,6 +131,9 @@ export default function OffersPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   // Której oferty (root id) ma rozwiniętą listę poprzednich wersji. null = wszystkie zwinięte.
   const [expandedVersionsId, setExpandedVersionsId] = useState<number | null>(null);
+  // Której oferty linia firma+SAP ID jest rozwinięta (odkrywa to, co truncate ucina
+  // na wąskich ekranach — tap na mobile, hover/title na desktopie). null = wszystkie zwinięte.
+  const [expandedCompanyId, setExpandedCompanyId] = useState<number | null>(null);
   // Sortowanie listy ofert.
   const [sortKey, setSortKey] = useState<'date' | 'name' | 'company' | 'sap' | 'value' | 'status'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -635,7 +638,7 @@ export default function OffersPage() {
                   !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
                 }`}
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       {/* Numer oferty jako główny tytuł wiersza — stały punkt odniesienia
@@ -696,8 +699,16 @@ export default function OffersPage() {
                       )}
                     </div>
                     {/* Firma klienta + SAP ID, tuż pod numerem oferty — najważniejszy kontekst
-                        handlowy w liście, więc zaraz po offer_id i przed nazwą własną. */}
-                    <p className="mt-0.5 text-sm text-[var(--text-secondary)] truncate">
+                        handlowy w liście, więc zaraz po offer_id i przed nazwą własną.
+                        title = hover na desktopie; tap toggluje truncate, żeby SAP ID dało
+                        się odczytać też na wąskim ekranie bez zmiany layoutu domyślnie. */}
+                    <p
+                      onClick={(e) => { e.stopPropagation(); setExpandedCompanyId(expandedCompanyId === offer.id ? null : offer.id); }}
+                      title={clientCompanyLine(offer)}
+                      className={`mt-0.5 text-sm text-[var(--text-secondary)] cursor-pointer hover:text-[var(--text-primary)] transition-colors ${
+                        expandedCompanyId === offer.id ? 'break-words' : 'truncate'
+                      }`}
+                    >
                       {clientCompanyLine(offer)}
                     </p>
                     {/* Nazwa własna oferty pod numerem — drugorzędna wobec offer_id.
@@ -813,7 +824,7 @@ export default function OffersPage() {
                   </div>
                   
                   {/* Action buttons */}
-                  <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleExportExcel(offer)}
                       disabled={!offer.offer_data.zestawienie || offer.offer_data.zestawienie.length === 0}

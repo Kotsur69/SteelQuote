@@ -6,7 +6,7 @@
 - [x] Chunk 1 — Calculator: top input controls — **done**, verified at true 375px portrait and 844×390 landscape (no regression). See notes under Chunk 1.
 - [x] Chunk 2 — Calculator: pricing/surcharge breakdown panel — **done**, verified at true 375px portrait and 844×390 landscape (no regression), both sheet and coil mode. See notes under Chunk 2.
 - [x] Chunk 3 — Calculator: summary table + modal — **done**, verified at true 375px portrait (CDP device emulation), 1920px desktop, and 844×390 landscape (no regression). See notes under Chunk 3.
-- [ ] Chunk 4 — Offers list page
+- [x] Chunk 4 — Offers list page — **done**, verified at true 375px portrait (CDP device emulation) and 844×390 landscape (no regression). See notes under Chunk 4.
 - [ ] Chunk 5 — Admin panels
 - [ ] Chunk 6 — Analytics + senior panel
 
@@ -237,6 +237,59 @@ portrait — needs a fix here (likely wrap the actions or shrink/condense
 them below the `sm` breakpoint, same pattern as Chunk 0).
 
 **Files:** `app/offers/page.tsx`.
+
+**Result:** confirmed with Mati before implementing — simple `flex-wrap`
+fix (no icon-only compacting) for the action-buttons bug, verify-first for
+the rest of the page (no proactive hardening beyond what screenshots
+showed broken).
+
+Root cause was two-part, not one: the outer row at line 638
+(`flex items-start justify-between gap-4`) had no `flex-wrap`, so the
+`flex-shrink-0` action-buttons block was forced to sit beside the offer
+info instead of dropping to its own line — fixed by adding `flex-wrap`.
+That alone wasn't enough: once alone on its own line, the action-buttons
+div (`flex flex-wrap justify-end`) still sized itself to its full
+max-content width (562px, confirmed via a scripted `getBoundingClientRect`
+scan) instead of the 330px actually available, so its *own* `flex-wrap`
+never got a chance to trigger and the last 1-2 buttons (e.g. "Usuń") were
+invisible past the card's `overflow-hidden` edge. Fixed by adding
+`w-full sm:w-auto` to that div so it fills the wrapped row below `sm`,
+letting its buttons wrap onto 2-3 rows (all reachable, none clipped), and
+reverts to its original single-row auto-width behavior at `sm`+.
+
+Verify-first pass on the rest of the page (search/sort header, offer-row
+badges/text, the 6-column zestawienie preview table) found nothing else
+broken — search/sort header and offer-row text already used `flex-wrap`/
+`truncate` and needed no change. The zestawienie preview table (mirrors
+the Calculator's Zestawienie table from Chunk 3) needs its own horizontal
+scroll at 375px (420px of content vs. 283px visible) — expected, not a
+bug, and confirmed contained to the table's own `overflow-x-auto` wrapper
+rather than leaking to the page.
+
+Verified at a true 375px portrait viewport (CDP device emulation): zero
+page-level horizontal overflow (`document.documentElement.scrollWidth ===
+window.innerWidth`), zero hidden-clipping elements anywhere on the page
+(scripted `scrollWidth > clientWidth` scan, same method as Chunks 1-3,
+excluding intentional `truncate` labels), all action buttons on every
+offer row (including the longest set: Excel/PDF/Edytuj/Wyślij do
+klienta/Duplikuj/Usuń) fully visible and reachable. Verified 844×390
+landscape: all 6 action buttons render on a single row exactly as before
+(`rowsUsed: 1`), zero horizontal overflow — no regression.
+
+**Follow-up (raised after initial verification):** the company + SAP ID
+line (`clientCompanyLine`) still truncates on narrow screens by design —
+that's what keeps the row height compact for every other row — but Mati
+flagged that the SAP ID matters and wanted it reachable without a
+permanent layout change. Added `title={clientCompanyLine(offer)}` (native
+hover tooltip on desktop, matches this file's existing convention for
+truncated text — see `truncateNote`) plus a tap-to-toggle: clicking the
+line swaps its class from `truncate` to `break-words` for that row only
+(new `expandedCompanyId` state, same pattern as `expandedId`/
+`expandedVersionsId`), wrapping the full company name + SAP ID onto 2
+lines on demand, tap again to re-collapse. Verified at 375px portrait: the
+row grows from 20px to 40px only while expanded, `document.documentElement
+.scrollWidth === window.innerWidth` holds before and after, no other row
+is affected.
 
 ---
 
