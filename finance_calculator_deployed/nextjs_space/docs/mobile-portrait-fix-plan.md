@@ -3,7 +3,7 @@
 ## Status
 
 - [x] Chunk 0 — Shared header + top navigation — **done**, verified at true 375px portrait (CDP device emulation) and 844×390 landscape (no regression). See notes under Chunk 0.
-- [ ] Chunk 1 — Calculator: top input controls
+- [x] Chunk 1 — Calculator: top input controls — **done**, verified at true 375px portrait and 844×390 landscape (no regression). See notes under Chunk 1.
 - [ ] Chunk 2 — Calculator: pricing/surcharge breakdown panel
 - [ ] Chunk 3 — Calculator: summary table + modal
 - [ ] Chunk 4 — Offers list page
@@ -102,7 +102,7 @@ buttons) gets clipped at the right edge in portrait — noted under Chunk 4.
 
 ---
 
-## Chunk 1 — Calculator: top input controls
+## Chunk 1 — Calculator: top input controls — DONE
 
 Non-responsive grids driving the material/dimension input area:
 - `components/Calculator.tsx:1705`, `1786` — `grid-cols-4`
@@ -114,6 +114,35 @@ Non-responsive grids driving the material/dimension input area:
 md:grid-cols-3/4`), let numeric inputs shrink instead of forcing width.
 
 **Files:** `components/Calculator.tsx` (lines ~1700-2140), `components/TransportPanel.tsx`.
+
+**Result:** confirmed with Mati before implementing — kept the steel type
+selector at a fixed 3-column grid (his call, for compactness) and stacked
+the Input Parameters Bar (Thickness/Width/Length/Grade) to a full
+single-column on mobile (his call, for readability), restoring the
+original column counts at `sm`/`md`. Client info + contact grids
+(`grid-cols-4`) go to `grid-cols-1 sm:grid-cols-2 md:grid-cols-4`. Added
+`flex-wrap` to the offer-validity and payment-term date-range groups and
+to the one-time-grade-surcharge row so they wrap instead of overflowing.
+
+**Bug found and fixed (not in original scope):** the steel type button for
+PICKLED (Polish label "HRS Trawiona") silently clipped the word "Trawiona"
+at 375px — `scrollWidth` (98px) exceeded `clientWidth` (86px) inside the
+button's `overflow-hidden`, so text vanished with no visible scrollbar.
+Only the Polish locale hits this (EN/CZ/DE use the short label "PICKLED").
+Fixed by shrinking the button's padding/font-size/tracking below the `sm`
+breakpoint and adding `break-words` as a safety net for any future long
+label in any locale.
+
+`TransportPanel.tsx`'s `w-[90px]` km input was checked and left as-is — it
+sits next to a `flex-1` label that absorbs the squeeze, no overflow risk.
+
+Verified at a true 375px portrait viewport (CDP device emulation): zero
+horizontal overflow (`scrollWidth === innerWidth`) throughout the whole
+input-controls section, all four fixes rendering cleanly, the (out-of-scope,
+Chunk 2) pricing panel below correctly contained by its own scroll instead
+of leaking overflow to the page. Verified 844×390 landscape restores the
+original multi-column layout (4-col input bar, 4-col client/contact grids,
+single toggle button, no duplication) with zero overflow — no regression.
 
 ---
 

@@ -1704,7 +1704,7 @@ export default function Calculator() {
                 {t.client?.companySection || 'Dane firmy'}
               </legend>
 
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 {/* Firma i NIP to wyszukiwarki po katalogu klientów. Wybór podpowiedzi
                     w KTÓREJKOLWIEK z nich uzupełnia cały komplet: firmę, NIP, adres
                     i SAP ID — stąd ten sam handler pod oboma polami.
@@ -1785,7 +1785,7 @@ export default function Calculator() {
                 </p>
               )}
 
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 {/* Imię jest wyszukiwarką po osobach TEJ firmy. Kontakty są wspólne dla
                     działu (tabela client_contacts, migracja 010), więc osobę wpisaną
                     kiedyś przez kogoś innego wystarczy tu wybrać zamiast przepisywać
@@ -1900,10 +1900,10 @@ export default function Calculator() {
             <button
               key={type}
               onClick={() => selectType(type)}
-              className={`py-3.5 px-5 rounded-md font-mono text-[15px] font-semibold tracking-widest border-[1.5px] transition-all relative overflow-hidden ${activeClass}`}
+              className={`py-3.5 px-2 sm:px-5 rounded-md font-mono text-[12px] sm:text-[15px] font-semibold tracking-wide sm:tracking-widest border-[1.5px] transition-all relative overflow-hidden break-words ${activeClass}`}
             >
               {t.steelTypes[type]}
-              <span className="block text-[11px] font-normal tracking-wider opacity-70 mt-0.5">
+              <span className="block text-[9px] sm:text-[11px] font-normal tracking-wide sm:tracking-wider opacity-70 mt-0.5 break-words">
                 {t.steelTypes[`${type}_full` as keyof typeof t.steelTypes]}
               </span>
               {currentType === type && (
@@ -1937,7 +1937,7 @@ export default function Calculator() {
         {/* Okres ważności oferty — osobne pole OBOK trybu Arkusz/Krąg (nie w środku toggle'a).
             Decyduje o automatycznym doborze PGL kwartalnego (patrz efekt wyżej) i trafia
             dodatkowo na PDF, obok istniejącej stałej formułki "48h od daty wystawienia". */}
-        <div className="flex items-center gap-2 px-3 py-2 rounded-md border-[1.5px] border-[var(--border)] bg-[var(--bg-panel)]">
+        <div className="flex items-center gap-2 flex-wrap px-3 py-2 rounded-md border-[1.5px] border-[var(--border)] bg-[var(--bg-panel)]">
           <label className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
             {t.inputs.offerValidFrom}
             <input
@@ -1965,7 +1965,7 @@ export default function Calculator() {
             Wybranie "od" dolicza "do" jako od + N dni (termin klienta z podpowiedzi, patrz
             applyClientSuggestion, albo globalny domyślny z Ustawień) — "do" zostaje w pełni
             edytowalne ręcznie, a kolejna zmiana "od" znów je przelicza. */}
-        <div className="flex items-center gap-2 px-3 py-2 rounded-md border-[1.5px] border-[var(--border)] bg-[var(--bg-panel)]">
+        <div className="flex items-center gap-2 flex-wrap px-3 py-2 rounded-md border-[1.5px] border-[var(--border)] bg-[var(--bg-panel)]">
           <label className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
             {t.inputs.paymentTermFrom}
             <input
@@ -2006,7 +2006,7 @@ export default function Calculator() {
       </div>
 
       {/* Input Parameters Bar */}
-      <div className={`grid ${isCoilMode ? 'grid-cols-3' : 'grid-cols-4'} gap-3 mb-6 bg-[var(--bg-panel)] border border-[var(--border)] rounded-md p-4`}>
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isCoilMode ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-3 mb-6 bg-[var(--bg-panel)] border border-[var(--border)] rounded-md p-4`}>
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
             {t.inputs.thickness}
@@ -2121,7 +2121,7 @@ export default function Calculator() {
               moneyInput/fromDisplay tylko przeliczają widok, gdy handlowiec pracuje w PLN.
               Wartość wchodzi do sumaHuta przez selectedGrade.value, bez osobnej ścieżki. */}
           {isCustomGrade && selectedGrade && (
-            <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               <span className="text-[9px] font-semibold tracking-wider uppercase text-[var(--accent-cr)] border border-[var(--accent-cr)] rounded px-1.5 py-0.5 shrink-0">
                 {t.inputs.oneTimeGradeBadge}
               </span>
