@@ -4,7 +4,7 @@
 
 - [x] Chunk 0 — Shared header + top navigation — **done**, verified at true 375px portrait (CDP device emulation) and 844×390 landscape (no regression). See notes under Chunk 0.
 - [x] Chunk 1 — Calculator: top input controls — **done**, verified at true 375px portrait and 844×390 landscape (no regression). See notes under Chunk 1.
-- [ ] Chunk 2 — Calculator: pricing/surcharge breakdown panel
+- [x] Chunk 2 — Calculator: pricing/surcharge breakdown panel — **done**, verified at true 375px portrait and 844×390 landscape (no regression), both sheet and coil mode. See notes under Chunk 2.
 - [ ] Chunk 3 — Calculator: summary table + modal
 - [ ] Chunk 4 — Offers list page
 - [ ] Chunk 5 — Admin panels
@@ -146,7 +146,7 @@ single toggle button, no duplication) with zero overflow — no regression.
 
 ---
 
-## Chunk 2 — Calculator: pricing/surcharge breakdown panel
+## Chunk 2 — Calculator: pricing/surcharge breakdown panel — DONE
 
 The dense financial breakdown (lines ~2199-2480+) is a `grid-cols-2`/`3`
 block containing dozens of rows, each with `min-w-[28px]`/`min-w-[64px]`
@@ -159,6 +159,21 @@ label/value pair wrap onto its own line cleanly instead of relying on fixed
 min-widths that don't have room to breathe.
 
 **Files:** `components/Calculator.tsx` (lines ~2199-2480+).
+
+**Result:** changed only the outer grid at `Calculator.tsx:2201` from a
+fixed `grid-cols-2`/`grid-cols-3` (coil-mode dependent) to
+`grid-cols-1 sm:grid-cols-2 md:grid-cols-3` (3-col branch omitted in coil
+mode, matching the original always-2-col coil behavior once past `sm`).
+No per-row changes were needed: the existing `flex items-center` rows,
+`ToggleGroup`'s built-in `flex-wrap`, and the lack of `whitespace-nowrap`
+on labels already let long Polish labels and multi-button toggle groups
+wrap cleanly once each card has a full mobile-width column instead of a
+squeezed 1/3-width slice. Verified with a scripted scan of every element
+inside the panel for `scrollWidth > clientWidth` (the exact hidden-clipping
+pattern the Chunk 1 PICKLED bug had) — zero clipped elements, in both
+sheet and coil mode, at true 375px portrait. Verified 844×390 landscape
+restores the original 3-column (sheet mode) / 2-column (coil mode) grid
+with zero horizontal overflow — no regression.
 
 ---
 
@@ -227,3 +242,21 @@ breakpoints), `components/analytics/DataTablePanel.tsx`,
 3. You review and say go/no-go before the next chunk starts.
 4. This file gets checked off / annotated as chunks land, so we always have
    an up-to-date reference of what's done vs. pending.
+
+## Decisions for the remaining chunks (confirmed 2026-09-16)
+
+- **Pacing:** one chunk at a time, same as Chunks 0-1 — screenshot portrait
+  + landscape after each, wait for go/no-go before starting the next.
+- **Chunk 3 table treatment:** trim the Zestawienie table's column
+  min-widths so more columns fit before horizontal scroll kicks in, *and*
+  add a visible scroll hint (shadow/arrow) for whatever still needs
+  scrolling. Confirm scroll stays contained to the table, not the page.
+- **Chunk 5 (Admin) / Chunk 6 (Analytics) scope:** a re-check against
+  current code (2026-09-16) found most grids in these areas already
+  responsive (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-N` patterns already
+  present in `app/admin/klienci`, `handlowcy`, `kontakty`, `oferty`, the
+  admin dashboard, `KpiTiles.tsx`, `WinLossPanel.tsx`) — likely added after
+  this plan was originally written. **Verify-first approach:** screenshot
+  each admin/analytics page at true 375px portrait first; only change code
+  where something actually overflows or breaks (tables, non-grid elements,
+  edge cases), not a blanket rewrite.

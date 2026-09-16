@@ -2198,7 +2198,7 @@ export default function Calculator() {
       )}
 
       {/* Main Grid - 3 columns normally, 2 columns in KRĄG mode */}
-      <div className={`grid ${isCoilMode ? 'grid-cols-2' : 'grid-cols-3'} gap-3.5`}>
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isCoilMode ? '' : 'md:grid-cols-3'} gap-3.5`}>
         {/* Column 1 - Huta Dopłaty */}
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden flex flex-col">
           <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)]">
