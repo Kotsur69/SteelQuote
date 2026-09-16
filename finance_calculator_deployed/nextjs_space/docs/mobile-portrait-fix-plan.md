@@ -5,7 +5,7 @@
 - [x] Chunk 0 — Shared header + top navigation — **done**, verified at true 375px portrait (CDP device emulation) and 844×390 landscape (no regression). See notes under Chunk 0.
 - [x] Chunk 1 — Calculator: top input controls — **done**, verified at true 375px portrait and 844×390 landscape (no regression). See notes under Chunk 1.
 - [x] Chunk 2 — Calculator: pricing/surcharge breakdown panel — **done**, verified at true 375px portrait and 844×390 landscape (no regression), both sheet and coil mode. See notes under Chunk 2.
-- [ ] Chunk 3 — Calculator: summary table + modal
+- [x] Chunk 3 — Calculator: summary table + modal — **done**, verified at true 375px portrait (CDP device emulation), 1920px desktop, and 844×390 landscape (no regression). See notes under Chunk 3.
 - [ ] Chunk 4 — Offers list page
 - [ ] Chunk 5 — Admin panels
 - [ ] Chunk 6 — Analytics + senior panel
@@ -191,6 +191,36 @@ with zero horizontal overflow — no regression.
   decides the exact column treatment at implementation time.
 
 **Files:** `components/Calculator.tsx` (modal + table wrapper), `components/ZestawienieRow.tsx`.
+
+**Result:** save-offer modal needed no code change — `w-[400px] max-w-[90vw]` with
+`w-full` children already scales cleanly at 375px, confirmed by screenshot.
+
+Zestawienie table (11 columns, real horizontal scroll unavoidable on a phone —
+that's expected, not a bug): trimmed the `Opis` column's `min-w-[180px]` to
+`min-w-[130px] sm:min-w-[180px]`, and every cell/header's `px-3.5` padding to
+`px-2 sm:px-3.5` (drag-handle and Lp. columns to `px-1.5`/`px-2`), all
+restored to original values at `sm`+. Actions column (✏️ ⧉ 🗑) kept all three
+buttons inline, just tighter padding/gap below `sm` — per your call, no
+overflow menu. Lp. column kept (not hidden) — per your call, padding-only
+trim. Added a CSS-only auto-hiding edge-fade ("scroll shadow") on the table's
+`overflow-x-auto` wrapper — a dual-layer background-gradient trick
+(`background-attachment: local`/`scroll`) that fades in/out automatically as
+you scroll, no JS, no new dependency — per your call over a static arrow.
+
+Verified at a true 375px portrait viewport (CDP device emulation): zero
+horizontal overflow on the whole page (`document.documentElement.scrollWidth
+=== window.innerWidth`) even while the table itself is scrolled to either
+end, table's own scroll wrapper correctly contains ~400px of extra content
+(11 columns still don't fully fit on a phone, as expected), zero hidden-clipping
+elements anywhere on the page (scripted `scrollWidth > clientWidth` scan,
+same method as Chunks 1-2), all three action buttons reachable and fully
+visible at max scroll, save modal renders cleanly. Verified 1920px desktop:
+table fits with zero scroll at all (`scrollWidth === clientWidth`), original
+full padding restored, pixel-equivalent to pre-change. Verified 844×390
+landscape: same original full-`sm`-padding rendering as before (page-level
+overflow still 0) — the table's own slight overflow at that specific width
+is pre-existing (identical `sm:` values to the original code, unrelated to
+this chunk) and not a regression.
 
 ---
 

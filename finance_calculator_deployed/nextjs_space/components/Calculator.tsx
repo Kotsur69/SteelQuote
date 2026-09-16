@@ -2818,21 +2818,35 @@ export default function Calculator() {
           </div>
           
           {/* Table */}
-          <div className="overflow-x-auto">
+          <div
+            className="overflow-x-auto"
+            style={{
+              backgroundImage: `
+                linear-gradient(to right, var(--bg-card) 30%, transparent),
+                linear-gradient(to left, var(--bg-card) 30%, transparent),
+                linear-gradient(to right, rgba(0,0,0,0.18), transparent),
+                linear-gradient(to left, rgba(0,0,0,0.18), transparent)
+              `,
+              backgroundPosition: 'left, right, left, right',
+              backgroundRepeat: 'no-repeat',
+              backgroundSize: '24px 100%, 24px 100%, 10px 100%, 10px 100%',
+              backgroundAttachment: 'local, local, scroll, scroll',
+            }}
+          >
             <table className="w-full border-collapse">
               <thead>
                 <tr className={`border-b border-[var(--border)] ${isDark ? 'bg-[var(--bg-panel)]' : 'bg-[var(--bg-panel)]'}`}>
-                  <th className="w-10 px-2 py-2" aria-label={language === 'pl' ? 'Zmiana kolejności' : 'Reorder'} />
-                  <th className="px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{language === 'pl' ? 'Lp.' : 'No.'}</th>
-                  <th className="px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-left tracking-wide uppercase whitespace-nowrap min-w-[180px]">{language === 'pl' ? 'Opis (Gatunek / Wymiary)' : 'Desc (Grade / Dimensions)'}</th>
-                  <th className="px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-center tracking-wide uppercase whitespace-nowrap">{t.zestawienie.type}</th>
-                  <th className="px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">Σ {t.zestawienie.mill}</th>
-                  <th className="px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">Σ {t.zestawienie.ssc}</th>
-                  <th className="px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.margin}</th>
-                  <th className="px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.price}</th>
-                  <th className="px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.tons}</th>
-                  <th className="px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.value}</th>
-                  <th className="px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.actions}</th>
+                  <th className="w-10 px-1.5 sm:px-2 py-2" aria-label={language === 'pl' ? 'Zmiana kolejności' : 'Reorder'} />
+                  <th className="px-1.5 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{language === 'pl' ? 'Lp.' : 'No.'}</th>
+                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-left tracking-wide uppercase whitespace-nowrap min-w-[130px] sm:min-w-[180px]">{language === 'pl' ? 'Opis (Gatunek / Wymiary)' : 'Desc (Grade / Dimensions)'}</th>
+                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-center tracking-wide uppercase whitespace-nowrap">{t.zestawienie.type}</th>
+                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">Σ {t.zestawienie.mill}</th>
+                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">Σ {t.zestawienie.ssc}</th>
+                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.margin}</th>
+                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.price}</th>
+                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.tons}</th>
+                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.value}</th>
+                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.actions}</th>
                 </tr>
               </thead>
               {zestawienie.length === 0 ? (

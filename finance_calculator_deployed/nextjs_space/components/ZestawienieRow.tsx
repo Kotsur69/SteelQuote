@@ -52,7 +52,7 @@ export default function ZestawienieRow({
       className={`cursor-pointer border-b border-[rgba(42,48,72,0.4)] ${isDark ? 'hover:bg-[rgba(255,255,255,0.025)]' : 'hover:bg-[rgba(0,0,0,0.025)]'}`}
     >
       <td
-        className="px-2 py-2 text-center cursor-grab select-none active:cursor-grabbing"
+        className="px-1.5 sm:px-2 py-2 text-center cursor-grab select-none active:cursor-grabbing"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => dragControls.start(e)}
         title={language === 'pl' ? 'Przeciągnij, aby zmienić kolejność' : 'Drag to reorder'}
@@ -64,8 +64,8 @@ export default function ZestawienieRow({
             (not just the icon) is the touch/click target, kept comfortably sized for fingers. */}
         <GripVertical className="inline-block h-4 w-4 text-[var(--text-muted)]" />
       </td>
-      <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{idx + 1}</td>
-      <td className="px-3.5 py-2 text-left">
+      <td className="px-1.5 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{idx + 1}</td>
+      <td className="px-2 sm:px-3.5 py-2 text-left">
         <div className="font-semibold text-xs text-[var(--text-primary)] flex items-center gap-1.5">
           {item.grade}
           {/* Znacznik gatunku jednorazowego — wyłącznie wewnętrzny (PDF i Excel
@@ -83,7 +83,7 @@ export default function ZestawienieRow({
           {item.isCoil && <span className="ml-1.5 text-[9px] font-semibold text-[#a855f7] bg-[rgba(168,85,247,0.12)] px-1.5 py-0.5 rounded">{t.inputs.coilMode}</span>}
         </div>
       </td>
-      <td className="px-3.5 py-2 text-center">
+      <td className="px-2 sm:px-3.5 py-2 text-center">
         <span className={`inline-block font-mono text-[10px] font-bold px-2 py-0.5 rounded tracking-wider
           ${{
             HRS: 'bg-[rgba(232,160,32,0.12)] text-[var(--accent-hrs)]',
@@ -96,16 +96,16 @@ export default function ZestawienieRow({
           {item.type}
         </span>
       </td>
-      <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaHuta)}</td>
-      <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaSSC)}</td>
-      <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.marza)}</td>
-      <td className="px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{moneyCeil(item.finalPrice)} {symbol}</td>
-      <td className="px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{item.tons.toFixed(2)} {t.common.tons}</td>
-      <td className="px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{moneyCeil(item.totalValue)} {currencyUnit}</td>
-      <td className="px-3.5 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-        <button onClick={() => onEdit(item.id)} className="bg-transparent border border-[var(--border)] rounded px-2 py-1 text-[13px] hover:border-[var(--accent-cr)] hover:text-[var(--accent-cr)] transition-colors ml-1" title={t.common.edit}>✏️</button>
-        <button onClick={() => onDuplicate(item.id)} className="bg-transparent border border-[var(--border)] rounded px-2 py-1 text-[13px] hover:border-[#a78bfa] hover:text-[#a78bfa] transition-colors ml-1" title={t.common.duplicate}>⧉</button>
-        <button onClick={() => onDelete(item.id)} className="bg-transparent border border-[var(--border)] rounded px-2 py-1 text-[13px] hover:border-[var(--accent-sum)] hover:text-[var(--accent-sum)] transition-colors ml-1" title={t.common.delete}>🗑</button>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaHuta)}</td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaSSC)}</td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.marza)}</td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{moneyCeil(item.finalPrice)} {symbol}</td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{item.tons.toFixed(2)} {t.common.tons}</td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{moneyCeil(item.totalValue)} {currencyUnit}</td>
+      <td className="px-2 sm:px-3.5 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+        <button onClick={() => onEdit(item.id)} className="bg-transparent border border-[var(--border)] rounded px-1 sm:px-2 py-1 text-[13px] hover:border-[var(--accent-cr)] hover:text-[var(--accent-cr)] transition-colors ml-0.5 sm:ml-1" title={t.common.edit}>✏️</button>
+        <button onClick={() => onDuplicate(item.id)} className="bg-transparent border border-[var(--border)] rounded px-1 sm:px-2 py-1 text-[13px] hover:border-[#a78bfa] hover:text-[#a78bfa] transition-colors ml-0.5 sm:ml-1" title={t.common.duplicate}>⧉</button>
+        <button onClick={() => onDelete(item.id)} className="bg-transparent border border-[var(--border)] rounded px-1 sm:px-2 py-1 text-[13px] hover:border-[var(--accent-sum)] hover:text-[var(--accent-sum)] transition-colors ml-0.5 sm:ml-1" title={t.common.delete}>🗑</button>
       </td>
     </Reorder.Item>
   );
