@@ -419,7 +419,7 @@ export default function SeniorPage() {
       )}
 
       {/* Filter Tabs */}
-      <div className="flex gap-2 mb-5">
+      <div className="flex flex-wrap gap-2 mb-5">
         {(['pending', 'awaitingSend', 'reviewed', 'all'] as FilterTab[]).map((tab) => {
           const label =
             tab === 'pending'
@@ -527,7 +527,7 @@ export default function SeniorPage() {
                   !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
                 }`}
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="flex-1 min-w-0">
                     {/* Offer name + status badge */}
                     <div className="flex items-center gap-2.5 flex-wrap">
@@ -606,7 +606,7 @@ export default function SeniorPage() {
                   </div>
 
                   {/* Action buttons */}
-                  <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+                  <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end w-full sm:w-auto">
                     {/* Excel */}
                     <button
                       onClick={() => handleExportExcel(offer)}

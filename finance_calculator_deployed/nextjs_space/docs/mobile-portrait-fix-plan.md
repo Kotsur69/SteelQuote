@@ -8,7 +8,7 @@
 - [x] Chunk 3 — Calculator: summary table + modal — **done**, verified at true 375px portrait (CDP device emulation), 1920px desktop, and 844×390 landscape (no regression). See notes under Chunk 3.
 - [x] Chunk 4 — Offers list page — **done**, verified at true 375px portrait (CDP device emulation) and 844×390 landscape (no regression). See notes under Chunk 4.
 - [x] Chunk 5 — Admin panels — **done**, verified at true 375px portrait (CDP device emulation) and 844×390 landscape (no regression). See notes under Chunk 5.
-- [ ] Chunk 6 — Analytics + senior panel
+- [x] Chunk 6 — Analytics + senior panel — **done**, verified at true 375px portrait (CDP device emulation) and 844×390 landscape (no regression). See notes under Chunk 6.
 
 ## Problem
 
@@ -341,7 +341,7 @@ overflow — no regression.
 
 ---
 
-## Chunk 6 — Analytics + senior panel
+## Chunk 6 — Analytics + senior panel — DONE
 
 Charts and KPI tiles: `components/analytics/KpiTiles.tsx`,
 `components/analytics/WinLossPanel.tsx` (both use `grid-cols-N` without
@@ -349,6 +349,58 @@ breakpoints), `components/analytics/DataTablePanel.tsx`,
 `app/analytics/page.tsx`, `app/senior/page.tsx`.
 
 **Files:** as listed.
+
+**Result:** verify-first, same process as Chunks 4-5 (confirmed with Mati
+before implementing). Re-checking the code first found `KpiTiles.tsx`
+(`grid-cols-2 sm:grid-cols-3 lg:grid-cols-5`) and `WinLossPanel.tsx`'s
+legend list (`grid-cols-1 sm:grid-cols-3`) already responsive — added after
+this plan was originally written. `DataTablePanel.tsx`'s wide table and the
+recharts panels all sit inside `ChartFrame.tsx`'s own `overflow-x-auto`
+wrapper, so they degrade the same contained-horizontal-scroll way as the
+Zestawienie table from Chunk 3 — expected, not a bug.
+
+`/analytics` (`app/analytics/page.tsx`, `FilterBar.tsx`, `controls.tsx`):
+verified clean at true 375px portrait with zero page-level overflow
+(`document.documentElement.scrollWidth === window.innerWidth`), including
+with a `MultiSelect` filter dropdown open — header, filter bar, KPI tiles,
+and every chart panel already used the wrap/contained-scroll patterns from
+earlier chunks. No code change needed here.
+
+**Bugs found and fixed on `/senior`** (not previously flagged, found via
+CDP measurement, not just visual inspection):
+1. **Filter Tabs row** (`flex gap-2 mb-5`, 5 buttons: Oczekujące na
+   weryfikację / Oczekujące na wysłanie / Zweryfikowane przeze mnie /
+   Wszystkie / Klienci) had no `flex-wrap` and no scroll container.
+   Measured at 375px: the row's own content was 505px wide in a ~319px
+   available space, dragging the whole page to 534px wide — the "Klienci"
+   tab was pushed fully off-screen and "Wszystkie" was cut at the edge.
+   Fixed by adding `flex-wrap`, matching the wrap treatment
+   `components/Navigation.tsx` already uses for its own tab bar (chosen
+   over horizontal scroll per your call) — all 5 tabs now wrap onto 2-3
+   rows, fully readable and reachable.
+2. **Offer action-buttons row** — the exact same two-part bug as Chunk 4's
+   Offers page, reproduced almost identically: the outer row (`flex
+   items-start justify-between gap-4`) had no `flex-wrap`, so with
+   `justify-between` and the action-buttons block's `flex-shrink-0`, the
+   offer-info column (`flex-1 min-w-0`) was measured collapsing to a full
+   **0px** width — every text line (author, reviewer, dates) was rendering
+   in a zero-width box and only visible because the text itself overflowed
+   its box. The action-buttons block then got its last button ("Wyślij do
+   klienta") clipped 8px past the card's `overflow-hidden` edge. Fixed with
+   the same two changes as Chunk 4: `flex-wrap` on the outer row, and
+   `w-full sm:w-auto` on the action-buttons div so it takes the wrapped
+   row's full width and its own `flex-wrap` gets room to trigger.
+
+Verified at a true 375px portrait viewport (CDP device emulation, with
+actual `getBoundingClientRect`/`scrollWidth` measurements, not just visual
+inspection): zero page-level horizontal overflow after the fix
+(`document.documentElement.scrollWidth === window.innerWidth`), offer-info
+column back to its full row width, all three action buttons (Excel / PDF /
+Wyślij do klienta) fully visible and reachable, all 5 filter tabs readable
+and reachable. Verified 844×390 landscape: filter tabs render on their
+original single row, offer action buttons render on their original single
+row (`rowsUsed: 1`) beside the offer info — pixel-equivalent to before,
+zero overflow, no regression.
 
 ---
 
