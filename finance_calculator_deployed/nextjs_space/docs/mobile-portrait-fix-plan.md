@@ -7,7 +7,7 @@
 - [x] Chunk 2 — Calculator: pricing/surcharge breakdown panel — **done**, verified at true 375px portrait and 844×390 landscape (no regression), both sheet and coil mode. See notes under Chunk 2.
 - [x] Chunk 3 — Calculator: summary table + modal — **done**, verified at true 375px portrait (CDP device emulation), 1920px desktop, and 844×390 landscape (no regression). See notes under Chunk 3.
 - [x] Chunk 4 — Offers list page — **done**, verified at true 375px portrait (CDP device emulation) and 844×390 landscape (no regression). See notes under Chunk 4.
-- [ ] Chunk 5 — Admin panels
+- [x] Chunk 5 — Admin panels — **done**, verified at true 375px portrait (CDP device emulation) and 844×390 landscape (no regression). See notes under Chunk 5.
 - [ ] Chunk 6 — Analytics + senior panel
 
 ## Problem
@@ -293,7 +293,7 @@ is affected.
 
 ---
 
-## Chunk 5 — Admin panels
+## Chunk 5 — Admin panels — DONE
 
 `klienci`, `kontakty`, `handlowcy`, `oferty` (admin), `ustawienia` — mostly
 data tables already wrapped in `overflow-x-auto` (likely degrade
@@ -302,6 +302,42 @@ confirming), plus `ustawienia` has 3 separate tables (lines 544, 698, 906)
 and probably grid-based forms to check.
 
 **Files:** `app/admin/*/page.tsx`.
+
+**Result:** verify-first sweep of all 5 pages (plus the admin dashboard) at
+true 375px portrait. Confirmed the earlier note holds: every filter/form
+grid in `klienci`, `kontakty`, `handlowcy`, and admin `oferty` was already
+`grid-cols-1 sm:grid-cols-2 lg:grid-cols-N`, and all data tables (klienci,
+kontakty, oferty-admin, and `ustawienia`'s 3 tables) degrade the same
+contained-horizontal-scroll way as the Calculator's Zestawienie table from
+Chunk 3 — expected, not a bug. The admin dashboard's 2-column KPI/status
+tile grids read fine at 375px (small stat tiles, not cramped).
+
+**Bug found and fixed (not previously flagged):** `handlowcy`'s expandable
+per-user "Wyniki" detail panel (`PerfDetail` in
+`app/admin/handlowcy/page.tsx:361`) used a bare `grid-cols-2
+sm:grid-cols-3 lg:grid-cols-6` grid. Because it's nested inside the
+salesperson table's `overflow-x-auto` wrapper, Tailwind's breakpoints (keyed
+to viewport width, not container width) still forced a "desktop" 2-column
+layout at 375px — the grid's own available width matched the wide table
+(~904px, driven by the table's other always-visible columns, confirmed
+unrelated to this grid: table width was identical whether the panel was
+expanded or collapsed). This split the 11 stats into two side-by-side
+columns roughly 460px apart, so column 2's stats were unreachable without
+scrolling the table to a specific horizontal position, at which point
+column 1's labels scrolled out of view — neither position showed all data
+at once. Fixed by changing the base breakpoint to `grid-cols-1` (kept
+`sm:grid-cols-3 lg:grid-cols-6` untouched), so all 11 stats stack in one
+readable column at any scroll position on mobile, while `sm:`+ (tablet/
+landscape/desktop) is pixel-identical to before.
+
+Verified at a true 375px portrait viewport (CDP device emulation): zero
+page-level horizontal overflow and zero hidden-clipping elements (scripted
+`scrollWidth > clientWidth` scan, same method as prior chunks) across all
+5 admin pages plus the dashboard; the fixed `PerfDetail` panel reads
+top-to-bottom with no scroll needed to see any stat. Verified 844×390
+landscape: `PerfDetail` still renders its original 3-column layout
+(`gridTemplateColumns` confirmed 3×285px, matching `sm:grid-cols-3`), zero
+overflow — no regression.
 
 ---
 
