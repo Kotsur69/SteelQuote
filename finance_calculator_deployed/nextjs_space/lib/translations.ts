@@ -302,8 +302,9 @@ export interface Translations {
     total: string;
     clearAll: string;
     confirmClear: string;
+    transportCost: string;
   };
-  
+
   // Toggle options
   toggles: {
     // Length tolerance
@@ -1036,6 +1037,7 @@ export const pl: Translations = {
     total: 'RAZEM',
     clearAll: 'Wyczyść wszystko',
     confirmClear: 'Czy na pewno chcesz usunąć wszystkie pozycje zestawienia?',
+    transportCost: 'Koszt transportu',
   },
   
   toggles: {
@@ -1738,6 +1740,7 @@ export const en: Translations = {
     total: 'TOTAL',
     clearAll: 'Clear all',
     confirmClear: 'Are you sure you want to delete all items from the list?',
+    transportCost: 'Transport cost',
   },
   
   toggles: {
@@ -2439,6 +2442,7 @@ export const cs: Translations = {
     total: 'CELKEM',
     clearAll: 'Vymazat vše',
     confirmClear: 'Opravdu chcete smazat všechny položky ze seznamu?',
+    transportCost: 'Náklady na dopravu',
   },
 
   toggles: {
@@ -3140,6 +3144,7 @@ export const de: Translations = {
     total: 'GESAMT',
     clearAll: 'Alles löschen',
     confirmClear: 'Möchten Sie wirklich alle Positionen aus der Liste löschen?',
+    transportCost: 'Transportkosten',
   },
 
   toggles: {

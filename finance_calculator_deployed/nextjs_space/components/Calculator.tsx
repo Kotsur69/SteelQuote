@@ -608,10 +608,24 @@ export default function Calculator() {
 
   // --- Transport z trasy -----------------------------------------------------
 
-  // Tonaż CAŁEJ oferty. Pozycja w edycji jest już w zestawieniu, więc jej stary tonaż
-  // odejmujemy i bierzemy bieżący `tons` — inaczej liczylibyśmy ją dwa razy.
-  const offerTons = useMemo(
+  // Tonaż CAŁEJ oferty PO DODANIU bieżącej pozycji (edytowanej albo nowego szkicu) —
+  // służy WYŁĄCZNIE do podglądu ceny pozycji, którą właśnie się konfiguruje. W trybie
+  // edycji pozycja jest już w zestawieniu, więc jej stary tonaż odejmujemy i bierzemy
+  // bieżący `tons`. Poza edycją doliczamy `tons` szkicu, bo to podgląd "co by było, gdyby
+  // ją dodać" — świadomie liczy pozycję, której jeszcze nie ma w zestawieniu.
+  const previewOfferTons = useMemo(
     () => zestawienie.filter(i => i.id !== editingId).reduce((sum, i) => sum + i.tons, 0) + tons,
+    [zestawienie, editingId, tons]
+  );
+
+  // Tonaż FAKTYCZNIE dodanych pozycji (edytowana pozycja liczona z jej bieżącym `tons`,
+  // reszta ze stanu zapisanego w zestawieniu) — NIE dolicza szkicu nowej, niedodanej
+  // jeszcze pozycji. Używany do przeliczania stawki transportu już dodanych pozycji, żeby
+  // samo wpisywanie ilości w formularzu nowej pozycji nie rozwadniało po cichu ceny
+  // pozycji, które są już w zestawieniu (np. 1 pozycja w zestawieniu + domyślny szkic 1 t
+  // dawały offerTons=2 i o połowę za niski transport na już dodanej pozycji).
+  const committedOfferTons = useMemo(
+    () => zestawienie.reduce((sum, i) => sum + (i.id === editingId ? tons : i.tons), 0),
     [zestawienie, editingId, tons]
   );
 
@@ -622,29 +636,51 @@ export default function Calculator() {
     if (transportRoute.distanceKm === null) return null;
     return computeTransport({
       distanceKm: transportRoute.distanceKm,
-      totalTons: offerTons,
+      totalTons: previewOfferTons,
       truckCapacityT: settings.transportTruckCapacityT,
       bands: settings.tariffBands,
       hasLongElements: transportRoute.hasLongElements,
       oversizeLongPln: settings.transportOversizeLongPln,
       eurPlnRate: rate,
     });
-  }, [transportRoute, offerTons, settings, rate]);
+  }, [transportRoute, previewOfferTons, settings, rate]);
+
+  const committedTransportBreakdown = useMemo(() => {
+    if (transportRoute.selfPickup || transportRoute.manualMode || transportRoute.oversizeManual) return null;
+    if (transportRoute.distanceKm === null) return null;
+    return computeTransport({
+      distanceKm: transportRoute.distanceKm,
+      totalTons: committedOfferTons,
+      truckCapacityT: settings.transportTruckCapacityT,
+      bands: settings.tariffBands,
+      hasLongElements: transportRoute.hasLongElements,
+      oversizeLongPln: settings.transportOversizeLongPln,
+      eurPlnRate: rate,
+    });
+  }, [transportRoute, committedOfferTons, settings, rate]);
 
   // Przy odbiorze własnym transport jest wymuszony na 0 — klient sam odbiera towar spod
   // zakładu, więc nie ma tu żadnej trasy do policzenia.
   const forcedTransportEur = transportRoute.selfPickup ? 0 : transportBreakdown?.eurPerTon ?? null;
+  const committedForcedTransportEur = transportRoute.selfPickup ? 0 : committedTransportBreakdown?.eurPerTon ?? null;
 
-  // Wyliczony koszt wchodzi do pola Transport ORAZ do każdej pozycji już dodanej.
-  // Dodanie pozycji może przekroczyć ładowność i dołożyć kolejny kurs — wtedy transport
-  // €/t rośnie dla całej oferty, więc pozycje wpisane wcześniej muszą się przeliczyć,
-  // inaczej oferta zsumowałaby się z nieaktualnych stawek. Ta sama ścieżka obsługuje
-  // odbiór własny (perTon = 0).
+  // Stawka podglądu wchodzi do pola Transport, czyli do ceny pozycji, którą właśnie się
+  // konfiguruje (jeszcze niedodanej albo edytowanej).
   useEffect(() => {
     if (forcedTransportEur === null) return;
-    const perTon = forcedTransportEur;
+    setTransport(prev => (prev === forcedTransportEur ? prev : forcedTransportEur));
+  }, [forcedTransportEur]);
 
-    setTransport(prev => (prev === perTon ? prev : perTon));
+  // Stawka policzona z FAKTYCZNIE dodanych pozycji wchodzi do każdej już dodanej pozycji.
+  // Dodanie/usunięcie pozycji (albo zmiana trasy) może przekroczyć ładowność i dołożyć
+  // kolejny kurs — wtedy transport €/t rośnie dla całej oferty, więc pozycje wpisane
+  // wcześniej muszą się przeliczyć, inaczej oferta zsumowałaby się z nieaktualnych stawek.
+  // Celowo NIE zależy od podglądu niedodanej pozycji (patrz previewOfferTons wyżej) — samo
+  // wpisywanie ilości w formularzu nowej pozycji nie może po cichu przeliczyć ceny pozycji
+  // już dodanych. Ta sama ścieżka obsługuje odbiór własny (perTon = 0).
+  useEffect(() => {
+    if (committedForcedTransportEur === null) return;
+    const perTon = committedForcedTransportEur;
 
     setZestawienie(prev => {
       let changed = false;
@@ -663,7 +699,7 @@ export default function Calculator() {
       });
       return changed ? next : prev;
     });
-  }, [forcedTransportEur]);
+  }, [committedForcedTransportEur]);
 
   const handleCalculateRoute = useCallback(async () => {
     const destAddress = transportRoute.destAddress.trim();
@@ -1455,6 +1491,10 @@ export default function Calculator() {
   // Calculate zestawienie totals
   const zestTotal = zestawienie.reduce((s, i) => s + i.totalValue, 0);
   const zestTons = zestawienie.reduce((s, i) => s + i.tons, 0);
+  // Suma transportu tylko dla pozycji w zestawieniu: każda pozycja liczona po
+  // swojej zamrożonej stawce €/t (item.inputs.transport), nie po bieżącej stawce
+  // z pola Transport — stare pozycje bez snapshotu .inputs dostają bieżącą stawkę.
+  const zestTransportTotal = zestawienie.reduce((s, i) => s + (i.inputs?.transport ?? transport) * i.tons, 0);
 
   // CSS variables based on theme. Wysoki kontrast ma teraz wariant jasny i
   // ciemny (zamiast jednego, stałego motywu), zeby przycisk dark/light dalej
@@ -2649,7 +2689,7 @@ export default function Calculator() {
               route={transportRoute}
               onRouteChange={patchTransportRoute}
               breakdown={transportBreakdown}
-              offerTons={offerTons}
+              offerTons={previewOfferTons}
               originAddress={settings.transportOriginAddress}
               clientAddress={clientInfo.address}
               oversizeLongPln={settings.transportOversizeLongPln}
@@ -2733,6 +2773,12 @@ export default function Calculator() {
             <span className="text-[10px] font-mono text-[var(--text-secondary)] ml-1">
               {zestawienie.length > 0 && `(${zestawienie.length} ${language === 'pl' ? (zestawienie.length === 1 ? 'pozycja' : zestawienie.length < 5 ? 'pozycje' : 'pozycji') : (zestawienie.length === 1 ? 'item' : 'items')} · ${zestTons.toFixed(2)} ${t.common.tons})`}
             </span>
+            {zestawienie.length > 0 && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[rgba(245,71,90,0.12)] border border-[rgba(245,71,90,0.35)]">
+                <span className="text-[10px] font-bold tracking-widest uppercase text-[var(--accent-sum)]">{t.zestawienie.transportCost}</span>
+                <span className="font-mono text-xs font-bold text-[var(--accent-sum)]">{moneyCeil(zestTransportTotal)} {currencyUnit}</span>
+              </span>
+            )}
             <div className="ml-auto flex gap-2">
               <button
                 onClick={handleExportExcel}
