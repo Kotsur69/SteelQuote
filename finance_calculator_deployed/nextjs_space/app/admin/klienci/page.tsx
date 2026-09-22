@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
+import PaymentTermPicker from '@/components/PaymentTermPicker';
 
 interface Client {
   id: number;
@@ -252,8 +253,12 @@ export default function AdminClientsPage() {
             value={form.nip} onChange={(e) => setForm({ ...form, nip: e.target.value })} />
           <input className={inputCls} placeholder={t.client.sapId}
             value={form.sap_id} onChange={(e) => setForm({ ...form, sap_id: e.target.value })} />
-          <input className={inputCls} type="number" min="0" max="365" placeholder={t.client.paymentTermDaysPlaceholder}
-            value={form.payment_term_days} onChange={(e) => setForm({ ...form, payment_term_days: e.target.value })} />
+          <PaymentTermPicker
+            value={form.payment_term_days === '' ? null : Number(form.payment_term_days)}
+            onChange={(days) => setForm({ ...form, payment_term_days: days === null ? '' : String(days) })}
+            prepaymentLabel={t.inputs.paymentTermPrepayment}
+            customLabel={t.inputs.paymentTermCustom}
+          />
           <input className={inputCls} placeholder={t.admin.phone}
             value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input className={inputCls} type="email" placeholder={t.admin.clientEmailLabel}

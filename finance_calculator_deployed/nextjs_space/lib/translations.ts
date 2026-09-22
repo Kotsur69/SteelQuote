@@ -188,8 +188,9 @@ export interface Translations {
     sheetWeight: string;
     offerValidFrom: string;
     offerValidTo: string;
-    paymentTermFrom: string;
-    paymentTermTo: string;
+    paymentTerm: string;
+    paymentTermPrepayment: string;
+    paymentTermCustom: string;
   };
 
   // Mill surcharges (Huta)
@@ -375,7 +376,6 @@ export interface Translations {
     // zakładkę "Klienci" w Panelu Seniora (ClientPaymentTermsPanel).
     paymentTermDays: string;
     paymentTermDaysHint: string;
-    paymentTermDaysPlaceholder: string;
     phone: string;
     email: string;
     collapse: string;
@@ -927,8 +927,9 @@ export const pl: Translations = {
     sheetWeight: 'Waga arkusza',
     offerValidFrom: 'Ważna od',
     offerValidTo: 'Ważna do',
-    paymentTermFrom: 'Termin płatności od',
-    paymentTermTo: 'Termin płatności do',
+    paymentTerm: 'Termin płatności (dni)',
+    paymentTermPrepayment: 'Przedpłata',
+    paymentTermCustom: 'Inny',
   },
   
   huta: {
@@ -1093,7 +1094,6 @@ export const pl: Translations = {
     sapId: 'SAP ID',
     paymentTermDays: 'Termin płatności (dni)',
     paymentTermDaysHint: 'Puste = domyślny termin z Ustawień',
-    paymentTermDaysPlaceholder: 'domyślny',
     phone: 'Nr telefonu',
     email: 'E-mail',
     collapse: 'Zwiń',
@@ -1630,8 +1630,9 @@ export const en: Translations = {
     sheetWeight: 'Sheet weight',
     offerValidFrom: 'Valid from',
     offerValidTo: 'Valid to',
-    paymentTermFrom: 'Payment term from',
-    paymentTermTo: 'Payment term to',
+    paymentTerm: 'Payment term (days)',
+    paymentTermPrepayment: 'Prepayment',
+    paymentTermCustom: 'Custom',
   },
   
   huta: {
@@ -1796,7 +1797,6 @@ export const en: Translations = {
     sapId: 'SAP ID',
     paymentTermDays: 'Payment term (days)',
     paymentTermDaysHint: 'Empty = default term from Settings',
-    paymentTermDaysPlaceholder: 'default',
     phone: 'Phone',
     email: 'E-mail',
     collapse: 'Collapse',
@@ -2332,8 +2332,9 @@ export const cs: Translations = {
     sheetWeight: 'Hmotnost tabule',
     offerValidFrom: 'Platná od',
     offerValidTo: 'Platná do',
-    paymentTermFrom: 'Splatnost od',
-    paymentTermTo: 'Splatnost do',
+    paymentTerm: 'Splatnost (dny)',
+    paymentTermPrepayment: 'Platba předem',
+    paymentTermCustom: 'Vlastní',
   },
 
   huta: {
@@ -2498,7 +2499,6 @@ export const cs: Translations = {
     sapId: 'SAP ID',
     paymentTermDays: 'Splatnost (dny)',
     paymentTermDaysHint: 'Prázdné = výchozí splatnost z Nastavení',
-    paymentTermDaysPlaceholder: 'výchozí',
     phone: 'Telefon',
     email: 'E-mail',
     collapse: 'Sbalit',
@@ -3034,8 +3034,9 @@ export const de: Translations = {
     sheetWeight: 'Tafelgewicht',
     offerValidFrom: 'Gültig ab',
     offerValidTo: 'Gültig bis',
-    paymentTermFrom: 'Zahlungsziel von',
-    paymentTermTo: 'Zahlungsziel bis',
+    paymentTerm: 'Zahlungsziel (Tage)',
+    paymentTermPrepayment: 'Vorkasse',
+    paymentTermCustom: 'Andere',
   },
 
   huta: {
@@ -3200,7 +3201,6 @@ export const de: Translations = {
     sapId: 'SAP ID',
     paymentTermDays: 'Zahlungsziel (Tage)',
     paymentTermDaysHint: 'Leer = Standard aus den Einstellungen',
-    paymentTermDaysPlaceholder: 'Standard',
     phone: 'Telefon',
     email: 'E-Mail',
     collapse: 'Einklappen',

@@ -37,15 +37,15 @@ export interface PdfLabels {
   pricesNote: (currencyCode: string) => string;
   rateNote: (rate: string) => string;
   invoiceNote: string;
-  validityNote: string;
-  // Zakres dat "okresu ważności oferty" (od-do) wybranego w kalkulatorze — dodatkowa linijka
-  // OBOK stałego validityNote (48h), nie zamiast niego. Renderowana tylko gdy obie daty przyszły.
+  // Zakres dat "okresu ważności oferty" (od-do) wybranego w kalkulatorze — opcjonalna
+  // dodatkowa linijka. Renderowana tylko gdy obie daty przyszły.
   validityRangeNote: (from: string, to: string) => string;
   paymentNote: string;
-  // Zakres terminu płatności (od-do, drugie pole domyślnie = od + N dni klienta/globalnych,
-  // ale edytowalne ręcznie) — zastępuje paymentNote w stopce PDF, gdy obie daty są ustawione.
-  // Brak którejkolwiek = paymentNote zostaje bez zmian.
-  paymentDueNote: (from: string, to: string) => string;
+  // Termin płatności jako liczba dni (przyciski w kalkulatorze: 0/15/30/45/60/90 + "Inny") —
+  // zastępuje paymentNote w stopce PDF, gdy handlowiec go wybrał. 0 dni = paymentPrepaymentNote
+  // zamiast tego (patrz niżej), nie "0 dni". Brak wyboru = paymentNote zostaje bez zmian.
+  paymentTermDaysNote: (days: number) => string;
+  paymentPrepaymentNote: string;
   minQuantityNote: string;
   deliveryNote: string;
   toleranceNote: string;
@@ -97,10 +97,10 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     pricesNote: (currencyCode) => `Ceny w ${currencyCode}/t, bez podatku VAT.`,
     rateNote: (rate) => `Kurs przeliczeniowy: 1 EUR = ${rate} PLN (kurs z dnia wyceny).`,
     invoiceNote: 'Faktura wystawiana na podstawie wagi brutto.',
-    validityNote: 'Ważność oferty: 48h od daty wystawienia.',
     validityRangeNote: (from, to) => `Okres ważności oferty: ${from} – ${to}.`,
     paymentNote: 'Warunki płatności: wg ustaleń indywidualnych.',
-    paymentDueNote: (from, to) => `Termin płatności: ${from} – ${to}.`,
+    paymentTermDaysNote: (days) => `Termin płatności: ${days} dni.`,
+    paymentPrepaymentNote: 'Warunki płatności: przedpłata.',
     minQuantityNote: 'Minimalna ilość: 5 ton na pozycję.',
     deliveryNote: 'Termin dostawy: po potwierdzeniu dostępności materiału.',
     toleranceNote: 'Tolerancja wagowa +/- 10%.',
@@ -140,10 +140,10 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     pricesNote: (currencyCode) => `Prices in ${currencyCode}/t, excluding VAT.`,
     rateNote: (rate) => `Exchange rate: 1 EUR = ${rate} PLN (rate as of valuation date).`,
     invoiceNote: 'Invoice issued based on gross weight.',
-    validityNote: 'Offer validity: 48h from issue date.',
     validityRangeNote: (from, to) => `Offer validity period: ${from} – ${to}.`,
     paymentNote: 'Payment terms: as individually agreed.',
-    paymentDueNote: (from, to) => `Payment term: ${from} – ${to}.`,
+    paymentTermDaysNote: (days) => `Payment term: ${days} days.`,
+    paymentPrepaymentNote: 'Payment terms: prepayment.',
     minQuantityNote: 'Minimum quantity: 5 tons per item.',
     deliveryNote: 'Delivery time: upon confirmation of material availability.',
     toleranceNote: 'Weight tolerance +/- 10%.',
@@ -183,10 +183,10 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     pricesNote: (currencyCode) => `Ceny v ${currencyCode}/t, bez DPH.`,
     rateNote: (rate) => `Směnný kurz: 1 EUR = ${rate} PLN (kurz ke dni ocenění).`,
     invoiceNote: 'Faktura vystavena na základě hrubé hmotnosti.',
-    validityNote: 'Platnost nabídky: 48h od data vystavení.',
     validityRangeNote: (from, to) => `Doba platnosti nabídky: ${from} – ${to}.`,
     paymentNote: 'Platební podmínky: dle individuální dohody.',
-    paymentDueNote: (from, to) => `Splatnost: ${from} – ${to}.`,
+    paymentTermDaysNote: (days) => `Splatnost: ${days} dní.`,
+    paymentPrepaymentNote: 'Platební podmínky: platba předem.',
     minQuantityNote: 'Minimální množství: 5 tun na položku.',
     deliveryNote: 'Termín dodání: po potvrzení dostupnosti materiálu.',
     toleranceNote: 'Hmotnostní tolerance +/- 10 %.',
@@ -226,10 +226,10 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     pricesNote: (currencyCode) => `Preise in ${currencyCode}/t, ohne MwSt.`,
     rateNote: (rate) => `Wechselkurs: 1 EUR = ${rate} PLN (Kurs zum Bewertungsdatum).`,
     invoiceNote: 'Rechnungsstellung auf Basis des Bruttogewichts.',
-    validityNote: 'Angebotsgültigkeit: 48h ab Ausstellungsdatum.',
     validityRangeNote: (from, to) => `Gültigkeitszeitraum des Angebots: ${from} – ${to}.`,
     paymentNote: 'Zahlungsbedingungen: nach individueller Vereinbarung.',
-    paymentDueNote: (from, to) => `Zahlungsziel: ${from} – ${to}.`,
+    paymentTermDaysNote: (days) => `Zahlungsziel: ${days} Tage.`,
+    paymentPrepaymentNote: 'Zahlungsbedingungen: Vorkasse.',
     minQuantityNote: 'Mindestmenge: 5 Tonnen pro Position.',
     deliveryNote: 'Liefertermin: nach Bestätigung der Materialverfügbarkeit.',
     toleranceNote: 'Gewichtstoleranz +/- 10%.',

@@ -73,8 +73,7 @@ function buildHtml(
   language: Language,
   validFrom?: string,
   validTo?: string,
-  paymentTermFrom?: string,
-  paymentTermTo?: string
+  paymentTermDays?: number
 ): string {
   const logo = getLogoBase64();
   const L = PDF_LABELS[language];
@@ -132,8 +131,8 @@ function buildHtml(
     <col style="width:55px">
     <col style="width:50px">
     <col style="width:78px">
-    <col style="width:98px">
-    <col style="width:220px">
+    <col style="width:130px">
+    <col style="width:188px">
   </colgroup>`;
 
   return `<!DOCTYPE html>
@@ -169,7 +168,7 @@ function buildHtml(
   tbody tr:nth-child(even) { background: #f8fafc; }
   tbody tr:hover { background: #eff6ff; }
   .totals-table { break-inside: avoid; page-break-inside: avoid; }
-  .totals-table td { padding: 10px; font-weight: 700; font-size: 12px; background: #1e293b; color: #fff; border: none; }
+  .totals-table td { padding: 10px; font-weight: 700; font-size: 12px; background: #1e293b; color: #fff; border: none; overflow: visible; white-space: nowrap; }
   .totals-table td:first-child { border-radius: 0 0 0 6px; }
   .totals-table td:last-child { border-radius: 0 0 6px 0; }
   .footer { margin-top: 24px; padding-top: 14px; border-top: 2px solid #e2e8f0; }
@@ -179,7 +178,7 @@ function buildHtml(
   .sign-block { text-align: center; }
   .sign-line { width: 180px; border-top: 1px solid #94a3b8; margin-top: 40px; padding-top: 4px; font-size: 10px; color: #64748b; }
   .sign-name { font-weight: 600; color: #1e293b; font-size: 11px; }
-  .badge-total { background: #059669; color: #fff; padding: 4px 12px; border-radius: 4px; font-weight: 700; font-size: 12px; }
+  .badge-total { background: #059669; color: #fff; padding: 4px 12px; border-radius: 4px; font-weight: 700; font-size: 12px; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -214,7 +213,7 @@ function buildHtml(
       <div class="info-block-title">${L.summaryTitle}</div>
       <div class="info-row"><span class="lbl">${L.itemsLabel}</span><span class="val">${items.length}</span></div>
       <div class="info-row"><span class="lbl">${L.totalTonsLabel}</span><span class="val">${totalTons.toFixed(2)} t</span></div>
-      <div class="info-row"><span class="lbl">${L.valueLabel}</span><span class="val" style="color:#059669;font-size:12px;">${Math.ceil(totalValue)} ${unit}</span></div>
+      <div class="info-row"><span class="lbl">${L.valueLabel}</span><span class="val" style="color:#059669;font-size:12px;white-space:nowrap;">${Math.ceil(totalValue)} ${unit}</span></div>
       <div class="info-row"><span class="lbl">${L.typesLabel}</span><span class="val">${escapeHtml([...new Set(items.map(i => i.steelType))].join(', '))}</span></div>
     </div>
   </div>
@@ -261,9 +260,14 @@ function buildHtml(
       <li>${L.pricesNote(isPln ? 'PLN' : 'EUR')}</li>
       ${isPln ? `<li>${L.rateNote(eurPlnRate.toFixed(4).replace(/0+$/, '').replace(/\.$/, ''))}</li>` : ''}
       <li>${L.invoiceNote}</li>
-      <li>${L.validityNote}</li>
       ${validFrom && validTo ? `<li>${escapeHtml(L.validityRangeNote(validFrom, validTo))}</li>` : ''}
-      <li>${paymentTermFrom && paymentTermTo ? escapeHtml(L.paymentDueNote(paymentTermFrom, paymentTermTo)) : L.paymentNote}</li>
+      <li>${
+        typeof paymentTermDays === 'number'
+          ? paymentTermDays === 0
+            ? L.paymentPrepaymentNote
+            : escapeHtml(L.paymentTermDaysNote(paymentTermDays))
+          : L.paymentNote
+      }</li>
       <li>${L.minQuantityNote}</li>
       <li>${L.deliveryNote}</li>
       <li>${L.toleranceNote}</li>
@@ -292,7 +296,7 @@ export async function POST(request: Request) {
     }
     const session = auth.session;
 
-    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language, validFrom, validTo, paymentTermFrom, paymentTermTo } = await request.json();
+    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language, validFrom, validTo, paymentTermDays } = await request.json();
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'No items provided' }, { status: 400 });
     }
@@ -313,12 +317,15 @@ export async function POST(request: Request) {
     // (ten sam wzorzec co `offerDate` powyżej). Puste/brak = linijka po prostu się nie pojawia.
     const validFromStr: string | undefined = typeof validFrom === 'string' && validFrom ? validFrom : undefined;
     const validToStr: string | undefined = typeof validTo === 'string' && validTo ? validTo : undefined;
-    const paymentTermFromStr: string | undefined =
-      typeof paymentTermFrom === 'string' && paymentTermFrom ? paymentTermFrom : undefined;
-    const paymentTermToStr: string | undefined =
-      typeof paymentTermTo === 'string' && paymentTermTo ? paymentTermTo : undefined;
+    // Termin płatności jako liczba dni (przyciski 0/15/30/45/60/90 + "Inny" w kalkulatorze) —
+    // spoza sensownego zakresu (literówka, zepsuty payload) traktujemy jak brak wyboru,
+    // tak samo jak sanitizeRate wyżej dla kursu.
+    const paymentTermDaysNum: number | undefined =
+      typeof paymentTermDays === 'number' && Number.isFinite(paymentTermDays) && paymentTermDays >= 0 && paymentTermDays <= 365
+        ? paymentTermDays
+        : undefined;
 
-    const html_content = buildHtml(items, client, offerName || '', date, userName, pdfCurrency, pdfRate, pdfLanguage, validFromStr, validToStr, paymentTermFromStr, paymentTermToStr);
+    const html_content = buildHtml(items, client, offerName || '', date, userName, pdfCurrency, pdfRate, pdfLanguage, validFromStr, validToStr, paymentTermDaysNum);
 
     // Step 1: Create PDF request
     const createResponse = await fetch('https://apps.abacus.ai/api/createConvertHtmlToPdfRequest', {

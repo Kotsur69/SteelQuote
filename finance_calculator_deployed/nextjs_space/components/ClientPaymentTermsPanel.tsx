@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DEFAULT_SETTINGS } from '@/lib/currency';
+import PaymentTermPicker from '@/components/PaymentTermPicker';
 
 interface ClientRow {
   id: number;
@@ -22,7 +23,7 @@ export default function ClientPaymentTermsPanel() {
   const [loading, setLoading] = useState(true);
   const [globalDefault, setGlobalDefault] = useState(DEFAULT_SETTINGS.paymentTermDays);
   const [search, setSearch] = useState('');
-  const [drafts, setDrafts] = useState<Record<number, string>>({});
+  const [drafts, setDrafts] = useState<Record<number, number | null>>({});
   const [savingId, setSavingId] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -63,7 +64,7 @@ export default function ClientPaymentTermsPanel() {
     );
   }, [clients, search]);
 
-  const draftFor = (c: ClientRow) => drafts[c.id] ?? (c.payment_term_days === null ? '' : String(c.payment_term_days));
+  const draftFor = (c: ClientRow): number | null => (c.id in drafts ? drafts[c.id] : c.payment_term_days);
 
   const handleSave = async (c: ClientRow) => {
     setSavingId(c.id);
@@ -89,9 +90,6 @@ export default function ClientPaymentTermsPanel() {
       setSavingId(null);
     }
   };
-
-  const inputCls =
-    'w-24 bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1.5 text-sm text-[var(--text-primary)] font-mono text-right focus:border-[var(--accent-cr)] outline-none';
 
   return (
     <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
@@ -141,15 +139,13 @@ export default function ClientPaymentTermsPanel() {
                 <tr key={c.id}>
                   <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{c.company || '—'}</td>
                   <td className="px-4 py-3 font-mono text-[var(--text-secondary)]">{c.nip || '—'}</td>
-                  <td className="px-4 py-3 text-right">
-                    <input
-                      type="number"
-                      min="0"
-                      max="365"
-                      placeholder={t.client.paymentTermDaysPlaceholder}
+                  <td className="px-4 py-3">
+                    <PaymentTermPicker
                       value={draftFor(c)}
-                      onChange={(e) => setDrafts((prev) => ({ ...prev, [c.id]: e.target.value }))}
-                      className={inputCls}
+                      onChange={(days) => setDrafts((prev) => ({ ...prev, [c.id]: days }))}
+                      prepaymentLabel={t.inputs.paymentTermPrepayment}
+                      customLabel={t.inputs.paymentTermCustom}
+                      className="justify-end"
                     />
                   </td>
                   <td className="px-4 py-3 text-right">

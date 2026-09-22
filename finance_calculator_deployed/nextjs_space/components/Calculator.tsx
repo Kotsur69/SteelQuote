@@ -7,6 +7,7 @@ import Navigation from '@/components/Navigation';
 import NumericField from '@/components/NumericField';
 import ZestawienieRow from '@/components/ZestawienieRow';
 import TransportPanel, { EMPTY_TRANSPORT_ROUTE, type TransportRoute } from '@/components/TransportPanel';
+import PaymentTermPicker from '@/components/PaymentTermPicker';
 import { computeTransport } from '@/lib/transportTariff';
 import {
   GRADE_TABLES,
@@ -120,7 +121,7 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
   sscMaxWeight: 0, sscMarking: 0, sscEdging: 0,
   sscPacking: 0, sscPackingIdx: 0, sscLabels: 0,
   pglBase: 645, marginPct: 7, extra: 0, extraComment: '', extraCommentInPdf: false, transport: 20, tons: 1,
-  validFrom: '', validTo: '', paymentTermFrom: '', paymentTermTo: '',
+  validFrom: '', validTo: '', paymentTermDays: null,
   zestawienie: [],
   clientInfo: EMPTY_CLIENT_INFO,
   transportRoute: EMPTY_TRANSPORT_ROUTE,
@@ -259,15 +260,11 @@ export default function Calculator() {
   const [validFrom, setValidFrom] = useState('');
   const [validTo, setValidTo] = useState('');
 
-  // Termin płatności — WŁASNY zakres od-do, niezależny od okresu ważności oferty powyżej
-  // (osobna para pól, obok Ważna od/do, nie ta sama). Wybranie paymentTermFrom dolicza
-  // paymentTermTo jako paymentTermFrom + N dni (klienta z bazy albo globalny domyślny
-  // z Ustawień) — ale "do" zostaje w pełni edytowalne ręcznie. `resolvedPaymentTermDays`
-  // pamięta N z ostatnio wybranego klienta, żeby kolejna zmiana "od" doliczyła ten sam termin
-  // bez ponownego wyszukiwania klienta.
-  const [paymentTermFrom, setPaymentTermFrom] = useState('');
-  const [paymentTermTo, setPaymentTermTo] = useState('');
-  const [resolvedPaymentTermDays, setResolvedPaymentTermDays] = useState<number | null>(null);
+  // Termin płatności — liczba dni (przyciski PaymentTermPicker: 0 = przedpłata, 15, 30, 45,
+  // 60, 90 albo "Inny"), niezależny od okresu ważności oferty powyżej. Wybranie klienta
+  // przy tworzeniu nowej oferty ustawia domyślny termin tego klienta (albo globalny z
+  // Ustawień) — handlowiec może go potem nadpisać ręcznie, tak jak dawniej z datami.
+  const [paymentTermDays, setPaymentTermDays] = useState<number | null>(null);
 
   const [gradeInput, setGradeInput] = useState('S235JR+N');
   const [selectedGrade, setSelectedGrade] = useState<Grade | null>({ name: 'S235JR+N', value: 24 });
@@ -419,15 +416,9 @@ export default function Calculator() {
       sapId: client.sapId,
     }));
 
-    // Termin płatności klienta (albo globalny domyślny, gdy klient go nie ma) — zapamiętany
-    // do przeliczenia przy każdej zmianie "Termin płatności od" (patrz onChange pola niżej).
-    // Jeśli "od" jest już wypełnione, doliczamy "do" od razu tym nowym terminem.
-    const days = client.paymentTermDays ?? settings.paymentTermDays;
-    setResolvedPaymentTermDays(days);
-    if (paymentTermFrom !== '') {
-      const due = addDaysToDateString(paymentTermFrom, days);
-      if (due) setPaymentTermTo(due);
-    }
+    // Termin płatności klienta (albo globalny domyślny, gdy klient go nie ma) — od razu
+    // ustawiony jako preset w PaymentTermPicker; handlowiec może go nadpisać ręcznie.
+    setPaymentTermDays(client.paymentTermDays ?? settings.paymentTermDays);
   };
 
   // Wybór osoby z listy uzupełnia KOMPLET danych kontaktowych. Dane firmy zostają
@@ -1050,8 +1041,8 @@ export default function Calculator() {
     // Okres ważności oferty — mrożony razem z resztą, tak jak pglBase/transport: po ponownym
     // otwarciu widać dokładnie te daty, na które oferta była wyceniona.
     validFrom, validTo,
-    // Termin płatności (własny zakres od-do) — mrożony razem z resztą, tak samo jak okres ważności.
-    paymentTermFrom, paymentTermTo,
+    // Termin płatności (liczba dni) — mrożony razem z resztą, tak samo jak okres ważności.
+    paymentTermDays,
     zestawienie,
     clientInfo,
     // Trasa zamrażana razem z ofertą — po ponownym otwarciu widać, na jakim adresie
@@ -1117,8 +1108,14 @@ export default function Calculator() {
     if (data.tons !== undefined) setTons(data.tons);
     if (data.validFrom !== undefined) setValidFrom(data.validFrom);
     if (data.validTo !== undefined) setValidTo(data.validTo);
-    if (data.paymentTermFrom !== undefined) setPaymentTermFrom(data.paymentTermFrom);
-    if (data.paymentTermTo !== undefined) setPaymentTermTo(data.paymentTermTo);
+    // Oferty zapisane przed tą zmianą mają paymentTermFrom/paymentTermTo (stary zakres dat) —
+    // celowo ignorowane (klucz nieobecny = data.paymentTermDays undefined, pomijamy), PDF wtedy
+    // pokazuje generyczną formułkę zamiast próbować je przeliczyć. `null` (np. reset przez
+    // "Nowa oferta", patrz INITIAL_OFFER_DATA) MUSI przejść przez ten warunek, żeby wyczyścić
+    // wartość z poprzednio wczytanej oferty — stąd sprawdzamy `!== undefined`, nie `typeof === 'number'`.
+    if (data.paymentTermDays !== undefined) {
+      setPaymentTermDays(typeof data.paymentTermDays === 'number' ? data.paymentTermDays : null);
+    }
     if (data.zestawienie !== undefined) setZestawienie(data.zestawienie);
     // normalizeClientInfo, a nie surowe przypisanie: oferta zapisana przed dodaniem
     // SAP_ID nie ma tego pola, a niekontrolowany input to ostrzeżenie Reacta i pole,
@@ -1172,8 +1169,7 @@ export default function Calculator() {
         language,
         validFrom,
         validTo,
-        paymentTermFrom,
-        paymentTermTo,
+        paymentTermDays,
       });
       setSaveMessage({ type: 'success', text: language === 'pl' ? 'PDF wygenerowany!' : 'PDF generated!' });
     } catch (error) {
@@ -1935,8 +1931,8 @@ export default function Calculator() {
         </button>
 
         {/* Okres ważności oferty — osobne pole OBOK trybu Arkusz/Krąg (nie w środku toggle'a).
-            Decyduje o automatycznym doborze PGL kwartalnego (patrz efekt wyżej) i trafia
-            dodatkowo na PDF, obok istniejącej stałej formułki "48h od daty wystawienia". */}
+            Decyduje o automatycznym doborze PGL kwartalnego (patrz efekt wyżej) i, gdy obie
+            daty ustawione, trafia dodatkowo na PDF jako osobna linijka w stopce. */}
         <div className="flex items-center gap-2 flex-wrap px-3 py-2 rounded-md border-[1.5px] border-[var(--border)] bg-[var(--bg-panel)]">
           <label className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
             {t.inputs.offerValidFrom}
@@ -1961,40 +1957,19 @@ export default function Calculator() {
           </label>
         </div>
 
-        {/* Termin płatności — WŁASNY zakres od-do, osobny od okresu ważności oferty powyżej.
-            Wybranie "od" dolicza "do" jako od + N dni (termin klienta z podpowiedzi, patrz
-            applyClientSuggestion, albo globalny domyślny z Ustawień) — "do" zostaje w pełni
-            edytowalne ręcznie, a kolejna zmiana "od" znów je przelicza. */}
+        {/* Termin płatności — liczba dni (0 = przedpłata, presety albo "Inny"), osobny od
+            okresu ważności oferty powyżej. Domyślnie ustawiony na termin klienta z podpowiedzi
+            (patrz applyClientSuggestion) albo globalny domyślny z Ustawień, edytowalny ręcznie. */}
         <div className="flex items-center gap-2 flex-wrap px-3 py-2 rounded-md border-[1.5px] border-[var(--border)] bg-[var(--bg-panel)]">
-          <label className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
-            {t.inputs.paymentTermFrom}
-            <input
-              type="date"
-              value={paymentTermFrom}
-              onChange={e => {
-                const newFrom = e.target.value;
-                setPaymentTermFrom(newFrom);
-                if (newFrom !== '') {
-                  const days = resolvedPaymentTermDays ?? settings.paymentTermDays;
-                  const due = addDaysToDateString(newFrom, days);
-                  if (due) setPaymentTermTo(due);
-                }
-              }}
-              className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[12px] normal-case tracking-normal outline-none focus:border-[var(--accent-cr)]
-                ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-            />
+          <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
+            {t.inputs.paymentTerm}
           </label>
-          <label className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
-            {t.inputs.paymentTermTo}
-            <input
-              type="date"
-              value={paymentTermTo}
-              onChange={e => setPaymentTermTo(e.target.value)}
-              min={paymentTermFrom || undefined}
-              className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[12px] normal-case tracking-normal outline-none focus:border-[var(--accent-cr)]
-                ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-            />
-          </label>
+          <PaymentTermPicker
+            value={paymentTermDays}
+            onChange={setPaymentTermDays}
+            prepaymentLabel={t.inputs.paymentTermPrepayment}
+            customLabel={t.inputs.paymentTermCustom}
+          />
         </div>
       </div>
 
