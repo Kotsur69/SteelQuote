@@ -51,6 +51,48 @@ import WinLossPanel from '@/components/analytics/WinLossPanel';
 import DataTablePanel from '@/components/analytics/DataTablePanel';
 import { Segmented } from '@/components/analytics/controls';
 
+/** One "chip" button: a narrowing filter's current value, with its own one-click clear. */
+function FilterChip({
+  icon,
+  label,
+  onClear,
+  clearLabel,
+}: {
+  icon?: string;
+  label: string;
+  onClear: () => void;
+  clearLabel: string;
+}) {
+  return (
+    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono border border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)]">
+      {icon && `${icon} `}
+      {label}
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={clearLabel}
+        className="hover:text-[var(--accent-sum)] transition-colors"
+      >
+        ✕
+      </button>
+    </span>
+  );
+}
+
+/** A chip prefixed with which dimension it narrows - used in the top overview strip, where
+ * several chips can be active side by side and the bare value alone would be ambiguous. */
+function LabeledChip({ label, chip }: { label: string; chip: React.ReactNode }) {
+  if (!chip) return null;
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] uppercase tracking-widest text-[var(--text-secondary)] font-mono">
+        {label}
+      </span>
+      {chip}
+    </div>
+  );
+}
+
 /** UI filter state -> /api/analytics query string. Empty values are simply left out. */
 function buildQuery(filters: AnalyticsUiFilters): string {
   const params = new URLSearchParams();
@@ -246,6 +288,65 @@ export default function AnalyticsPage() {
 
   const hasRows = (data?.rows.length ?? 0) > 0;
 
+  // Drilling into one value (a salesperson, a client, "lost", a steel type, ...) narrows the
+  // whole page. The FilterBar's multiselects can clear each of these too, but that sits at the
+  // very top — a reader who drilled in from a panel further down would have to scroll all the
+  // way back up to find it. These chips repeat the same clear action next to where the
+  // selection actually shows up: in the panel it was made from, and once more in an overview
+  // strip near the top so the full set of active narrowing filters is visible at a glance.
+  const selectedSalesperson =
+    data && filters.userIds.length === 1
+      ? data.facets.users.find((u) => String(u.id) === filters.userIds[0])
+      : undefined;
+  const clearSalespersonFilter = () => setFilters((f) => ({ ...f, userIds: [] }));
+  const salespersonChip = selectedSalesperson && (
+    <FilterChip icon="👤" label={selectedSalesperson.name} onClear={clearSalespersonFilter} clearLabel={a.reset} />
+  );
+
+  const selectedSteelType =
+    data && filters.steelTypes.length === 1
+      ? data.bySteelType.find((g) => g.key === filters.steelTypes[0])
+      : undefined;
+  const clearSteelTypeFilter = () => setFilters((f) => ({ ...f, steelTypes: [] }));
+  const steelTypeChip = selectedSteelType && (
+    <FilterChip label={selectedSteelType.label} onClear={clearSteelTypeFilter} clearLabel={a.reset} />
+  );
+
+  const selectedStatus =
+    data && filters.statuses.length === 1
+      ? data.byStatus.find((g) => g.key === filters.statuses[0])
+      : undefined;
+  const clearStatusFilter = () => setFilters((f) => ({ ...f, statuses: [] }));
+  const statusChip = selectedStatus && (
+    <FilterChip label={selectedStatus.label} onClear={clearStatusFilter} clearLabel={a.reset} />
+  );
+
+  const selectedDecision =
+    data && filters.decisions.length === 1 ? (filters.decisions[0] as ClientDecision) : undefined;
+  const clearDecisionFilter = () => setFilters((f) => ({ ...f, decisions: [] }));
+  const decisionChip = selectedDecision && (
+    <FilterChip label={decisionLabel(selectedDecision)} onClear={clearDecisionFilter} clearLabel={a.reset} />
+  );
+
+  const selectedClient =
+    data && filters.clientIds.length === 1
+      ? data.facets.clients.find((c) => String(c.id) === filters.clientIds[0])
+      : undefined;
+  const clearClientFilter = () => setFilters((f) => ({ ...f, clientIds: [] }));
+  const clientChip = selectedClient && (
+    <FilterChip icon="🏢" label={selectedClient.name} onClear={clearClientFilter} clearLabel={a.reset} />
+  );
+
+  /** Which chip belongs next to the general Breakdown panel depends on which dimension it's
+   * currently switched to - that's the filter its clicks actually narrow. */
+  const breakdownChip: Record<Dimension, React.ReactNode> = {
+    steelType: steelTypeChip,
+    status: statusChip,
+    decision: decisionChip,
+    salesperson: salespersonChip,
+    client: clientChip,
+  };
+
   return (
     <div
       className="min-h-screen p-7 font-sans"
@@ -338,6 +439,16 @@ export default function AnalyticsPage() {
 
         {data && (
           <>
+            {(salespersonChip || steelTypeChip || statusChip || decisionChip || clientChip) && (
+              <div className="flex flex-wrap items-center gap-4">
+                <LabeledChip label={a.dimSalesperson} chip={salespersonChip} />
+                <LabeledChip label={a.dimSteelType} chip={steelTypeChip} />
+                <LabeledChip label={a.dimStatus} chip={statusChip} />
+                <LabeledChip label={a.dimDecision} chip={decisionChip} />
+                <LabeledChip label={a.dimClient} chip={clientChip} />
+              </div>
+            )}
+
             <KpiTiles
               kpi={data.kpi}
               previousKpi={data.previousKpi}
@@ -432,6 +543,7 @@ export default function AnalyticsPage() {
                         { value: 'table' as const, label: a.showTable },
                       ]}
                     />
+                    {breakdownChip[breakdownDimension]}
                   </>
                 }
               >
@@ -454,6 +566,7 @@ export default function AnalyticsPage() {
                 accent="var(--accent-hdg)"
                 empty={!hasRows}
                 emptyLabel={a.noData}
+                controls={decisionChip}
               >
                 <WinLossPanel
                   kpi={data.kpi}
@@ -480,6 +593,7 @@ export default function AnalyticsPage() {
                 accent="var(--accent-pickled)"
                 empty={data.byClient.length === 0}
                 emptyLabel={a.noData}
+                controls={clientChip}
               >
                 <BreakdownPanel
                   groups={data.byClient}
@@ -503,6 +617,7 @@ export default function AnalyticsPage() {
                   accent="var(--accent-zm)"
                   empty={data.bySalesperson.length === 0}
                   emptyLabel={a.noData}
+                  controls={salespersonChip}
                 >
                   <BreakdownPanel
                     groups={data.bySalesperson}
@@ -526,13 +641,20 @@ export default function AnalyticsPage() {
               empty={!hasRows}
               emptyLabel={a.noData}
               controls={
-                <button
-                  type="button"
-                  onClick={handleExport}
-                  className="px-3 py-1.5 rounded-md border border-[var(--accent-hdg)] text-[var(--accent-hdg)] text-[11px] font-mono hover:bg-[rgba(46,204,113,0.10)] transition-colors"
-                >
-                  📊 {a.exportXlsx}
-                </button>
+                <>
+                  {salespersonChip}
+                  {steelTypeChip}
+                  {statusChip}
+                  {decisionChip}
+                  {clientChip}
+                  <button
+                    type="button"
+                    onClick={handleExport}
+                    className="px-3 py-1.5 rounded-md border border-[var(--accent-hdg)] text-[var(--accent-hdg)] text-[11px] font-mono hover:bg-[rgba(46,204,113,0.10)] transition-colors"
+                  >
+                    📊 {a.exportXlsx}
+                  </button>
+                </>
               }
             >
               <DataTablePanel

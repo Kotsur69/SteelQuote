@@ -400,6 +400,21 @@ function AdminOffersContent() {
           <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">
             {t.admin.navOffers}
           </h2>
+          {/* Filtr po handlowcu, najczęściej ustawiany linkiem "Zobacz oferty" z /admin/handlowcy —
+              wyczyszczenie TUTAJ, bez przewijania do skrzynki filtrów wyżej. */}
+          {filters.user_id && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono border border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)]">
+              👤 {users.find((u) => String(u.id) === filters.user_id)?.full_name || t.admin.filterSalesperson}
+              <button
+                type="button"
+                onClick={() => setFilters({ ...filters, user_id: '' })}
+                aria-label={t.admin.clearFilters}
+                className="hover:text-[var(--accent-sum)] transition-colors"
+              >
+                ✕
+              </button>
+            </span>
+          )}
           <OfferSearchInput
             value={search}
             onChange={setSearch}

@@ -54,6 +54,16 @@ export function thisMonthValidityRange(): { from: string; to: string } {
   return { from: todayDateString(), to: lastDayOfMonth(now.getFullYear(), now.getMonth() + 1) };
 }
 
+/**
+ * Czy dany kwartał NIE jest jeszcze całkowicie w przeszłości (koniec kwartału >= dziś) —
+ * steruje, które przyciski Q1-Q4 OfferValidityPicker w ogóle pokazuje, żeby handlowiec nie
+ * mógł wystawić nowej oferty z okresem ważności, który już minął. Kwartał w trakcie trwania
+ * liczy się jako dostępny (koniec kwartału jeszcze przed nami), tylko w pełni miniony znika.
+ */
+export function isQuarterAvailable(year: number, quarter: Quarter): boolean {
+  return quarterDateRange(year, quarter).end >= todayDateString();
+}
+
 export type ValidityMode = 'quarter' | 'month' | 'custom';
 
 /**

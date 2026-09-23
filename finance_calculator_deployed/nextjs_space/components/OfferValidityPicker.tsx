@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   detectValidityMode,
   quarterDateRange,
   thisMonthValidityRange,
+  isQuarterAvailable,
   quarterOf,
   type Quarter,
 } from '@/lib/quarterUtils';
@@ -99,16 +101,27 @@ export default function OfferValidityPicker({
         ))}
       </select>
 
-      {QUARTERS.map((q) => (
-        <button
-          key={q}
-          type="button"
-          onClick={() => pickQuarter(q, selectedYear)}
-          className={btnCls(mode === 'quarter' && detected?.quarter === q && detected?.year === selectedYear)}
-        >
-          Q{q}
-        </button>
-      ))}
+      {/* AnimatePresence + key={q} (bez roku) — Q3/Q4 zostają zamontowane bez animacji przy
+          zmianie roku (są dostępne po obu stronach), tylko naprawdę NOWO odsłonięte kwartały
+          (np. Q1/Q2 po przejściu z 2026 na 2027) dostają enter-animację; miniony kwartał przy
+          powrocie na 2026 dostaje exit-animację zamiast znikać skokowo. */}
+      <AnimatePresence initial={false} mode="popLayout">
+        {QUARTERS.filter((q) => isQuarterAvailable(selectedYear, q)).map((q) => (
+          <motion.button
+            key={q}
+            type="button"
+            layout
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.6 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            onClick={() => pickQuarter(q, selectedYear)}
+            className={btnCls(mode === 'quarter' && detected?.quarter === q && detected?.year === selectedYear)}
+          >
+            Q{q}
+          </motion.button>
+        ))}
+      </AnimatePresence>
 
       <button type="button" onClick={pickThisMonth} className={btnCls(mode === 'month')}>
         {thisMonthLabel}

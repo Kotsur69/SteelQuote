@@ -25,16 +25,16 @@ async function main() {
   const hash3 = await bcrypt.hash('1234', 10);
   await pool.query(
     `INSERT INTO users (email, password, role, full_name, is_active)
-     VALUES ($1, $2, 'senior', 'Starszy Użytkownik', true)
-     ON CONFLICT (email) DO UPDATE SET password=$2, role='senior', full_name='Starszy Użytkownik', is_active=true`,
+     VALUES ($1, $2, 'senior', 'Jane Doe', true)
+     ON CONFLICT (email) DO UPDATE SET password=$2, role='senior', full_name='Jane Doe', is_active=true`,
     ['starszy@email.com', hash3]
   );
 
   const hash4 = await bcrypt.hash('1234', 10);
   await pool.query(
     `INSERT INTO users (email, password, role, full_name, is_active)
-     VALUES ($1, $2, 'junior', 'Młodszy Użytkownik', true)
-     ON CONFLICT (email) DO UPDATE SET password=$2, role='junior', full_name='Młodszy Użytkownik', is_active=true`,
+     VALUES ($1, $2, 'junior', 'Jack Doe', true)
+     ON CONFLICT (email) DO UPDATE SET password=$2, role='junior', full_name='Jack Doe', is_active=true`,
     ['mlodszy@email.com', hash4]
   );
 

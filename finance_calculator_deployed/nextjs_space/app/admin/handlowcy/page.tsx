@@ -49,6 +49,8 @@ export default function AdminSalespeoplePage() {
   const [teamOpen, setTeamOpen] = useState<number | null>(null);
   // Which salesperson's performance strip is expanded (independent of teamOpen).
   const [perfOpen, setPerfOpen] = useState<number | null>(null);
+  // Role tab above the list — 'all' is also the clear action, no separate reset needed.
+  const [roleFilter, setRoleFilter] = useState<'all' | Role>('all');
 
   // Formularz nowego konta
   const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'junior' as Role });
@@ -127,6 +129,8 @@ export default function AdminSalespeoplePage() {
   const inputCls =
     'w-full bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-cr)] outline-none';
 
+  const filteredUsers = users.filter((u) => roleFilter === 'all' || u.role === roleFilter);
+
   return (
     <AdminLayout>
       {message && (
@@ -177,6 +181,30 @@ export default function AdminSalespeoplePage() {
         </button>
       </form>
 
+      {/* Filtr roli — kliknięcie "Wszyscy" jest jednocześnie czyszczeniem filtra. */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {(['all', 'junior', 'senior', 'admin'] as const).map((rf) => {
+          const label = rf === 'all' ? t.admin.allSalespeople : t.roles[rf];
+          const count = rf === 'all' ? users.length : users.filter((u) => u.role === rf).length;
+          const isActive = roleFilter === rf;
+          return (
+            <button
+              key={rf}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => setRoleFilter(rf)}
+              className={`px-4 py-2 rounded-lg text-xs font-medium border transition-all ${
+                isActive
+                  ? 'bg-[rgba(59,142,245,0.12)] border-[#3b8ef5] text-[#3b8ef5]'
+                  : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              {label} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       {/* Lista */}
       <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)]">
@@ -185,7 +213,7 @@ export default function AdminSalespeoplePage() {
             {t.admin.navSalespeople}
           </h2>
           <span className="text-[10px] text-[var(--text-secondary)] font-mono ml-auto">
-            {users.length}
+            {filteredUsers.length}
           </span>
         </div>
 
@@ -206,7 +234,7 @@ export default function AdminSalespeoplePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
-                {users.map((u) => {
+                {filteredUsers.map((u) => {
                   const rate = winRateOffers(u);
                   return (
                   <Fragment key={u.id}>
