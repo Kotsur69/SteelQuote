@@ -100,10 +100,10 @@ export default function TransportPanel({
       <button
         onClick={onToggle}
         aria-expanded={open}
-        className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[rgba(255,255,255,0.025)] transition-colors text-left"
+        className="w-full flex items-center gap-2 px-4 py-2 border border-transparent hover:border-[var(--accent-cr)] hover:bg-[rgba(59,142,245,0.08)] rounded transition-colors text-left"
       >
-        <span className="text-[10px] text-[var(--text-muted)] font-mono w-3">{open ? '▾' : '▸'}</span>
-        <span className="flex-1 text-xs text-[var(--text-secondary)]">{s.transportRouteTitle}</span>
+        <span className="text-[10px] text-[var(--accent-cr)] font-mono w-3">{open ? '▾' : '▸'}</span>
+        <span className="flex-1 text-xs font-semibold uppercase tracking-wide text-[var(--accent-cr)]">{s.transportRouteTitle}</span>
         {/* Zwinięty panel i tak pokazuje kluczową liczbę — handlowiec nie musi go
             rozwijać, żeby sprawdzić, na jakiej odległości stoi wycena. */}
         {route.distanceKm !== null && (

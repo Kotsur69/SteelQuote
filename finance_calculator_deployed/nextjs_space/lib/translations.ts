@@ -144,7 +144,15 @@ export interface Translations {
     connectionError: string;
     copyright: string;
   };
-  
+
+  // Android PWA install banner (login screen only)
+  pwaInstall: {
+    title: string;
+    description: string;
+    install: string;
+    dismiss: string;
+  };
+
   // Calculator header
   header: {
     title: string;
@@ -889,7 +897,14 @@ export const pl: Translations = {
     connectionError: 'Błąd połączenia z serwerem',
     copyright: '© 2025 · Steel Surcharge Calculator',
   },
-  
+
+  pwaInstall: {
+    title: 'Zainstaluj aplikację',
+    description: 'Dodaj do ekranu głównego, aby mieć szybki dostęp',
+    install: 'Zainstaluj',
+    dismiss: 'Nie teraz',
+  },
+
   header: {
     title: 'Kalkulator Dopłat do Stali',
     subtitle: 'steel surcharge pricing tool',
@@ -1595,7 +1610,14 @@ export const en: Translations = {
     connectionError: 'Server connection error',
     copyright: '© 2025 · Steel Surcharge Calculator',
   },
-  
+
+  pwaInstall: {
+    title: 'Install app',
+    description: 'Add to your home screen for quick access',
+    install: 'Install',
+    dismiss: 'Not now',
+  },
+
   header: {
     title: 'Steel Surcharge Calculator',
     subtitle: 'steel surcharge pricing tool',
@@ -2301,6 +2323,13 @@ export const cs: Translations = {
     copyright: '© 2025 · Kalkulačka příplatků za ocel',
   },
 
+  pwaInstall: {
+    title: 'Nainstalovat aplikaci',
+    description: 'Přidejte na plochu pro rychlý přístup',
+    install: 'Instalovat',
+    dismiss: 'Teď ne',
+  },
+
   header: {
     title: 'Kalkulačka příplatků za ocel',
     subtitle: 'nástroj pro výpočet příplatků za ocel',
@@ -3004,6 +3033,13 @@ export const de: Translations = {
     loginError: 'Anmeldefehler',
     connectionError: 'Fehler bei der Serververbindung',
     copyright: '© 2025 · Stahlzuschlagsrechner',
+  },
+
+  pwaInstall: {
+    title: 'App installieren',
+    description: 'Zum Startbildschirm hinzufügen für schnellen Zugriff',
+    install: 'Installieren',
+    dismiss: 'Nicht jetzt',
   },
 
   header: {

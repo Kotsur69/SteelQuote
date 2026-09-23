@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: 'Kalkulator Dopłat do Stali',
   description: 'Steel surcharge pricing tool',
   icons: { icon: '/favicon.ico' },
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
+import PwaInstallBanner from '@/components/PwaInstallBanner';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -43,6 +44,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#0f1117] flex items-center justify-center p-6">
+      <PwaInstallBanner />
       <div className="w-full max-w-md">
         <div className="bg-[#1e2333] border border-[#2a3048] rounded-lg p-8 shadow-xl">
           {/* Header with Logo and Language Selector */}
