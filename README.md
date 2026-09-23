@@ -6,14 +6,35 @@ costs, margin, transport) for **HRS, CR, HDG, PICKLED** (pickled HRS),
 an offer, run it through an approval workflow, and export it to PDF or Excel for
 a client.
 
-Current version: **1.9**.
+Current release: **1.9** (rolling out to production now). Next version in
+development: **2.0**.
 
 ![HRS pricing defaults](screenshot_hrs_defaults.png)
 ![CR pricing defaults](screenshot_cr_defaults.png)
 ![HDG pricing defaults](screenshot_hdg_defaults.png)
 
 Live at [steelpricinghub.abacusai.app](https://steelpricinghub.abacusai.app)
-(production currently runs 1.8; 1.9 is in development on this repo).
+(production runs 1.8 until the 1.9 deploy is confirmed; after that this repo
+moves on to 2.0). On Android the login screen offers to install it as an app.
+
+### What's new in 1.9
+
+- Payment terms picked from day presets (prepayment / 2 / 15 / 30 / 45 / 60 / 90
+  / custom) instead of a date range; the PDF footer states "N days" or
+  "prepayment"
+- Offer validity picked as Q1–Q4, "this month" or a custom range; past quarters
+  of the current year are hidden, and choosing a quarter with a different
+  scheduled PGL price shows a notice
+- Transport fix: the per-tonne rate of items already in the summary no longer
+  drops while you type the quantity of the next, not-yet-added item. A
+  "Transport cost" badge now sits in the summary header
+- Offer lists show the client company and SAP ID under the offer number, and
+  can be searched and sorted by both, including senior and admin panels
+- Every page works on a phone in portrait orientation
+- Closable filter chips in Analytics, plus role filters in the salespeople
+  ranking and the admin Salespeople panel
+- PDF: large amounts and tonnages no longer wrap or get cut off
+- Security: calculator warning messages now escape their values (stored XSS fix)
 
 There's also a standalone prototype at the repo root (`index.html`,
 `steel_calculator_standalone.html`) — a single-file version of the calculator
@@ -86,8 +107,9 @@ still prices without an API key.
   earlier versions stay reachable under a collapsed list on the same card. An
   approved offer whose new version again needs approval reverts to "pending
   review" rather than inheriting a stale approval
-- Create, list, duplicate, delete and search offers — by name, fallback name or
-  raw ID — with a sortable "My Offers" list (date / name / value / status).
+- Create, list, duplicate, delete and search offers — by name, fallback name,
+  raw ID, client company or SAP ID — with sortable lists (date / offer name /
+  company / SAP ID / value / status) in "My Offers" and the senior and admin panels.
   Optional offer name falls back to `offer_<id>` consistently everywhere
 - An offer cannot be sent to a client without the client's company name and NIP;
   it can still be created, saved, edited, duplicated and exported without them
@@ -171,7 +193,7 @@ cd finance_calculator_deployed/nextjs_space
 npm install --legacy-peer-deps   # legacy flag: eslint 9 vs @typescript-eslint/parser@7, lint-only conflict
 cp .env.example .env.local       # fill in DATABASE_URL and JWT_SECRET for your local Postgres
 
-# Migrations are idempotent and must run in order (001 → 021).
+# Migrations are idempotent and must run in order (001 → 023).
 for f in migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
 
 npm run dev
