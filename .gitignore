@@ -23,5 +23,8 @@ node_modules/
 # MS Office temp/lock files (Word/Excel open-document markers)
 ~$*
 
+# Playwright MCP debug output (snapshots/console logs from browser verification)
+/.playwright-mcp/
+
 # Internal working notes — not for the public repo
 STAN_PROJEKTU.md
