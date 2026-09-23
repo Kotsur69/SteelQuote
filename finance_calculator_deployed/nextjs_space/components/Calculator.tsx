@@ -8,6 +8,7 @@ import NumericField from '@/components/NumericField';
 import ZestawienieRow from '@/components/ZestawienieRow';
 import TransportPanel, { EMPTY_TRANSPORT_ROUTE, type TransportRoute } from '@/components/TransportPanel';
 import PaymentTermPicker from '@/components/PaymentTermPicker';
+import OfferValidityPicker from '@/components/OfferValidityPicker';
 import { computeTransport } from '@/lib/transportTariff';
 import {
   GRADE_TABLES,
@@ -45,7 +46,7 @@ import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
 import { useUnsavedGuard } from '@/lib/unsavedGuard';
 import { pglBaseForType, type AppSettings } from '@/lib/currency';
-import { quarterOfDateString, quarterOf, type Quarter } from '@/lib/quarterUtils';
+import { quarterOfDateString, quarterOf, thisMonthValidityRange, type Quarter } from '@/lib/quarterUtils';
 import { addDaysToDateString, todayDateString, daysBetweenDateStrings } from '@/lib/dateUtils';
 import * as pricingEngine from '@/lib/pricingEngine';
 import { formatWarning } from '@/lib/translations';
@@ -98,11 +99,19 @@ export interface ZestawienieItem {
   inputs?: ItemInputs;
 }
 
+// Domyślny termin płatności dla nowej oferty bez wybranego klienta (v1.9.1) — przywraca sens
+// dawnej stałej linijki PDF "Ważność oferty: 48h od daty wystawienia" (usuniętej w abdcce0 razem
+// z zakresem dat płatności), tym razem policzonej z tej wartości (2 dni × 24h), patrz
+// PDF_LABELS.validityHoursNote i jej wywołanie w app/api/generate-pdf/route.ts. Klient z własnym
+// terminem (applyClientSuggestion) albo ręczna zmiana w PaymentTermPicker nadpisują to bez zmian.
+const DEFAULT_NEW_OFFER_PAYMENT_TERM_DAYS = 2;
+
 // Clean-slate snapshot of a brand-new offer. Same shape collectOfferData() returns, built
 // from the initial useState values below, so restoreOfferData(INITIAL_OFFER_DATA) resets
 // the whole calculator in one call (used by the "Nowa oferta" button and the "Kalkulator"
-// tab). pglBase/transport are placeholders here — the admin-defaults effect overwrites them
-// with the current settings right after the reset, exactly as on a fresh page load.
+// tab). pglBase/transport/validFrom/validTo/paymentTermDays are placeholders here — the
+// admin-defaults effect overwrites them (this-month validity + the 2-day default above) right
+// after the reset, exactly as on a fresh page load.
 const INITIAL_OFFER_DATA: Record<string, unknown> = {
   currentType: 'HRS',
   thickness: 4,
@@ -1260,6 +1269,13 @@ export default function Calculator() {
       const s = fresh ?? settings;
       setPglBase(pglBaseForType(currentType, s));
       setTransport(s.transportBase);
+      // Domyślny okres ważności ("Ten miesiąc") i termin płatności (2 dni) dla oferty bez
+      // wybranego jeszcze klienta — patrz DEFAULT_NEW_OFFER_PAYMENT_TERM_DAYS wyżej. Klient z
+      // własnym terminem (applyClientSuggestion) nadpisuje to bez zmian.
+      const { from, to } = thisMonthValidityRange();
+      setValidFrom(from);
+      setValidTo(to);
+      setPaymentTermDays(DEFAULT_NEW_OFFER_PAYMENT_TERM_DAYS);
       // Baseline for a fresh offer is captured only after the admin defaults land, so the
       // default PGL/transport are not themselves seen as unsaved changes.
       setBaselineNonce(n => n + 1);
@@ -1295,6 +1311,15 @@ export default function Calculator() {
       const next = await refreshSettings(fromQ);
       if (next) setPglBase(pglBaseForType(currentType, next));
     })();
+  };
+
+  // Pojedynczy handler dla OfferValidityPicker — presety (Q1-Q4/"Ten miesiąc") i pola custom
+  // wołają go z gotową parą dat zamiast dwóch osobnych setterów, ale efekt uboczny (dobór PGL
+  // wg kwartału) zostaje dokładnie ten sam co wcześniej przy bezpośrednich onChange pól dat.
+  const handleValidityChange = (nextValidFrom: string, nextValidTo: string) => {
+    setValidFrom(nextValidFrom);
+    setValidTo(nextValidTo);
+    applyQuarterlyPglForValidity(nextValidFrom, nextValidTo);
   };
 
   // Save offer function. Returns true on a successful save so the unsaved-changes guard
@@ -1408,6 +1433,10 @@ export default function Calculator() {
         const s = fresh ?? settings;
         setPglBase(pglBaseForType('HRS', s));
         setTransport(s.transportBase);
+        const { from, to } = thisMonthValidityRange();
+        setValidFrom(from);
+        setValidTo(to);
+        setPaymentTermDays(DEFAULT_NEW_OFFER_PAYMENT_TERM_DAYS);
         defaultsAppliedRef.current = true;
         setBaselineNonce(n => n + 1);
       })();
@@ -1934,27 +1963,17 @@ export default function Calculator() {
             Decyduje o automatycznym doborze PGL kwartalnego (patrz efekt wyżej) i, gdy obie
             daty ustawione, trafia dodatkowo na PDF jako osobna linijka w stopce. */}
         <div className="flex items-center gap-2 flex-wrap px-3 py-2 rounded-md border-[1.5px] border-[var(--border)] bg-[var(--bg-panel)]">
-          <label className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
-            {t.inputs.offerValidFrom}
-            <input
-              type="date"
-              value={validFrom}
-              onChange={e => { setValidFrom(e.target.value); applyQuarterlyPglForValidity(e.target.value, validTo); }}
-              className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[12px] normal-case tracking-normal outline-none focus:border-[var(--accent-cr)]
-                ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-            />
-          </label>
-          <label className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
-            {t.inputs.offerValidTo}
-            <input
-              type="date"
-              value={validTo}
-              onChange={e => { setValidTo(e.target.value); applyQuarterlyPglForValidity(validFrom, e.target.value); }}
-              min={validFrom || undefined}
-              className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[12px] normal-case tracking-normal outline-none focus:border-[var(--accent-cr)]
-                ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-            />
-          </label>
+          <OfferValidityPicker
+            key={currentOfferId ?? 'new'}
+            validFrom={validFrom}
+            validTo={validTo}
+            onChange={handleValidityChange}
+            fromLabel={t.inputs.offerValidFrom}
+            toLabel={t.inputs.offerValidTo}
+            thisMonthLabel={t.inputs.offerValidityThisMonth}
+            customLabel={t.inputs.offerValidityCustom}
+            isDark={isDark}
+          />
         </div>
 
         {/* Termin płatności — liczba dni (0 = przedpłata, presety albo "Inny"), osobny od

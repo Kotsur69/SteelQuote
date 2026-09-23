@@ -129,10 +129,10 @@ function buildHtml(
     <col style="width:55px">
     <col style="width:55px">
     <col style="width:55px">
-    <col style="width:50px">
+    <col style="width:70px">
     <col style="width:78px">
     <col style="width:130px">
-    <col style="width:188px">
+    <col style="width:168px">
   </colgroup>`;
 
   return `<!DOCTYPE html>
@@ -212,7 +212,7 @@ function buildHtml(
     <div class="info-block">
       <div class="info-block-title">${L.summaryTitle}</div>
       <div class="info-row"><span class="lbl">${L.itemsLabel}</span><span class="val">${items.length}</span></div>
-      <div class="info-row"><span class="lbl">${L.totalTonsLabel}</span><span class="val">${totalTons.toFixed(2)} t</span></div>
+      <div class="info-row"><span class="lbl">${L.totalTonsLabel}</span><span class="val" style="white-space:nowrap;">${totalTons.toFixed(2)} t</span></div>
       <div class="info-row"><span class="lbl">${L.valueLabel}</span><span class="val" style="color:#059669;font-size:12px;white-space:nowrap;">${Math.ceil(totalValue)} ${unit}</span></div>
       <div class="info-row"><span class="lbl">${L.typesLabel}</span><span class="val">${escapeHtml([...new Set(items.map(i => i.steelType))].join(', '))}</span></div>
     </div>
@@ -261,6 +261,7 @@ function buildHtml(
       ${isPln ? `<li>${L.rateNote(eurPlnRate.toFixed(4).replace(/0+$/, '').replace(/\.$/, ''))}</li>` : ''}
       <li>${L.invoiceNote}</li>
       ${validFrom && validTo ? `<li>${escapeHtml(L.validityRangeNote(validFrom, validTo))}</li>` : ''}
+      ${typeof paymentTermDays === 'number' && paymentTermDays > 0 ? `<li>${escapeHtml(L.validityHoursNote(paymentTermDays * 24))}</li>` : ''}
       <li>${
         typeof paymentTermDays === 'number'
           ? paymentTermDays === 0

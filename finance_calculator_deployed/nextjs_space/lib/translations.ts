@@ -188,6 +188,8 @@ export interface Translations {
     sheetWeight: string;
     offerValidFrom: string;
     offerValidTo: string;
+    offerValidityThisMonth: string;
+    offerValidityCustom: string;
     paymentTerm: string;
     paymentTermPrepayment: string;
     paymentTermCustom: string;
@@ -927,6 +929,8 @@ export const pl: Translations = {
     sheetWeight: 'Waga arkusza',
     offerValidFrom: 'Ważna od',
     offerValidTo: 'Ważna do',
+    offerValidityThisMonth: 'Ten miesiąc',
+    offerValidityCustom: 'Niestandardowy',
     paymentTerm: 'Termin płatności (dni)',
     paymentTermPrepayment: 'Przedpłata',
     paymentTermCustom: 'Inny',
@@ -1630,6 +1634,8 @@ export const en: Translations = {
     sheetWeight: 'Sheet weight',
     offerValidFrom: 'Valid from',
     offerValidTo: 'Valid to',
+    offerValidityThisMonth: 'This month',
+    offerValidityCustom: 'Custom',
     paymentTerm: 'Payment term (days)',
     paymentTermPrepayment: 'Prepayment',
     paymentTermCustom: 'Custom',
@@ -2332,6 +2338,8 @@ export const cs: Translations = {
     sheetWeight: 'Hmotnost tabule',
     offerValidFrom: 'Platná od',
     offerValidTo: 'Platná do',
+    offerValidityThisMonth: 'Tento měsíc',
+    offerValidityCustom: 'Vlastní',
     paymentTerm: 'Splatnost (dny)',
     paymentTermPrepayment: 'Platba předem',
     paymentTermCustom: 'Vlastní',
@@ -3034,6 +3042,8 @@ export const de: Translations = {
     sheetWeight: 'Tafelgewicht',
     offerValidFrom: 'Gültig ab',
     offerValidTo: 'Gültig bis',
+    offerValidityThisMonth: 'Dieser Monat',
+    offerValidityCustom: 'Benutzerdefiniert',
     paymentTerm: 'Zahlungsziel (Tage)',
     paymentTermPrepayment: 'Vorkasse',
     paymentTermCustom: 'Andere',

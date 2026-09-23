@@ -40,6 +40,11 @@ export interface PdfLabels {
   // Zakres dat "okresu ważności oferty" (od-do) wybranego w kalkulatorze — opcjonalna
   // dodatkowa linijka. Renderowana tylko gdy obie daty przyszły.
   validityRangeNote: (from: string, to: string) => string;
+  // Przywrócona wersja dawnej stałej "Ważność oferty: 48h od daty wystawienia" (usuniętej w
+  // abdcce0) — teraz liczona z terminu płatności (dni × 24h) zamiast być na sztywno wpisana.
+  // Renderowana tylko gdy paymentTermDays > 0 (patrz app/api/generate-pdf/route.ts); przy 0
+  // (przedpłata) godziny nie mają sensu, więc linijka się nie pojawia.
+  validityHoursNote: (hours: number) => string;
   paymentNote: string;
   // Termin płatności jako liczba dni (przyciski w kalkulatorze: 0/15/30/45/60/90 + "Inny") —
   // zastępuje paymentNote w stopce PDF, gdy handlowiec go wybrał. 0 dni = paymentPrepaymentNote
@@ -98,6 +103,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     rateNote: (rate) => `Kurs przeliczeniowy: 1 EUR = ${rate} PLN (kurs z dnia wyceny).`,
     invoiceNote: 'Faktura wystawiana na podstawie wagi brutto.',
     validityRangeNote: (from, to) => `Okres ważności oferty: ${from} – ${to}.`,
+    validityHoursNote: (hours) => `Ważność oferty: ${hours}h od daty wystawienia.`,
     paymentNote: 'Warunki płatności: wg ustaleń indywidualnych.',
     paymentTermDaysNote: (days) => `Termin płatności: ${days} dni.`,
     paymentPrepaymentNote: 'Warunki płatności: przedpłata.',
@@ -141,6 +147,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     rateNote: (rate) => `Exchange rate: 1 EUR = ${rate} PLN (rate as of valuation date).`,
     invoiceNote: 'Invoice issued based on gross weight.',
     validityRangeNote: (from, to) => `Offer validity period: ${from} – ${to}.`,
+    validityHoursNote: (hours) => `Offer validity: ${hours}h from issue date.`,
     paymentNote: 'Payment terms: as individually agreed.',
     paymentTermDaysNote: (days) => `Payment term: ${days} days.`,
     paymentPrepaymentNote: 'Payment terms: prepayment.',
@@ -184,6 +191,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     rateNote: (rate) => `Směnný kurz: 1 EUR = ${rate} PLN (kurz ke dni ocenění).`,
     invoiceNote: 'Faktura vystavena na základě hrubé hmotnosti.',
     validityRangeNote: (from, to) => `Doba platnosti nabídky: ${from} – ${to}.`,
+    validityHoursNote: (hours) => `Platnost nabídky: ${hours}h od data vystavení.`,
     paymentNote: 'Platební podmínky: dle individuální dohody.',
     paymentTermDaysNote: (days) => `Splatnost: ${days} dní.`,
     paymentPrepaymentNote: 'Platební podmínky: platba předem.',
@@ -227,6 +235,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     rateNote: (rate) => `Wechselkurs: 1 EUR = ${rate} PLN (Kurs zum Bewertungsdatum).`,
     invoiceNote: 'Rechnungsstellung auf Basis des Bruttogewichts.',
     validityRangeNote: (from, to) => `Gültigkeitszeitraum des Angebots: ${from} – ${to}.`,
+    validityHoursNote: (hours) => `Angebotsgültigkeit: ${hours}h ab Ausstellungsdatum.`,
     paymentNote: 'Zahlungsbedingungen: nach individueller Vereinbarung.',
     paymentTermDaysNote: (days) => `Zahlungsziel: ${days} Tage.`,
     paymentPrepaymentNote: 'Zahlungsbedingungen: Vorkasse.',
