@@ -5,6 +5,7 @@
 // modules. The aggregation itself lives in lib/analyticsAggregate.ts.
 
 import type { SteelType } from './calculatorData';
+import type { Role } from './auth';
 
 export type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
 export type ClientDecision = 'pending' | 'won' | 'lost';
@@ -181,7 +182,7 @@ export interface AnalyticsRow {
 }
 
 export interface AnalyticsFacets {
-  users: { id: number; name: string }[];
+  users: { id: number; name: string; role: Role }[];
   clients: { id: number; name: string }[];
   steelTypes: SteelType[];
 }

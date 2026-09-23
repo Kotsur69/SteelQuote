@@ -207,7 +207,10 @@ export async function fetchFacets(
   role: Role,
   userId: number,
   db: PoolClient | typeof pool = pool
-): Promise<{ users: { id: number; name: string }[]; clients: { id: number; name: string }[] }> {
+): Promise<{
+  users: { id: number; name: string; role: Role }[];
+  clients: { id: number; name: string }[];
+}> {
   const teamIds = role === 'senior' ? await teamMemberIds(userId, db) : [];
 
   const clientParams: unknown[] = [];
@@ -239,7 +242,7 @@ export async function fetchFacets(
     // Exactly the ids the rows are scoped to: the senior and their team. With no team this is
     // one entry, so the picker is inert rather than misleading.
     const usersResult = await db.query(
-      `SELECT u.id, COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) AS name
+      `SELECT u.id, COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) AS name, u.role
        FROM users u
        WHERE u.id = $1 OR u.id = ANY($2::int[])
        ORDER BY name ASC`,
@@ -251,7 +254,7 @@ export async function fetchFacets(
   // Admin: everyone who either still has an account or already owns offers - a deactivated
   // salesperson has to stay filterable, otherwise their history becomes unreachable.
   const usersResult = await db.query(
-    `SELECT u.id, COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) AS name
+    `SELECT u.id, COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) AS name, u.role
      FROM users u
      WHERE u.is_active = true OR EXISTS (SELECT 1 FROM offers o WHERE o.user_id = u.id)
      ORDER BY name ASC`

@@ -130,6 +130,12 @@ export default function AnalyticsPage() {
   const [timeKind, setTimeKind] = useState<TimeChartKind>('stackedBar');
   const [breakdownDimension, setBreakdownDimension] = useState<Dimension>('steelType');
   const [breakdownKind, setBreakdownKind] = useState<BreakdownChartKind>('bar');
+  /** Which seller tier the Handlowcy panel shows - purely a display filter over the
+   * already-fetched bySalesperson groups, not a query param, since the data for every tier is
+   * fetched in one round trip anyway. */
+  const [salespersonRoleFilter, setSalespersonRoleFilter] = useState<
+    'all' | 'junior' | 'senior' | 'admin'
+  >('all');
 
   const query = useMemo(() => buildQuery(filters), [filters]);
 
@@ -301,6 +307,28 @@ export default function AnalyticsPage() {
   const clearSalespersonFilter = () => setFilters((f) => ({ ...f, userIds: [] }));
   const salespersonChip = selectedSalesperson && (
     <FilterChip icon="👤" label={selectedSalesperson.name} onClear={clearSalespersonFilter} clearLabel={a.reset} />
+  );
+
+  // Handlowcy panel: which tier (junior/senior/admin) each row's user id belongs to, so the
+  // role Segmented control can filter the already-fetched groups without another round trip.
+  const roleByUserId = new Map(data?.facets.users.map((u) => [String(u.id), u.role]) ?? []);
+  const topSalespeopleGroups =
+    salespersonRoleFilter === 'all'
+      ? (data?.bySalesperson ?? [])
+      : (data?.bySalesperson ?? []).filter(
+          (group) => roleByUserId.get(group.key) === salespersonRoleFilter
+        );
+  const salespersonRoleControl = (
+    <Segmented
+      value={salespersonRoleFilter}
+      onChange={setSalespersonRoleFilter}
+      options={[
+        { value: 'all', label: a.allSelected },
+        { value: 'junior', label: t.roles.junior },
+        { value: 'senior', label: t.roles.senior },
+        { value: 'admin', label: t.roles.admin },
+      ]}
+    />
   );
 
   const selectedSteelType =
@@ -615,12 +643,17 @@ export default function AnalyticsPage() {
                 <ChartFrame
                   title={a.panelTopSalespeople}
                   accent="var(--accent-zm)"
-                  empty={data.bySalesperson.length === 0}
+                  empty={topSalespeopleGroups.length === 0}
                   emptyLabel={a.noData}
-                  controls={salespersonChip}
+                  controls={
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {salespersonRoleControl}
+                      {salespersonChip}
+                    </div>
+                  }
                 >
                   <BreakdownPanel
-                    groups={data.bySalesperson}
+                    groups={topSalespeopleGroups}
                     colorFor={colorForDimension('salesperson')}
                     measure={measure}
                     kind="table"

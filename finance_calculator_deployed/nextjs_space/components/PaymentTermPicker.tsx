@@ -6,7 +6,7 @@ import { useState } from 'react';
 // (Calculator.tsx, per-oferta) i panelem admina/seniora (ClientPaymentTermsPanel.tsx,
 // domyślny termin per-klient). Zastępuje dawny zakres dat "od-do": handlowiec wybiera
 // gotowy próg albo wpisuje własną liczbę dni (0-365, ta sama granica co CHECK w migracji 023).
-export const PAYMENT_TERM_DAY_PRESETS = [0, 15, 30, 45, 60, 90] as const;
+export const PAYMENT_TERM_DAY_PRESETS = [0, 2, 15, 30, 45, 60, 90] as const;
 
 interface PaymentTermPickerProps {
   value: number | null;
