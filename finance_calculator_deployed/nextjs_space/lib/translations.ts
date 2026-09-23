@@ -361,6 +361,7 @@ export interface Translations {
     baseSurchargeFallback: string;
     legacyItemEdit: string;
     offerValiditySpansQuarters: string;
+    differentQuarterPglNotice: string;
   };
 
   // Client information
@@ -1085,6 +1086,7 @@ export const pl: Translations = {
     baseSurchargeFallback: 'Grubość <strong>{thickness} mm</strong> jest poza zakresem tabeli dopłat bazowych SSC — użyto szacunkowej dopłaty <strong>{value} €/t</strong>, która może być niedokładna.',
     legacyItemEdit: 'Ta pozycja została dodana przed wprowadzeniem szczegółowej edycji — przełączniki dopłat po lewej NIE zostały automatycznie odtworzone z oryginału. Sprawdź je ręcznie przed zapisaniem, inaczej cena może się zmienić.',
     offerValiditySpansQuarters: 'Okres ważności oferty obejmuje więcej niż jeden kwartał — PGL nie zostanie dobrane automatycznie. Zawęź zakres do jednego kwartału albo ustaw PGL ręcznie.',
+    differentQuarterPglNotice: 'Uwaga: tworzysz ofertę na Q{quarter} {year} — PGL na ten kwartał jest ustawione na inną cenę niż bieżąca ({price} €/t).',
   },
 
   client: {
@@ -1790,6 +1792,7 @@ export const en: Translations = {
     baseSurchargeFallback: 'Thickness <strong>{thickness} mm</strong> is out of the SSC base surcharge table range — an estimated surcharge of <strong>{value} €/t</strong> was used, which may not be accurate.',
     legacyItemEdit: 'This item was added before detailed editing existed — the surcharge toggles on the left were NOT automatically restored from the original. Check them manually before saving, or the price may change.',
     offerValiditySpansQuarters: 'The offer validity period spans more than one quarter — PGL will not be selected automatically. Narrow the range to a single quarter or set PGL manually.',
+    differentQuarterPglNotice: 'Heads up: you are creating an offer for Q{quarter} {year} — PGL for this quarter is set to a different price than the current one ({price} €/t).',
   },
 
   client: {
@@ -2494,6 +2497,7 @@ export const cs: Translations = {
     baseSurchargeFallback: 'Tloušťka <strong>{thickness} mm</strong> je mimo rozsah tabulky základních přirážek SSC — byla použita odhadovaná přirážka <strong>{value} €/t</strong>, která nemusí být přesná.',
     legacyItemEdit: 'Tato položka byla přidána před zavedením podrobné editace — přepínače příplatků vlevo NEBYLY automaticky obnoveny z originálu. Před uložením je ručně zkontrolujte, jinak se cena může změnit.',
     offerValiditySpansQuarters: 'Doba platnosti nabídky přesahuje jedno čtvrtletí — PGL nebude vybráno automaticky. Zúžte rozsah na jedno čtvrtletí nebo nastavte PGL ručně.',
+    differentQuarterPglNotice: 'Upozornění: vytváříte nabídku pro Q{quarter} {year} — PGL pro toto čtvrtletí je nastaveno na jinou cenu než aktuální ({price} €/t).',
   },
 
   client: {
@@ -3198,6 +3202,7 @@ export const de: Translations = {
     baseSurchargeFallback: 'Die Dicke <strong>{thickness} mm</strong> liegt außerhalb des Tabellenbereichs für SSC-Grundzuschläge — es wurde ein geschätzter Zuschlag von <strong>{value} €/t</strong> verwendet, der möglicherweise ungenau ist.',
     legacyItemEdit: 'Diese Position wurde vor Einführung der Detailbearbeitung hinzugefügt — die Zuschlagsschalter links wurden NICHT automatisch aus dem Original wiederhergestellt. Bitte vor dem Speichern manuell prüfen, sonst kann sich der Preis ändern.',
     offerValiditySpansQuarters: 'Der Gültigkeitszeitraum des Angebots umfasst mehr als ein Quartal — PGL wird nicht automatisch ausgewählt. Grenzen Sie den Zeitraum auf ein Quartal ein oder legen Sie PGL manuell fest.',
+    differentQuarterPglNotice: 'Achtung: Sie erstellen ein Angebot für Q{quarter} {year} — der PGL für dieses Quartal ist auf einen anderen Preis als den aktuellen eingestellt ({price} €/t).',
   },
 
   client: {

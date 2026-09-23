@@ -391,6 +391,14 @@ export default function Calculator() {
   // przy resetToNewOffer(), więc nie przeżywa przejścia do innej/nowej oferty.
   const [staleOfferNotice, setStaleOfferNotice] = useState<StalePglMigrationInfo | null>(null);
 
+  // Quick info, gdy handlowiec WYBIERA okres ważności w innym kwartale niż "teraz" i to
+  // faktycznie zmienia PGL bieżącego typu stali (patrz applyQuarterlyPglForValidity niżej) —
+  // ostrzega PRZED zapisaniem, że oferta jedzie na innej cenie niż bieżący kwartał, w
+  // odróżnieniu od staleOfferNotice powyżej, które informuje PO fakcie przy wczytaniu.
+  // Czyszczone przy zmianie typu stali (selectType) — cena w banerze była liczona dla
+  // poprzedniego typu i przestałaby być trafna.
+  const [quarterlyPglNotice, setQuarterlyPglNotice] = useState<{ year: number; quarter: Quarter; price: number } | null>(null);
+
   // Client info
   const [clientInfo, setClientInfo] = useState<ClientInfo>(EMPTY_CLIENT_INFO);
   const [showClientInfo, setShowClientInfo] = useState(false);
@@ -773,6 +781,11 @@ export default function Calculator() {
     // PGL bazowe jest per-typ (HRS/CR/HDG mają różne ceny wsadu) — resetuje się razem
     // z resztą pól specyficznych dla typu, tak samo jak grubość/szerokość/gatunek niżej.
     setPglBase(pglBaseForType(type, settings));
+
+    // Baner z ceną kwartalną (quarterlyPglNotice) był liczony dla poprzedniego typu stali —
+    // po zmianie typu przestaje być trafny. Wybranie okresu ważności ponownie odtworzy go
+    // dla nowego typu (patrz applyQuarterlyPglForValidity).
+    setQuarterlyPglNotice(null);
 
     // Reset grade
     const defaultGrades: Record<SteelType, string | null> = {
@@ -1306,10 +1319,27 @@ export default function Calculator() {
     const fromQ = fromValue ? quarterOfDateString(fromValue) : null;
     const toQ = toValue ? quarterOfDateString(toValue) : null;
     const spans = !!(fromQ && toQ && (fromQ.year !== toQ.year || fromQ.quarter !== toQ.quarter));
-    if (!fromQ || spans) return;
+    if (!fromQ || spans) {
+      setQuarterlyPglNotice(null);
+      return;
+    }
+    const previousPgl = pglBase;
     (async () => {
       const next = await refreshSettings(fromQ);
-      if (next) setPglBase(pglBaseForType(currentType, next));
+      if (!next) return;
+      const newPgl = pglBaseForType(currentType, next);
+      setPglBase(newPgl);
+
+      // Quick info tylko wtedy, gdy wybrany kwartał NIE jest bieżącym (wg zegara przeglądarki)
+      // i faktycznie zmienił PGL — inaczej zwykłe "Q3 2026" (dziś) pokazywałoby baner bez
+      // żadnej realnej różnicy ceny.
+      const today = quarterOf(new Date());
+      const isCurrentQuarter = fromQ.year === today.year && fromQ.quarter === today.quarter;
+      setQuarterlyPglNotice(
+        !isCurrentQuarter && newPgl !== previousPgl
+          ? { year: fromQ.year, quarter: fromQ.quarter, price: newPgl }
+          : null
+      );
     })();
   };
 
@@ -1995,6 +2025,20 @@ export default function Calculator() {
       {validitySpansQuarters && (
         <p className="mt-2 px-2 py-1 rounded border border-[#ef4444] bg-[rgba(239,68,68,0.12)] text-[11px] font-semibold text-[#ef4444] inline-block">
           ⚠️ {t.warnings.offerValiditySpansQuarters}
+        </p>
+      )}
+
+      {/* Quick info: wybrany okres ważności leży w innym kwartale niż "teraz" i PGL dla
+          niego jest inny niż bieżący — patrz applyQuarterlyPglForValidity. Czysto informacyjny,
+          niczego nie blokuje (PGL i tak został już podmieniony automatycznie). */}
+      {!validitySpansQuarters && quarterlyPglNotice && (
+        <p className="mt-2 px-2 py-1 rounded border border-[#f5a63b] bg-[rgba(245,166,59,0.12)] text-[11px] font-semibold text-[#f5a63b] inline-block">
+          ℹ️{' '}
+          {formatWarning(t.warnings.differentQuarterPglNotice, {
+            quarter: quarterlyPglNotice.quarter,
+            year: quarterlyPglNotice.year,
+            price: quarterlyPglNotice.price,
+          })}
         </p>
       )}
       </div>
