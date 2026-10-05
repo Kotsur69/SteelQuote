@@ -34,20 +34,20 @@ export default function Navigation({ isDark }: NavigationProps) {
       .catch(() => setUser(null));
   }, []);
 
+  // Reviewers (senior, admin) get a Dashboard tab first, so their review home is one click away
+  // right after login. It replaces the separate "Senior panel" / "Admin panel" tabs because
+  // those pointed at the very same pages.
+  const dashboardHref = role === 'senior' ? '/senior' : role === 'admin' ? '/admin' : null;
+
   const tabs = [
+    ...(dashboardHref
+      ? [{ href: dashboardHref, label: t.admin?.navDashboard || 'Dashboard', icon: '🏠' }]
+      : []),
     { href: '/calculator', label: t.navigation?.calculator || 'Kalkulator', icon: '🧮' },
     { href: '/offers', label: t.navigation?.myOffers || 'Moje Oferty', icon: '📋' },
     // Analytics is available to every role - junior and senior see their own book, admin the
     // whole company. The scope is decided server-side; see lib/analyticsQuery.ts.
     { href: '/analytics', label: t.analytics?.navAnalytics || 'Analiza', icon: '📊' },
-    // Panel seniora tylko dla roli 'senior'.
-    ...(role === 'senior'
-      ? [{ href: '/senior', label: t.navigation?.panelSenior || 'Panel Seniora', icon: '🔍' }]
-      : []),
-    // Panel admina tylko dla roli 'admin'.
-    ...(role === 'admin'
-      ? [{ href: '/admin', label: t.navigation?.panelAdmin || 'Panel Admina', icon: '⚙️' }]
-      : []),
   ];
 
   // Every tab click goes through the unsaved-changes guard. Clicking "Kalkulator" while it
