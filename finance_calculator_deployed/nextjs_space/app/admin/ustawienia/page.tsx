@@ -950,7 +950,7 @@ export default function AdminSettingsPage() {
                               </td>
                               <td
                                 className="px-4 py-2 text-right font-mono font-semibold"
-                                style={{ color: delta >= 0 ? 'var(--accent-sum)' : 'var(--accent-hdg)' }}
+                                style={{ color: delta > 0 ? 'var(--accent-hdg)' : delta < 0 ? 'var(--accent-sum)' : 'var(--text-secondary)' }}
                               >
                                 {delta >= 0 ? '+' : ''}
                                 {delta.toFixed(2)}
