@@ -5,6 +5,7 @@ import { useCurrency } from '@/contexts/CurrencyContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { reviewStrings } from '@/lib/reviewMessages';
 import ReviewIssuesNotice from '@/components/ReviewIssuesNotice';
+import Modal from '@/components/Modal';
 import type { ReviewableItem } from '@/lib/offerReview';
 
 interface Props {
@@ -89,16 +90,8 @@ export default function OfferReviewBar({ offerId, isDirty, items, onDone }: Prop
       <ReviewIssuesNotice items={items} settings={settings} language={language} />
 
       {showReject && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-          onKeyDown={(e) => { if (e.key === 'Escape' && !busy) closeReject(); }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reject-dialog-title"
-            className="w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-2xl"
-          >
+        <Modal titleId="reject-dialog-title" onClose={closeReject} canClose={!busy}>
+          <>
             <h3 id="reject-dialog-title" className="mb-3 text-lg font-semibold text-[var(--text-primary)]">{s.rejectTitle}</h3>
             <textarea
               value={reason}
@@ -126,8 +119,8 @@ export default function OfferReviewBar({ offerId, isDirty, items, onDone }: Prop
                 {s.reject}
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        </Modal>
       )}
     </section>
   );

@@ -25,7 +25,7 @@ import {
   type ResolvedPeriod,
 } from '@/lib/analyticsPeriods';
 import { fetchAnalyticsRows, fetchFacets, fetchToday } from '@/lib/analyticsQuery';
-import { computeKpi, normalizeOffers, withinWindow } from '@/lib/analyticsAggregate';
+import { computeKpi, computeLostReasons, normalizeOffers, withinWindow } from '@/lib/analyticsAggregate';
 import { buildSeries, groupBy, splitKeysFrom } from '@/lib/analyticsSeries';
 import type { SteelType } from '@/lib/calculatorData';
 
@@ -189,6 +189,7 @@ export async function GET(request: NextRequest) {
       byDecision,
       bySalesperson,
       byClient,
+      byLostReason: computeLostReasons(current),
       rows: current.map((o) => ({
         id: o.id,
         label: o.label,

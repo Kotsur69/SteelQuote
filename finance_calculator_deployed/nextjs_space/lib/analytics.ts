@@ -6,6 +6,7 @@
 
 import type { SteelType } from './calculatorData';
 import type { Role } from './auth';
+import type { LostReason } from './lostReasons';
 
 export type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
 export type ClientDecision = 'pending' | 'won' | 'lost';
@@ -163,6 +164,17 @@ export interface AnalyticsGroup {
   winRateTons: number | null;
 }
 
+/** Lost offers of one rejection reason (lib/lostReasons.ts). */
+export interface LostReasonStat {
+  reason: LostReason;
+  offers: number;
+  tonsLost: number;
+  valueLostEur: number;
+  valueLostPln: number;
+  /** Share of all lost offers in the period, 0-100. */
+  sharePct: number;
+}
+
 /** One offer as the data table and the .xlsx export see it. */
 export interface AnalyticsRow {
   id: number;
@@ -217,6 +229,8 @@ export interface AnalyticsPayload {
   byDecision: AnalyticsGroup[];
   bySalesperson: AnalyticsGroup[];
   byClient: AnalyticsGroup[];
+  /** Lost offers by the reason the client gave, in the fixed LOST_REASONS order. */
+  byLostReason: LostReasonStat[];
   rows: AnalyticsRow[];
   facets: AnalyticsFacets;
 }

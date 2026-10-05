@@ -48,6 +48,7 @@ import BreakdownPanel, {
   type BreakdownChartKind,
 } from '@/components/analytics/BreakdownPanel';
 import WinLossPanel from '@/components/analytics/WinLossPanel';
+import LostReasonsPanel from '@/components/analytics/LostReasonsPanel';
 import DataTablePanel from '@/components/analytics/DataTablePanel';
 import { Segmented } from '@/components/analytics/controls';
 
@@ -614,6 +615,20 @@ export default function AnalyticsPage() {
                 />
               </ChartFrame>
             </div>
+
+            <ChartFrame
+              title={a.panelLostReasons}
+              accent="var(--accent-sum)"
+              empty={data.byLostReason.length === 0}
+              emptyLabel={a.noData}
+            >
+              <LostReasonsPanel
+                stats={data.byLostReason}
+                currency={currency}
+                language={language}
+                offersCountLabel={a.offersCount}
+              />
+            </ChartFrame>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
               <ChartFrame

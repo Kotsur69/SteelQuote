@@ -42,6 +42,8 @@ export interface AnalyticsOfferRow {
   display_name: string;
   status: OfferStatus;
   client_decision: ClientDecision;
+  /** Reason code of a lost offer (migration 024); null for any other decision. */
+  client_decision_reason: string | null;
   user_id: number | null;
   owner_name: string | null;
   owner_email: string | null;
@@ -163,14 +165,14 @@ export async function fetchAnalyticsRows(
     `WITH latest AS (
        SELECT DISTINCT ON (COALESCE(o.root_offer_id, o.id))
               o.id, o.root_offer_id, o.version_number, o.display_name, o.status,
-              o.client_decision, o.user_id, o.client_id, o.offer_data,
+              o.client_decision, o.client_decision_reason, o.user_id, o.client_id, o.offer_data,
               o.created_at, o.sent_at, o.client_decision_at
        FROM offers o
        WHERE ${visibility}
        ORDER BY COALESCE(o.root_offer_id, o.id), o.version_number DESC, o.id DESC
      )
      SELECT l.id, l.root_offer_id, l.version_number, l.display_name, l.status,
-            l.client_decision, l.user_id, l.client_id, l.offer_data,
+            l.client_decision, l.client_decision_reason, l.user_id, l.client_id, l.offer_data,
             to_char(l.created_at, 'YYYY-MM-DD')        AS created_date,
             to_char(l.sent_at, 'YYYY-MM-DD')           AS sent_date,
             to_char(l.client_decision_at, 'YYYY-MM-DD') AS decided_date,

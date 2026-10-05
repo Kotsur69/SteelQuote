@@ -22,9 +22,11 @@ import {
   type AnalyticsFilters,
   type AnalyticsKpi,
   type AnalyticsRow,
+  type LostReasonStat,
   type ClientDecision,
 } from './analytics';
 import type { AnalyticsOfferRow } from './analyticsQuery';
+import { DEFAULT_LOST_REASON, LOST_REASONS, isLostReason, type LostReason } from './lostReasons';
 
 /** One offer reduced to the figures every aggregation needs. */
 export interface NormalizedOffer {
@@ -32,6 +34,8 @@ export interface NormalizedOffer {
   label: string;
   status: AnalyticsRow['status'];
   decision: ClientDecision;
+  /** Why the client rejected it; null unless decision is 'lost'. Unknown/missing -> 'other'. */
+  lostReason: LostReason | null;
   userId: number | null;
   ownerName: string | null;
   clientId: number | null;
@@ -162,6 +166,12 @@ export function normalizeOffer(
     label: row.display_name,
     status: row.status,
     decision: CLIENT_DECISIONS.includes(row.client_decision) ? row.client_decision : 'pending',
+    lostReason:
+      row.client_decision !== 'lost'
+        ? null
+        : isLostReason(row.client_decision_reason)
+          ? row.client_decision_reason
+          : DEFAULT_LOST_REASON,
     userId: row.user_id,
     ownerName: row.owner_name ?? row.owner_email ?? null,
     clientId: row.client_id,
@@ -305,4 +315,40 @@ export function computeKpi(offers: NormalizedOffer[]): AnalyticsKpi {
     avgTonsPerOffer: round(tonsOffered / offers.length),
     avgValuePerOfferEur: round(valueEur / offers.length, 2),
   };
+}
+
+// --- lost reasons ---------------------------------------------------------------------
+
+/**
+ * Lost offers grouped by the reason the client gave, in the fixed LOST_REASONS order, with
+ * reasons nobody picked left out. `sharePct` is the share of lost OFFERS, so the column sums
+ * to 100 whatever the tonnage looks like. Offers lost before reasons existed arrive as 'other'
+ * (the migration backfills them), so nothing falls outside the list.
+ */
+export function computeLostReasons(offers: NormalizedOffer[]): LostReasonStat[] {
+  const totals = new Map<LostReason, { offers: number; tons: number; eur: number; pln: number }>();
+  let lostOffers = 0;
+
+  for (const o of offers) {
+    if (o.decision !== 'lost' || o.lostReason === null) continue;
+    lostOffers++;
+    const t = totals.get(o.lostReason) ?? { offers: 0, tons: 0, eur: 0, pln: 0 };
+    t.offers++;
+    t.tons += o.tons;
+    t.eur += o.valueEur;
+    t.pln += o.valuePln;
+    totals.set(o.lostReason, t);
+  }
+
+  return LOST_REASONS.filter((reason) => totals.has(reason)).map((reason) => {
+    const t = totals.get(reason)!;
+    return {
+      reason,
+      offers: t.offers,
+      tonsLost: round(t.tons),
+      valueLostEur: round(t.eur, 2),
+      valueLostPln: round(t.pln, 2),
+      sharePct: round((t.offers / lostOffers) * 100, 1),
+    };
+  });
 }

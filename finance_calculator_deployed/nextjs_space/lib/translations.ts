@@ -744,6 +744,7 @@ export interface Translations {
     panelTimeline: string;
     panelBreakdown: string;
     panelWinLoss: string;
+    panelLostReasons: string;
     panelTopClients: string;
     panelTopSalespeople: string;
     panelDataTable: string;
@@ -1457,6 +1458,7 @@ export const pl: Translations = {
     panelTimeline: 'Przebieg w czasie',
     panelBreakdown: 'Rozbicie',
     panelWinLoss: 'Wygrane i przegrane',
+    panelLostReasons: 'Powody odrzucenia przez klienta',
     panelTopClients: 'Najlepsi klienci',
     panelTopSalespeople: 'Handlowcy',
     panelDataTable: 'Dane źródłowe',
@@ -2170,6 +2172,7 @@ export const en: Translations = {
     panelTimeline: 'Over time',
     panelBreakdown: 'Breakdown',
     panelWinLoss: 'Won and lost',
+    panelLostReasons: 'Why clients rejected offers',
     panelTopClients: 'Top clients',
     panelTopSalespeople: 'Salespeople',
     panelDataTable: 'Source data',
@@ -2882,6 +2885,7 @@ export const cs: Translations = {
     panelTimeline: 'V čase',
     panelBreakdown: 'Rozpad',
     panelWinLoss: 'Získané a prohrané',
+    panelLostReasons: 'Důvody zamítnutí klientem',
     panelTopClients: 'Nejlepší zákazníci',
     panelTopSalespeople: 'Obchodníci',
     panelDataTable: 'Zdrojová data',
@@ -3594,6 +3598,7 @@ export const de: Translations = {
     panelTimeline: 'Zeitverlauf',
     panelBreakdown: 'Aufschlüsselung',
     panelWinLoss: 'Gewonnen und verloren',
+    panelLostReasons: 'Ablehnungsgründe der Kunden',
     panelTopClients: 'Top-Kunden',
     panelTopSalespeople: 'Vertrieb',
     panelDataTable: 'Quelldaten',

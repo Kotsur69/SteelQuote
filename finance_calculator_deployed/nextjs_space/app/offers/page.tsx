@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import Navigation from '@/components/Navigation';
+import Modal from '@/components/Modal';
 import { ClientInfo, normalizeClientInfo, hasRequiredCompanyDetails } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
 import { attachNotesToZestawienie } from '@/lib/itemNotes';
@@ -577,16 +578,8 @@ export default function OffersPage() {
           The custom text field shows for 'other' (or when nothing is picked) so a reason that
           matches no list entry can still be written down. */}
       {lostDialog && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-          onKeyDown={(e) => { if (e.key === 'Escape') setLostDialog(null); }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="lost-dialog-title"
-            className="w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-2xl"
-          >
+        <Modal titleId="lost-dialog-title" onClose={() => setLostDialog(null)}>
+          <>
             <h3 id="lost-dialog-title" className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
               {lostReasonUi(language).title}
             </h3>
@@ -639,8 +632,8 @@ export default function OffersPage() {
                 {lostReasonUi(language).confirm}
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        </Modal>
       )}
 
       {/* Offers Content */}
