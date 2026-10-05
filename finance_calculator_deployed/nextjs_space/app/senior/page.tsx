@@ -16,6 +16,10 @@ import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
 import ClientPaymentTermsPanel from '@/components/ClientPaymentTermsPanel';
+import ReviewIssuesNotice from '@/components/ReviewIssuesNotice';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import type { ReviewableItem } from '@/lib/offerReview';
+import type { ItemInputs } from '@/lib/calculatorData';
 import {
   formatOfferMoney,
   formatOfferMoneyCeil,
@@ -49,6 +53,8 @@ interface Offer {
       tons: number;
       totalValue: number;
       pgl: number;
+      // Per-item margin snapshot, used for the "below guidelines" notice.
+      inputs?: ItemInputs;
     }>;
     clientInfo?: ClientInfo;
     // Waluta wybrana przez handlowca + kurs z chwili zapisu. Starsze oferty ich nie mają -> EUR.
@@ -71,6 +77,7 @@ interface Offer {
 
 export default function SeniorPage() {
   const { t, language } = useLanguage();
+  const { settings } = useCurrency();
   const router = useRouter();
   const [isDark, setIsDark] = useDarkMode();
   const [highContrast, setHighContrast] = useHighContrast();
@@ -663,6 +670,15 @@ export default function SeniorPage() {
                         )}
                       </div>
                       )
+                    )}
+
+                    {/* Price guidelines (margin / base PGL): only relevant before the verdict */}
+                    {offer.status === 'pending_review' && (
+                      <ReviewIssuesNotice
+                        items={offer.offer_data.zestawienie as ReviewableItem[] | undefined}
+                        settings={settings}
+                        language={language}
+                      />
                     )}
                   </div>
 

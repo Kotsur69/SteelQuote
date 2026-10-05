@@ -64,7 +64,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ offer: result.rows[0] });
+    const offer = result.rows[0];
+    // Tells the calculator whether to show approve/reject: a senior or admin on an offer that
+    // is pending review. The approve/reject endpoints enforce the same rule server-side.
+    const canReview = (isAdmin || isSenior) && offer.status === 'pending_review';
+    return NextResponse.json({ offer: { ...offer, can_review: canReview } });
   } catch (error) {
     console.error('Error fetching offer:', error);
     return NextResponse.json({ error: 'Failed to fetch offer' }, { status: 500 });

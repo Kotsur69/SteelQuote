@@ -16,6 +16,13 @@ import OfferSearchInput from '@/components/OfferSearchInput';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
 import { offerNeedsReview } from '@/lib/offerReview';
 import type { ClientDecision } from '@/lib/analytics';
+import {
+  LOST_REASONS,
+  isLostReason,
+  lostReasonLabel,
+  lostReasonUi,
+  type LostReason,
+} from '@/lib/lostReasons';
 import { DECISION_COLOR, DECISION_ICON } from '@/lib/chartColors';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import type { ItemInputs } from '@/lib/calculatorData';
@@ -109,6 +116,7 @@ interface Offer {
   client_decision?: ClientDecision;
   client_decision_at?: string | null;
   client_decision_note?: string | null;
+  client_decision_reason?: string | null;
   created_at: string;
   updated_at: string;
   root_offer_id: number | null;
@@ -129,6 +137,9 @@ export default function OffersPage() {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   // Która oferta ma rozwinięty podgląd pozycji (z cenami). null = wszystkie zwinięte.
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  // Open while the salesperson picks why the client rejected an offer. An empty reason means
+  // "nothing picked" and is stored server-side as 'other'; the note is the custom text.
+  const [lostDialog, setLostDialog] = useState<{ offerId: number; reason: LostReason | ''; note: string } | null>(null);
   // Której oferty (root id) ma rozwiniętą listę poprzednich wersji. null = wszystkie zwinięte.
   const [expandedVersionsId, setExpandedVersionsId] = useState<number | null>(null);
   // Której oferty linia firma+SAP ID jest rozwinięta (odkrywa to, co truncate ucina
@@ -210,18 +221,27 @@ export default function OffersPage() {
    * A loss asks for a reason; a win does not need one, and cancelling the prompt still records
    * the loss rather than dropping the click.
    */
-  const handleDecision = async (offerId: number, decision: ClientDecision) => {
-    let note: string | null = null;
+  // A loss opens the reason dialog first (see lostDialog below); won/pending go straight through.
+  const handleDecision = (offerId: number, decision: ClientDecision) => {
     if (decision === 'lost') {
-      note = prompt(t.analytics.decisionNotePrompt);
+      setLostDialog({ offerId, reason: '', note: '' });
+      return;
     }
+    submitDecision(offerId, decision);
+  };
 
+  const submitDecision = async (
+    offerId: number,
+    decision: ClientDecision,
+    reason?: LostReason,
+    note?: string
+  ) => {
     setActionLoading(offerId);
     try {
       const res = await fetch(`/api/offers/${offerId}/decision`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision, note: note ?? undefined }),
+        body: JSON.stringify({ decision, reason, note: note || undefined }),
       });
       if (res.ok) {
         setMessage({ type: 'success', text: t.analytics.decisionSaved });
@@ -553,6 +573,76 @@ export default function OffersPage() {
         </div>
       )}
 
+      {/* Why did the client reject the offer? Reason is optional: nothing picked = 'other'.
+          The custom text field shows for 'other' (or when nothing is picked) so a reason that
+          matches no list entry can still be written down. */}
+      {lostDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onKeyDown={(e) => { if (e.key === 'Escape') setLostDialog(null); }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lost-dialog-title"
+            className="w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-6 shadow-2xl"
+          >
+            <h3 id="lost-dialog-title" className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
+              {lostReasonUi(language).title}
+            </h3>
+            <select
+              value={lostDialog.reason}
+              onChange={(e) => setLostDialog({
+                ...lostDialog,
+                reason: isLostReason(e.target.value) ? e.target.value : '',
+              })}
+              className="w-full rounded border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-cr)]"
+              aria-label={lostReasonUi(language).title}
+              autoFocus
+            >
+              <option value="">{lostReasonUi(language).selectPlaceholder}</option>
+              {LOST_REASONS.map((code) => (
+                <option key={code} value={code}>{lostReasonLabel(code, language)}</option>
+              ))}
+            </select>
+            {(lostDialog.reason === '' || lostDialog.reason === 'other') && (
+              <input
+                type="text"
+                value={lostDialog.note}
+                maxLength={500}
+                onChange={(e) => setLostDialog({ ...lostDialog, note: e.target.value })}
+                aria-label={lostReasonUi(language).customPlaceholder}
+                placeholder={lostReasonUi(language).customPlaceholder}
+                className="mt-3 w-full rounded border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-cr)]"
+              />
+            )}
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setLostDialog(null)}
+                className="px-4 py-2 text-sm rounded border border-[var(--border)] text-[var(--text-secondary)]"
+              >
+                {lostReasonUi(language).cancel}
+              </button>
+              <button
+                onClick={() => {
+                  const { offerId, reason, note } = lostDialog;
+                  setLostDialog(null);
+                  submitDecision(
+                    offerId,
+                    'lost',
+                    reason === '' ? undefined : reason,
+                    reason === '' || reason === 'other' ? note.trim() : ''
+                  );
+                }}
+                className="px-4 py-2 text-sm rounded bg-[var(--accent-sum)] text-white font-medium"
+              >
+                {lostReasonUi(language).confirm}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Offers Content */}
       <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)] flex-wrap">
@@ -694,7 +784,12 @@ export default function OffersPage() {
                           {offer.client_decision === 'won'
                             ? t.analytics.decisionWon
                             : t.analytics.decisionLost}
-                          {offer.client_decision_note ? `: ${truncateNote(offer.client_decision_note)}` : ''}
+                          {offer.client_decision === 'lost' && isLostReason(offer.client_decision_reason)
+                            ? `: ${lostReasonLabel(offer.client_decision_reason, language)}`
+                            : ''}
+                          {offer.client_decision_note
+                            ? `${offer.client_decision === 'lost' && isLostReason(offer.client_decision_reason) ? ' - ' : ': '}${truncateNote(offer.client_decision_note)}`
+                            : ''}
                         </span>
                       )}
                     </div>

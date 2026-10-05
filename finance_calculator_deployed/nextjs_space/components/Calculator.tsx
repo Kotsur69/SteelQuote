@@ -9,6 +9,7 @@ import ZestawienieRow from '@/components/ZestawienieRow';
 import TransportPanel, { EMPTY_TRANSPORT_ROUTE, type TransportRoute } from '@/components/TransportPanel';
 import PaymentTermPicker from '@/components/PaymentTermPicker';
 import OfferValidityPicker from '@/components/OfferValidityPicker';
+import OfferReviewBar from '@/components/OfferReviewBar';
 import { computeTransport } from '@/lib/transportTariff';
 import {
   GRADE_TABLES,
@@ -366,6 +367,9 @@ export default function Calculator() {
   // Etykieta typu "offer_27.1" — liczona z root_offer_id + version_number, bo surowe `id`
   // wiersza (np. 30) nie ma nic wspólnego z numerem, który handlowiec widzi na liście ofert.
   const [currentOfferLabel, setCurrentOfferLabel] = useState<string>('');
+  // True when a senior/admin opened an offer that is pending review (server decides, see GET
+  // /api/offers/[id]) - shows the approve/reject bar. Cleared for new offers.
+  const [canReview, setCanReview] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveOfferName, setSaveOfferName] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
@@ -1234,6 +1238,7 @@ export default function Calculator() {
             setCurrentOfferName(offer.display_name);
             setCurrentOfferRawName(offer.offer_name ?? '');
             setCurrentOfferLabel(offerNumberLabel(offer));
+            setCanReview(offer.can_review === true);
 
             // Przeterminowany PGL (inny kwartał niż "teraz") -> migrujemy na aktualne ceny
             // PRZED odtworzeniem stanu, żeby kalkulator wystartował już z poprawnymi danymi
@@ -1383,6 +1388,9 @@ export default function Calculator() {
         setCurrentOfferName(offer.display_name);
         setCurrentOfferRawName(offer.offer_name ?? '');
         setCurrentOfferLabel(offerNumberLabel(offer));
+        // A saved edit of a pending offer becomes a new pending version - keep the review bar
+        // for it; any other resulting status (e.g. a fresh draft) has nothing to review.
+        setCanReview((wasReviewable) => wasReviewable && offer.status === 'pending_review');
         // Od tej chwili oferta ma własny, zamrożony kurs. Gdyby admin zmienił kurs, a
         // handlowiec zapisał ponownie tę samą ofertę z otwartej karty — zapisze się kurs
         // pierwotny, nie nowy.
@@ -1442,6 +1450,7 @@ export default function Calculator() {
     setCurrentOfferName('');
     setCurrentOfferRawName('');
     setCurrentOfferLabel('');
+    setCanReview(false);
     setShowSaveModal(false);
     setSaveOfferName('');
     setSaveMessage(null);
@@ -1676,6 +1685,16 @@ export default function Calculator() {
           </button>
         </div>
       </header>
+
+      {/* Review controls for a senior/admin on an offer pending review */}
+      {canReview && currentOfferId !== null && (
+        <OfferReviewBar
+          offerId={currentOfferId}
+          isDirty={isDirty}
+          items={zestawienie}
+          onDone={() => router.push('/senior')}
+        />
+      )}
 
       {/* Currently Editing Banner — bardzo widoczny pasek, żeby nie dało się przeoczyć,
           że kalkulator jest w trybie edycji istniejącej oferty, a nie tworzenia nowej. */}

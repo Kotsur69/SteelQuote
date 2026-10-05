@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireRole } from '@/lib/rbac';
 import { CLIENT_DECISIONS, type ClientDecision } from '@/lib/analytics';
+import { DEFAULT_LOST_REASON, isLostReason, type LostReason } from '@/lib/lostReasons';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = (await request.json().catch(() => ({}))) as {
       decision?: unknown;
       note?: unknown;
+      reason?: unknown;
     };
 
     const decision = body.decision;
@@ -50,12 +52,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ? null
       : rawNote.slice(0, MAX_NOTE_LENGTH);
 
+    // Structured reason, only meaningful for a loss. Picking nothing is allowed and lands in
+    // 'other' (the catch-all, whose custom text is the note); an unknown code is a client bug
+    // and is rejected rather than silently remapped.
+    if (value === 'lost' && body.reason !== undefined && body.reason !== null && body.reason !== '' && !isLostReason(body.reason)) {
+      return NextResponse.json({ error: 'Nieprawidłowy powód odrzucenia' }, { status: 400 });
+    }
+    const reason: LostReason | null =
+      value !== 'lost' ? null : isLostReason(body.reason) ? body.reason : DEFAULT_LOST_REASON;
+
     // Senior and admin may decide on any sent offer; a junior only on their own. The check is
     // part of the UPDATE rather than a prior SELECT, so a status change racing this request
     // makes the write miss instead of landing on an offer that is no longer sent.
-    // $1..$4 are always the same; the optional ownership check takes $5, so no placeholder
+    // $1..$5 are always the same; the optional ownership check takes $6, so no placeholder
     // ever shifts position depending on the role.
-    const values: unknown[] = [offerId, value, session.userId, note];
+    const values: unknown[] = [offerId, value, session.userId, note, reason];
     let ownershipClause = '';
     if (session.role === 'junior') {
       values.push(session.userId);
@@ -72,9 +83,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
            client_decision_at = CASE WHEN $2::text = 'pending' THEN NULL ELSE CURRENT_TIMESTAMP END,
            client_decision_by = CASE WHEN $2::text = 'pending' THEN NULL ELSE $3::int END,
            client_decision_note = CASE WHEN $2::text = 'pending' THEN NULL ELSE $4::text END,
+           client_decision_reason = CASE WHEN $2::text = 'lost' THEN $5::text ELSE NULL END,
            updated_at = CURRENT_TIMESTAMP
        WHERE o.id = $1 AND o.status = 'sent' ${ownershipClause}
-       RETURNING o.id, o.client_decision, o.client_decision_at, o.client_decision_note`,
+       RETURNING o.id, o.client_decision, o.client_decision_at, o.client_decision_note,
+                 o.client_decision_reason`,
       values
     );
 

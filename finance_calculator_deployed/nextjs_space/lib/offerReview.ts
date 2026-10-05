@@ -23,11 +23,32 @@ export interface ReviewableItem {
 // Pozycje sprzed wprowadzenia ItemInputs.marginPct nie mają zapisanej marży — w razie
 // braku danych zakładamy najbezpieczniejszy wariant (wymaga zatwierdzenia), zamiast
 // milcząco przepuszczać ofertę, której realnej marży nie da się zweryfikować.
-export function positionNeedsReview(item: ReviewableItem, settings: AppSettings): boolean {
+// Why a single position falls below the guidelines. Exposed (not just a boolean) so the
+// reviewer sees the concrete number and the threshold it missed, e.g. "margin 4% < min 6%".
+export type ReviewIssue =
+  | { kind: 'marginBelowMin'; value: number; min: number }
+  | { kind: 'marginUnknown' }
+  | { kind: 'pglBelowBase'; value: number; base: number };
+
+// Single source of truth for the review rule; positionNeedsReview is derived from it so the
+// UI explanation can never disagree with the gate the server enforces.
+export function positionReviewIssues(item: ReviewableItem, settings: AppSettings): ReviewIssue[] {
+  const issues: ReviewIssue[] = [];
   const marginPct = item.inputs?.marginPct;
-  if (typeof marginPct !== 'number' || marginPct < settings.minMarginPct) return true;
-  if (item.pgl < pglBaseForType(item.type, settings)) return true;
-  return false;
+  if (typeof marginPct !== 'number') {
+    issues.push({ kind: 'marginUnknown' });
+  } else if (marginPct < settings.minMarginPct) {
+    issues.push({ kind: 'marginBelowMin', value: marginPct, min: settings.minMarginPct });
+  }
+  const base = pglBaseForType(item.type, settings);
+  if (item.pgl < base) {
+    issues.push({ kind: 'pglBelowBase', value: item.pgl, base });
+  }
+  return issues;
+}
+
+export function positionNeedsReview(item: ReviewableItem, settings: AppSettings): boolean {
+  return positionReviewIssues(item, settings).length > 0;
 }
 
 export function offerNeedsReview(
