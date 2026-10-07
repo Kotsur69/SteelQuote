@@ -6,6 +6,7 @@ import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import { useDarkMode } from '@/lib/useDarkMode';
 import { useHighContrast } from '@/lib/useHighContrast';
 import { getThemeVars } from '@/lib/themeVars';
+import { useAccessT } from '@/lib/i18n/access';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -15,6 +16,7 @@ interface AdminLayoutProps {
 // Wzorzec ciemny/jasny motyw i zmienne --accent-* takie same jak w reszcie aplikacji.
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const { t } = useLanguage();
+  const at = useAccessT();
   const pathname = usePathname();
   const router = useRouter();
   const [isDark, setIsDark] = useDarkMode();
@@ -26,6 +28,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin', label: t.admin.navDashboard, icon: '🏠' },
     { href: '/analytics', label: t.analytics.navAnalytics, icon: '📊' },
     { href: '/admin/handlowcy', label: t.admin.navSalespeople, icon: '👥' },
+    { href: '/admin/dostep', label: at.nav.access, icon: '🔐' },
     { href: '/admin/klienci', label: t.admin.navClients, icon: '🏢' },
     { href: '/admin/kontakty', label: t.admin.navContacts, icon: '📇' },
     { href: '/admin/oferty', label: t.admin.navOffers, icon: '📋' },

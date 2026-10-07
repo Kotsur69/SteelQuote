@@ -10,6 +10,8 @@ import TransportPanel, { EMPTY_TRANSPORT_ROUTE, type TransportRoute } from '@/co
 import PaymentTermPicker from '@/components/PaymentTermPicker';
 import OfferValidityPicker from '@/components/OfferValidityPicker';
 import OfferReviewBar from '@/components/OfferReviewBar';
+import { useAccess } from '@/lib/useAccess';
+import { accessErrorText, useAccessT } from '@/lib/i18n/access';
 import { computeTransport } from '@/lib/transportTariff';
 import {
   GRADE_TABLES,
@@ -215,6 +217,11 @@ function migrateStaleOfferData(
 export default function Calculator() {
   // Language
   const { t, language } = useLanguage();
+  const at = useAccessT();
+  const { access } = useAccess();
+  // Flow of the loaded offer (null = a new offer, created in the active flow). Field locks
+  // follow the caller's permissions in THAT flow - the server enforces the same rule.
+  const [offerFlowId, setOfferFlowId] = useState<number | null>(null);
 
   // Waluta wyświetlania. EUR pozostaje jedynym źródłem prawdy — stan poniżej trzyma
   // wyłącznie €/t, a PLN jest nakładką na wyświetlanie (toDisplay) i na wejście (fromDisplay).
@@ -370,6 +377,12 @@ export default function Calculator() {
   // True when a senior/admin opened an offer that is pending review (server decides, see GET
   // /api/offers/[id]) - shows the approve/reject bar. Cleared for new offers.
   const [canReview, setCanReview] = useState(false);
+  // PGL base / price-margin fields follow the role's permissions in the offer's flow (a new
+  // offer: the active flow). The superuser may change everything.
+  const permissionFlowId = currentOfferId !== null ? offerFlowId : access?.activeFlowId ?? null;
+  const flowPermissions = access?.memberships.find((m) => m.flowId === permissionFlowId)?.permissions;
+  const pglLocked = access !== null && !access.isSuperuser && flowPermissions?.canChangePglBase !== true;
+  const marginLocked = access !== null && !access.isSuperuser && flowPermissions?.canChangePriceMargin !== true;
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveOfferName, setSaveOfferName] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
@@ -1239,6 +1252,7 @@ export default function Calculator() {
             setCurrentOfferRawName(offer.offer_name ?? '');
             setCurrentOfferLabel(offerNumberLabel(offer));
             setCanReview(offer.can_review === true);
+            setOfferFlowId(typeof offer.flow_id === 'number' ? offer.flow_id : null);
 
             // Przeterminowany PGL (inny kwartał niż "teraz") -> migrujemy na aktualne ceny
             // PRZED odtworzeniem stanu, żeby kalkulator wystartował już z poprawnymi danymi
@@ -1413,7 +1427,8 @@ export default function Calculator() {
         setBaselineNonce(n => n + 1);
         return true;
       }
-      setSaveMessage({ type: 'error', text: t.offers?.saveFailed || 'Save failed' });
+      const errorBody = await res.json().catch(() => null);
+      setSaveMessage({ type: 'error', text: accessErrorText(at, errorBody, t.offers?.saveFailed || 'Save failed') });
       return false;
     } catch (error) {
       console.error('Error saving offer:', error);
@@ -1691,7 +1706,6 @@ export default function Calculator() {
         <OfferReviewBar
           offerId={currentOfferId}
           isDirty={isDirty}
-          items={zestawienie}
           onDone={() => router.push('/senior')}
         />
       )}
@@ -2620,6 +2634,8 @@ export default function Calculator() {
                   value={pglBase}
                   onChange={v => setPglBase(v)}
                   min="0"
+                  disabled={pglLocked}
+                  title={pglLocked ? at.workflow.fieldLocked : undefined}
                   className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[110px] focus:border-[var(--accent-cr)] outline-none
                     ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
                 />
@@ -2650,6 +2666,8 @@ export default function Calculator() {
                   value={marginPct}
                   onChange={setMarginPct}
                   min="0"
+                  disabled={marginLocked}
+                  title={marginLocked ? at.workflow.fieldLocked : undefined}
                   step="0.1"
                   className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
                     ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}

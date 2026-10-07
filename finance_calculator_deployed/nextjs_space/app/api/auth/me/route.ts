@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { requireAccess, toAccessSummary } from '@/lib/access/context';
 
+// Per-request (reads the session cookie); never prerendered at build time.
+export const dynamic = 'force-dynamic';
+
 // GET - the signed-in user plus a FRESH access summary (memberships, active flow, permissions
 // in it). The UI renders actions and links from this; every API route re-checks on its own.
 export async function GET() {

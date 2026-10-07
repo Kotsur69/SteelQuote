@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnsavedGuard } from '@/lib/unsavedGuard';
+import { useAccess } from '@/lib/useAccess';
+import { useAccessT } from '@/lib/i18n/access';
 
 interface NavigationProps {
   isDark: boolean;
@@ -13,31 +15,29 @@ interface NavigationProps {
   highContrast?: boolean;
 }
 
-interface NavUser {
-  email: string;
-  fullName: string | null;
-  role: string;
-}
-
 export default function Navigation({ isDark }: NavigationProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useLanguage();
   const { run, newOfferAction } = useUnsavedGuard();
-  const [user, setUser] = useState<NavUser | null>(null);
-  const role = user?.role ?? null;
+  const at = useAccessT();
+  const { access, switchFlow } = useAccess();
+  const [switching, setSwitching] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setUser(data?.user ?? null))
-      .catch(() => setUser(null));
-  }, []);
+  // Reviewers get a Dashboard tab first, so their review home is one click away right after
+  // login: the superuser lands on the admin panel, anyone who may approve in some flow on the
+  // validation queue. Derived from the flow/role configuration, never from a role name.
+  const dashboardHref = access?.isSuperuser ? '/admin' : access?.isApprover ? '/senior' : null;
 
-  // Reviewers (senior, admin) get a Dashboard tab first, so their review home is one click away
-  // right after login. It replaces the separate "Senior panel" / "Admin panel" tabs because
-  // those pointed at the very same pages.
-  const dashboardHref = role === 'senior' ? '/senior' : role === 'admin' ? '/admin' : null;
+  // New offers are created in the active flow; switching reloads the page so every list and
+  // the calculator pick up the new context and permissions.
+  const handleFlowChange = async (flowId: number) => {
+    setSwitching(true);
+    const ok = await switchFlow(flowId);
+    setSwitching(false);
+    if (ok) window.location.reload();
+  };
+  const activeRoleLabel = access?.isSuperuser ? at.superuser : access?.activeRoleName ?? at.noFlow;
 
   const tabs = [
     ...(dashboardHref
@@ -101,16 +101,35 @@ export default function Navigation({ isDark }: NavigationProps) {
             <span className="hidden sm:inline">{t.unsavedGuard?.newOffer || 'Nowa oferta'}</span>
           </button>
         )}
-        {user && (
+        {access && access.flows.length > 1 && (
+          <label className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+            <span className="hidden sm:inline">{at.activeFlow}</span>
+            <select
+              aria-label={at.switchFlow}
+              value={access.activeFlowId ?? ''}
+              disabled={switching}
+              onChange={(e) => run(() => void handleFlowChange(Number(e.target.value)))}
+              className="min-h-[40px] bg-[var(--bg-input)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-cr)] disabled:opacity-50"
+            >
+              {access.flows.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        {access && (
           <div
             className="flex items-center gap-2 px-3 font-mono text-xs text-[var(--text-secondary)]"
-            title={user.role}
+            title={activeRoleLabel}
           >
             <span className="text-sm">👤</span>
             <span className="hidden sm:inline">
-              {user.fullName ? `${user.fullName} · ` : ''}{user.email}
+              {access.fullName ? `${access.fullName} · ` : ''}{access.email}
             </span>
-            <span className="sm:hidden">{user.email}</span>
+            <span className="sm:hidden">{access.email}</span>
+            <span className="px-1.5 py-0.5 rounded border border-[var(--border)] text-[10px]">
+              {access.activeLevelCode ? `${activeRoleLabel} · ${access.activeLevelCode}` : activeRoleLabel}
+            </span>
           </div>
         )}
       </div>

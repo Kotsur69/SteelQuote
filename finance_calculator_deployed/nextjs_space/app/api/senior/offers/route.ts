@@ -10,7 +10,9 @@ const OFFER_COLUMNS = `o.id, o.offer_name, o.display_name, o.offer_data, o.statu
   o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at, o.rejection_reason, o.sent_at,
   o.root_offer_id, o.version_number,
   u.full_name AS owner_name, u.email AS owner_email,
-  r.full_name AS reviewer_name, f.name AS flow_name`;
+  r.full_name AS reviewer_name, f.name AS flow_name, o.validation_snapshot,
+  ARRAY(SELECT l.code FROM offer_approval_steps ps JOIN hierarchy_levels l ON l.id = ps.level_id
+        WHERE ps.offer_id = o.id AND ps.status = 'pending' ORDER BY ps.id) AS pending_levels`;
 
 // Nazwa własna, nazwa zastępcza ("offer_30"), surowe ID oraz firma/SAP ID klienta
 // (z offer_data->clientInfo) w jednym polu — patrz /api/offers.

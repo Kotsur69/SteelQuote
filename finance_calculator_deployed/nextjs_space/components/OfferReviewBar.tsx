@@ -1,45 +1,67 @@
 'use client';
 
-import { useState } from 'react';
-import { useCurrency } from '@/contexts/CurrencyContext';
+import { useEffect, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { reviewStrings } from '@/lib/reviewMessages';
-import ReviewIssuesNotice from '@/components/ReviewIssuesNotice';
+import ValidationNotice, { type ValidationSnapshot } from '@/components/ValidationNotice';
+import { accessErrorText, useAccessT } from '@/lib/i18n/access';
 import Modal from '@/components/Modal';
-import type { ReviewableItem } from '@/lib/offerReview';
 
 interface Props {
   offerId: number;
   // Unsaved edits: approve/reject act on the SAVED row, so they are blocked until saved.
   isDirty: boolean;
-  items: ReviewableItem[];
   onDone: () => void;
 }
 
-// Approve / reject controls shown in the calculator when a senior or admin opened an offer
-// that is pending review, plus the list of positions below the price guidelines.
-export default function OfferReviewBar({ offerId, isDirty, items, onDone }: Props) {
+// Approve / reject controls shown in the calculator when an offer waits for the caller's level,
+// plus why it needs validation (the rule engine's snapshot). The reviewer may also approve and
+// send it to the client on the seller's behalf in one go.
+export default function OfferReviewBar({ offerId, isDirty, onDone }: Props) {
   const { language } = useLanguage();
-  const { settings } = useCurrency();
+  const at = useAccessT();
   const s = reviewStrings(language);
+  const [validation, setValidation] = useState<ValidationSnapshot | null>(null);
+
+  // The SAVED version is what gets approved, so its evaluation is what the bar explains;
+  // refreshed whenever the calculator has no unsaved edits (e.g. right after a save).
+  useEffect(() => {
+    if (isDirty) return;
+    const controller = new AbortController();
+    fetch(`/api/offers/${offerId}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setValidation((data?.offer?.validation as ValidationSnapshot | undefined) ?? null))
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [offerId, isDirty]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showReject, setShowReject] = useState(false);
   const [reason, setReason] = useState('');
 
-  const post = async (action: 'approve' | 'reject', body?: unknown) => {
+  const call = async (action: 'approve' | 'reject' | 'send', body?: unknown): Promise<Record<string, unknown> | null> => {
+    const res = await fetch(`/api/offers/${offerId}/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(accessErrorText(at, data, s.actionFailed));
+      return null;
+    }
+    return data;
+  };
+
+  const post = async (action: 'approve' | 'reject' | 'approveAndSend', body?: unknown) => {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/offers/${offerId}/${action}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(typeof data.error === 'string' ? data.error : s.actionFailed);
-        return;
+      const decided = await call(action === 'approveAndSend' ? 'approve' : action, body);
+      if (!decided) return;
+      // Sending only makes sense once every step is approved (an NPR step may still wait).
+      if (action === 'approveAndSend' && decided.fullyApproved === true) {
+        if (!(await call('send'))) return;
       }
       onDone();
     } catch (err) {
@@ -74,6 +96,13 @@ export default function OfferReviewBar({ offerId, isDirty, items, onDone }: Prop
           ✔️ {s.approve}
         </button>
         <button
+          onClick={() => { closeReject(); post('approveAndSend'); }}
+          disabled={busy || isDirty}
+          className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)] hover:bg-[rgba(59,142,245,0.15)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          📨 {at.workflow.approveAndSend}
+        </button>
+        <button
           onClick={() => { setError(null); setShowReject(true); }}
           disabled={busy || isDirty}
           className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-sum)] text-[var(--accent-sum)] bg-[rgba(245,71,90,0.08)] hover:bg-[rgba(245,71,90,0.15)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -87,7 +116,7 @@ export default function OfferReviewBar({ offerId, isDirty, items, onDone }: Prop
       {error && !showReject && (
         <p role="alert" className="mt-2 text-[11px] text-[var(--accent-sum)]">{error}</p>
       )}
-      <ReviewIssuesNotice items={items} settings={settings} language={language} />
+      <ValidationNotice validation={validation} />
 
       {showReject && (
         <Modal titleId="reject-dialog-title" onClose={closeReject} canClose={!busy}>

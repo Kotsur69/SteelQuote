@@ -6,14 +6,27 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 import TeamEditor from '@/components/TeamEditor';
 import { formatTons, formatPct, formatInt, formatDate } from '@/lib/analyticsFormat';
+import SalesPyramid from '@/components/SalesPyramid';
+import { useAccessT } from '@/lib/i18n/access';
+import type { AdminAccessConfig } from '@/lib/access/adminConfig';
 
-type Role = 'junior' | 'senior' | 'admin';
+interface MembershipBadge {
+  flowId: number;
+  flowName: string;
+  roleId: number;
+  roleName: string;
+  levelCode: string;
+}
+
+/** Salespeople list filter: everyone, one flow, superusers, or accounts without any flow. */
+type FlowFilter = 'all' | 'superuser' | 'none' | number;
 
 interface AdminUser {
   id: number;
   email: string;
   full_name: string | null;
-  role: Role;
+  is_superuser: boolean;
+  memberships: MembershipBadge[];
   is_active: boolean;
   created_at: string;
   offers_total: number;
@@ -41,6 +54,11 @@ function winRateOffers(u: AdminUser): number | null {
 
 export default function AdminSalespeoplePage() {
   const { t, language } = useLanguage();
+  const at = useAccessT();
+  // Flows, roles in flows and permissions - for the membership editor, team eligibility and the
+  // pyramid. Loaded from the same endpoint as the Uprawnienia page.
+  const [config, setConfig] = useState<AdminAccessConfig | null>(null);
+  const [view, setView] = useState<'table' | 'pyramid'>('table');
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<number | 'new' | null>(null);
@@ -49,11 +67,11 @@ export default function AdminSalespeoplePage() {
   const [teamOpen, setTeamOpen] = useState<number | null>(null);
   // Which salesperson's performance strip is expanded (independent of teamOpen).
   const [perfOpen, setPerfOpen] = useState<number | null>(null);
-  // Role tab above the list — 'all' is also the clear action, no separate reset needed.
-  const [roleFilter, setRoleFilter] = useState<'all' | Role>('all');
+  // Flow tab above the list - 'all' is also the clear action, no separate reset needed.
+  const [flowFilter, setFlowFilter] = useState<FlowFilter>('all');
 
   // Formularz nowego konta
-  const [form, setForm] = useState({ email: '', password: '', full_name: '', role: 'junior' as Role });
+  const [form, setForm] = useState({ email: '', password: '', full_name: '', is_superuser: false });
 
   const flash = (type: 'success' | 'error', text: string) => {
     setMessage({ type, text });
@@ -74,7 +92,12 @@ export default function AdminSalespeoplePage() {
     }
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  const fetchConfig = async () => {
+    const res = await fetch('/api/admin/access');
+    if (res.ok) setConfig(await res.json());
+  };
+
+  useEffect(() => { fetchUsers(); fetchConfig(); }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +111,7 @@ export default function AdminSalespeoplePage() {
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         flash('success', t.admin.userCreated);
-        setForm({ email: '', password: '', full_name: '', role: 'junior' });
+        setForm({ email: '', password: '', full_name: '', is_superuser: false });
         fetchUsers();
       } else {
         flash('error', data.error || t.admin.saveFailed);
@@ -118,8 +141,39 @@ export default function AdminSalespeoplePage() {
     }
   };
 
-  const handleRoleChange = (id: number, role: Role) =>
-    patchUser(id, { role }, t.admin.userUpdated);
+  // Set / move / remove (roleId null) a user's role in one flow.
+  const setMembership = async (userId: number, flowId: number, roleId: number | null) => {
+    setBusy(userId);
+    try {
+      const res = await fetch('/api/admin/access/memberships', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, flowId, roleId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        flash('success', t.admin.userUpdated);
+        fetchUsers();
+        fetchConfig();
+      } else {
+        flash('error', data.error || t.admin.saveFailed);
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Team leaders are the users who may approve in at least one flow (configuration, not a role name).
+  const isApprover = (u: AdminUser) =>
+    u.memberships.some((m) =>
+      config?.flowRoles.some((fr) => fr.flowId === m.flowId && fr.roleId === m.roleId && fr.permissions.canApproveReject)
+    );
+  const rolesInFlow = (flowId: number) =>
+    (config?.flowRoles ?? [])
+      .filter((fr) => fr.flowId === flowId)
+      .map((fr) => config?.roles.find((r) => r.id === fr.roleId))
+      .filter((r): r is NonNullable<typeof r> => !!r && r.isActive);
+  const activeFlows = (config?.flows ?? []).filter((f) => f.isActive);
 
   const handleToggleActive = (u: AdminUser) => {
     if (u.is_active && !confirm(t.admin.confirmDeactivate)) return;
@@ -129,7 +183,18 @@ export default function AdminSalespeoplePage() {
   const inputCls =
     'w-full bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--text-primary)] focus:border-[var(--accent-cr)] outline-none';
 
-  const filteredUsers = users.filter((u) => roleFilter === 'all' || u.role === roleFilter);
+  const matchesFilter = (u: AdminUser, filter: FlowFilter) =>
+    filter === 'all' ||
+    (filter === 'superuser' && u.is_superuser) ||
+    (filter === 'none' && !u.is_superuser && u.memberships.length === 0) ||
+    (typeof filter === 'number' && u.memberships.some((m) => m.flowId === filter));
+  const filteredUsers = users.filter((u) => matchesFilter(u, flowFilter));
+  const filterOptions: { key: FlowFilter; label: string }[] = [
+    { key: 'all', label: t.admin.allSalespeople },
+    ...activeFlows.map((f) => ({ key: f.id as FlowFilter, label: f.name })),
+    { key: 'superuser', label: at.superuser },
+    { key: 'none', label: at.noFlow },
+  ];
 
   return (
     <AdminLayout>
@@ -164,14 +229,14 @@ export default function AdminSalespeoplePage() {
             className={inputCls} type="text" placeholder={t.admin.fullName}
             value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })}
           />
-          <select
-            className={inputCls} value={form.role}
-            onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
-          >
-            <option value="junior">{t.roles.junior}</option>
-            <option value="senior">{t.roles.senior}</option>
-            <option value="admin">{t.roles.admin}</option>
-          </select>
+          <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+            <input
+              type="checkbox" checked={form.is_superuser}
+              onChange={(e) => setForm({ ...form, is_superuser: e.target.checked })}
+              className="h-4 w-4"
+            />
+            {at.superuser}
+          </label>
         </div>
         <button
           type="submit" disabled={busy === 'new'}
@@ -183,16 +248,15 @@ export default function AdminSalespeoplePage() {
 
       {/* Filtr roli — kliknięcie "Wszyscy" jest jednocześnie czyszczeniem filtra. */}
       <div className="flex flex-wrap gap-2 mb-4">
-        {(['all', 'junior', 'senior', 'admin'] as const).map((rf) => {
-          const label = rf === 'all' ? t.admin.allSalespeople : t.roles[rf];
-          const count = rf === 'all' ? users.length : users.filter((u) => u.role === rf).length;
-          const isActive = roleFilter === rf;
+        {filterOptions.map(({ key: rf, label }) => {
+          const count = users.filter((u) => matchesFilter(u, rf)).length;
+          const isActive = flowFilter === rf;
           return (
             <button
-              key={rf}
+              key={String(rf)}
               type="button"
               aria-pressed={isActive}
-              onClick={() => setRoleFilter(rf)}
+              onClick={() => setFlowFilter(rf)}
               className={`px-4 py-2 rounded-lg text-xs font-medium border transition-all ${
                 isActive
                   ? 'bg-[rgba(59,142,245,0.12)] border-[#3b8ef5] text-[#3b8ef5]'
@@ -205,8 +269,30 @@ export default function AdminSalespeoplePage() {
         })}
       </div>
 
+      {/* Table or pyramid (org chart per flow) of the same people. */}
+      <div role="tablist" aria-label={`${at.pyramid.tableView} / ${at.pyramid.pyramidView}`} className="flex gap-2 mb-4">
+        {(['table', 'pyramid'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            aria-selected={view === v}
+            onClick={() => setView(v)}
+            className={`min-h-[40px] px-4 py-2 rounded-lg text-xs font-medium border transition-all ${
+              view === v
+                ? 'bg-[rgba(59,142,245,0.12)] border-[#3b8ef5] text-[#3b8ef5]'
+                : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hi)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            {v === 'table' ? at.pyramid.tableView : at.pyramid.pyramidView}
+          </button>
+        ))}
+      </div>
+
+      {view === 'pyramid' && config && <SalesPyramid config={config} />}
+
       {/* Lista */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
+      <div className={`bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden ${view === 'pyramid' ? 'hidden' : ''}`}>
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)]">
           <span className="w-2 h-2 rounded-full bg-[var(--accent-cr)]" />
           <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">
@@ -246,15 +332,43 @@ export default function AdminSalespeoplePage() {
                       <div className="text-[11px] text-[var(--text-secondary)] font-mono">{u.email}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <select
-                        className="bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-cr)]"
-                        value={u.role} disabled={busy === u.id}
-                        onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
-                      >
-                        <option value="junior">{t.roles.junior}</option>
-                        <option value="senior">{t.roles.senior}</option>
-                        <option value="admin">{t.roles.admin}</option>
-                      </select>
+                      {/* One role per flow; "—" removes the user from that flow. */}
+                      <div className="flex flex-col gap-1.5 min-w-[220px]">
+                        {activeFlows.map((flow) => {
+                          const m = u.memberships.find((x) => x.flowId === flow.id);
+                          return (
+                            <label key={flow.id} className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+                              <span className="w-24 truncate" title={flow.name}>{flow.name}</span>
+                              <select
+                                aria-label={`${flow.name} - ${at.role}`}
+                                className="flex-1 bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent-cr)]"
+                                value={m?.roleId ?? ''}
+                                disabled={busy === u.id || !config}
+                                onChange={(e) => setMembership(u.id, flow.id, e.target.value ? Number(e.target.value) : null)}
+                              >
+                                <option value="">{at.none}</option>
+                                {rolesInFlow(flow.id).map((r) => (
+                                  <option key={r.id} value={r.id}>{r.name}</option>
+                                ))}
+                              </select>
+                              {m && <span className="font-mono text-[10px] text-[var(--text-muted)]">{m.levelCode}</span>}
+                            </label>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          aria-pressed={u.is_superuser}
+                          disabled={busy === u.id}
+                          onClick={() => patchUser(u.id, { is_superuser: !u.is_superuser }, t.admin.userUpdated)}
+                          className={`self-start mt-1 px-2 py-1 rounded border text-[10px] font-mono uppercase tracking-wider transition-colors disabled:opacity-50 ${
+                            u.is_superuser
+                              ? 'border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.12)]'
+                              : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                          }`}
+                        >
+                          {at.superuser}
+                        </button>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-wider border ${
@@ -298,7 +412,7 @@ export default function AdminSalespeoplePage() {
                         >
                           📊 {t.admin.perf.performance} {perfOpen === u.id ? '▲' : '▼'}
                         </button>
-                        {u.role === 'senior' && (
+                        {isApprover(u) && (
                           <button
                             onClick={() => setTeamOpen(teamOpen === u.id ? null : u.id)}
                             aria-expanded={teamOpen === u.id}
@@ -338,7 +452,7 @@ export default function AdminSalespeoplePage() {
                       </td>
                     </tr>
                   )}
-                  {u.role === 'senior' && teamOpen === u.id && (
+                  {isApprover(u) && teamOpen === u.id && (
                     <tr>
                       <td colSpan={7} className="px-4 py-4 bg-[var(--bg-panel)]">
                         <TeamEditor seniorId={u.id} compact />

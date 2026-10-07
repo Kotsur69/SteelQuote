@@ -28,8 +28,10 @@ export async function POST(req: Request) {
     const hashed = await bcrypt.hash(password, 10);
     const fullName = name ?? email?.split?.('@')?.[0] ?? 'User';
     const result = await pool.query(
-      `INSERT INTO users (email, password, full_name, role, is_active)
-       VALUES ($1, $2, $3, 'junior', true)
+      // No flow membership: the account can sign in but sees nothing until the admin assigns a
+      // flow and role (users.role keeps its legacy default and is not read by any logic).
+      `INSERT INTO users (email, password, full_name, is_active)
+       VALUES ($1, $2, $3, true)
        RETURNING id, email, full_name`,
       [email, hashed, fullName]
     );

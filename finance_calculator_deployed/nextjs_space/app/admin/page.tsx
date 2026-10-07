@@ -44,7 +44,7 @@ export default function AdminDashboardPage() {
         if (usersRes.ok) {
           const { users } = await usersRes.json();
           setActiveSalespeople(
-            users.filter((u: { is_active: boolean; role: string }) => u.is_active && u.role !== 'admin').length
+            users.filter((u: { is_active: boolean; is_superuser: boolean }) => u.is_active && !u.is_superuser).length
           );
         }
       } finally {

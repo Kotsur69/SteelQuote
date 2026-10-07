@@ -19,11 +19,13 @@ import {
 } from './config';
 import { computeOfferFacts, evaluateRules, type Evaluation, type OfferDataInput } from './ruleEngine';
 import { planApproval, type ApprovalPlan } from './routing';
-import type { AccessContext, FlowRole } from './types';
+import type { AccessContext, FlowRole, HierarchyLevel } from './types';
 
 export interface OfferAssessment {
   evaluation: Evaluation;
   plan: ApprovalPlan;
+  /** Level catalogue the evaluation ran against (for codes in the snapshot). */
+  levels: HierarchyLevel[];
 }
 
 async function ownerFlowRole(ownerId: number | null, flowId: number, db: Db): Promise<{
@@ -77,7 +79,7 @@ export function createAssessor(db: Db = pool): (input: AssessInput) => Promise<O
     const facts = computeOfferFacts(input.offerData, baseFor);
     const evaluation = evaluateRules(rules, facts, levels, creator.flowRole?.roleId ?? null);
     const plan = planApproval(evaluation, flowRoles, creator, policies.conflictPolicy);
-    return { evaluation, plan };
+    return { evaluation, plan, levels };
   };
 }
 
@@ -87,7 +89,8 @@ export async function assessOffer(input: AssessInput, db: Db = pool): Promise<Of
 }
 
 /** JSON stored in offers.validation_snapshot - what the reviewer UI explains from. */
-export function snapshotOf({ evaluation, plan }: OfferAssessment): Record<string, unknown> {
+export function snapshotOf({ evaluation, plan, levels }: OfferAssessment): Record<string, unknown> {
+  const codeOf = new Map(levels.map((l) => [l.id, l.code]));
   return {
     evaluatedAt: new Date().toISOString(),
     facts: evaluation.facts,
@@ -102,6 +105,7 @@ export function snapshotOf({ evaluation, plan }: OfferAssessment): Record<string
         unit: r.rule.unit,
         value: r.value,
         targetLevelId: r.rule.targetLevelId,
+        targetLevel: codeOf.get(r.rule.targetLevelId) ?? null,
       })),
     requiredChainLevel: evaluation.requiredChainLevel?.code ?? null,
     requiredParallelLevels: evaluation.requiredParallelLevels.map((l) => l.code),

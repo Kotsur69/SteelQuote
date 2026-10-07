@@ -14,6 +14,10 @@
 
 BEGIN;
 
+-- The seed texts below are Polish. psql on Windows otherwise reads this UTF-8 file in the
+-- console code page and stores mojibake ("MarĹźa" instead of "Marża").
+SET LOCAL client_encoding = 'UTF8';
+
 CREATE TABLE IF NOT EXISTS approval_rules (
     id                 SERIAL PRIMARY KEY,
     seed_key           VARCHAR(40) UNIQUE,

@@ -16,9 +16,8 @@ import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
 import ClientPaymentTermsPanel from '@/components/ClientPaymentTermsPanel';
-import ReviewIssuesNotice from '@/components/ReviewIssuesNotice';
-import { useCurrency } from '@/contexts/CurrencyContext';
-import type { ReviewableItem } from '@/lib/offerReview';
+import ValidationNotice, { type ValidationSnapshot } from '@/components/ValidationNotice';
+import { useAccess } from '@/lib/useAccess';
 import type { ItemInputs } from '@/lib/calculatorData';
 import {
   formatOfferMoney,
@@ -73,11 +72,17 @@ interface Offer {
   updated_at: string;
   root_offer_id: number | null;
   version_number: number;
+  // Validation queue (v2.0): true when a pending approval step sits at a level the caller
+  // may approve in the offer's flow - computed on the server, see app/api/senior/offers.
+  awaiting_me?: boolean;
+  flow_name?: string | null;
+  validation_snapshot?: ValidationSnapshot | null;
+  pending_levels?: string[];
 }
 
 export default function SeniorPage() {
   const { t, language } = useLanguage();
-  const { settings } = useCurrency();
+  const { access } = useAccess();
   const router = useRouter();
   const [isDark, setIsDark] = useDarkMode();
   const [highContrast, setHighContrast] = useHighContrast();
@@ -86,7 +91,6 @@ export default function SeniorPage() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<FilterTab>('pending');
-  const [role, setRole] = useState<string | null>(null);
   // Own user id, from /api/senior/offers - the team editor needs it to scope /api/teams.
   const [userId, setUserId] = useState<number | null>(null);
   // Której rodziny ofert (klucz z groupOffersByVersion) ma rozwiniętą historię wersji.
@@ -129,7 +133,6 @@ export default function SeniorPage() {
         const data = await res.json();
         if (!isCurrent()) return;
         setOffers(data.offers);
-        setRole(data.role);
         setUserId(typeof data.userId === 'number' ? data.userId : null);
       } else if (res.status === 403) {
         router.replace('/calculator');
@@ -286,7 +289,7 @@ export default function SeniorPage() {
 
   // Filter offers by tab
   const filteredOffers = offers.filter((o) => {
-    if (activeTab === 'pending') return o.status === 'pending_review';
+    if (activeTab === 'pending') return o.awaiting_me === true;
     if (activeTab === 'awaitingSend') return o.status === 'approved';
     if (activeTab === 'reviewed') return o.status === 'approved' || o.status === 'rejected';
     return true;
@@ -330,7 +333,7 @@ export default function SeniorPage() {
           // ten podział nie zależy od kierunku sortowania, inaczej przełącznik asc/desc
           // chowałby oferty czekające na recenzję pod zrecenzowanymi. Kierunek dotyczy
           // tylko daty aktualizacji w obrębie każdej z tych dwóch grup.
-          const rank = (o: Offer) => (o.status === 'pending_review' ? 0 : 1);
+          const rank = (o: Offer) => (o.awaiting_me ? 0 : 1);
           const rankCmp = rank(a) - rank(b);
           if (rankCmp !== 0) return rankCmp;
           return (new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()) * dir;
@@ -343,7 +346,7 @@ export default function SeniorPage() {
   // oryginał) pod rozwijanym "poprzednie wersje" - patrz lib/offerVersions.ts.
   const offerGroups = groupOffersByVersion(sortedOffers);
 
-  const pendingCount = offers.filter((o) => o.status === 'pending_review').length;
+  const pendingCount = offers.filter((o) => o.awaiting_me).length;
   const awaitingSendCount = offers.filter((o) => o.status === 'approved').length;
 
   const cssVars = getThemeVars(isDark, highContrast);
@@ -416,7 +419,7 @@ export default function SeniorPage() {
       )}
 
       {/* My team - drives what this senior can see in the Analytics panel */}
-      {role === 'senior' && userId !== null && (
+      {access !== null && !access.isSuperuser && userId !== null && (
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md p-4 mb-5">
           <div className="flex items-center gap-2.5 mb-3">
             <span className="w-2 h-2 rounded-full bg-[var(--accent-cr)]" />
@@ -674,11 +677,7 @@ export default function SeniorPage() {
 
                     {/* Price guidelines (margin / base PGL): only relevant before the verdict */}
                     {offer.status === 'pending_review' && (
-                      <ReviewIssuesNotice
-                        items={offer.offer_data.zestawienie as ReviewableItem[] | undefined}
-                        settings={settings}
-                        language={language}
-                      />
+                      <ValidationNotice validation={offer.validation_snapshot} />
                     )}
                   </div>
 
@@ -701,8 +700,8 @@ export default function SeniorPage() {
                       📄 PDF
                     </button>
 
-                    {/* Edit in calculator — only for pending_review */}
-                    {offer.status === 'pending_review' && (
+                    {/* Edit in calculator - only while it waits for MY level */}
+                    {offer.awaiting_me && (
                       <button
                         onClick={() => handleEdit(offer.id)}
                         className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)] hover:bg-[rgba(59,142,245,0.15)] transition-colors"
@@ -712,7 +711,7 @@ export default function SeniorPage() {
                     )}
 
                     {/* Approve */}
-                    {offer.status === 'pending_review' && (
+                    {offer.awaiting_me && (
                       <button
                         onClick={() => handleApprove(offer.id)}
                         disabled={actionLoading === offer.id}
@@ -723,7 +722,7 @@ export default function SeniorPage() {
                     )}
 
                     {/* Reject */}
-                    {offer.status === 'pending_review' && (
+                    {offer.awaiting_me && (
                       <button
                         onClick={() => openRejectModal(offer.id)}
                         disabled={actionLoading === offer.id}
