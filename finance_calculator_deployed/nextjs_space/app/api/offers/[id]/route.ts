@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { PoolClient } from 'pg';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
 import { upsertClientFromOffer } from '@/lib/clientDirectory';
 import { normalizeClientInfo } from '@/lib/pdfGenerator';
-import { DEFAULT_SETTINGS, settingsRowToAppSettings } from '@/lib/currency';
-import { applyQuarterlyPglOverride } from '@/lib/pglQuarterly';
-import { offerNeedsReview, type ReviewableItem } from '@/lib/offerReview';
+import { requireAccess } from '@/lib/access/context';
+import { describeOffer, loadOfferAccess, loadVisibleOffer } from '@/lib/access/offerAccess';
+import { assessOffer, needsValidation, replacePendingSteps, snapshotOf } from '@/lib/access/workflow';
+import { fieldViolation } from '@/lib/access/fieldGuards';
+import { loadBaseResolver, loadDefaultMarginPct } from '@/lib/access/config';
+import { accessError } from '@/lib/access/errors';
+import type { AccessContext } from '@/lib/access/types';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -32,67 +36,67 @@ function deepEqual(a: unknown, b: unknown): boolean {
   );
 }
 
-// GET single offer.
-// Właściciel widzi swoją zawsze. Senior może dodatkowo otworzyć cudzą ofertę w
-// pending_review (żeby ją zrecenzować / edytować / wygenerować PDF). Admin przegląda przez /api/admin.
+// GET single offer - only when the visibility matrix lets the caller see it. Returns the
+// actions the caller may take, the approval steps and a fresh rule evaluation (what the
+// reviewer bar explains). can_review is kept for the calculator's approve/reject bar.
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const auth = await requireRole(['junior', 'senior', 'admin']);
+    const auth = await requireAccess();
     if ('error' in auth) return auth.error;
-    const { session } = auth;
+    const { ctx } = auth;
 
     const { id } = await params;
-    const offerId = parseInt(id);
-
-    // Admin otwiera KAŻDĄ ofertę, niezależnie od statusu (nadzór nad całością).
-    // Senior tylko cudzą oczekującą na recenzję. Właściciel zawsze swoją.
-    const isAdmin = session.role === 'admin';
-    const isSenior = session.role === 'senior';
-    const result = await pool.query(
-      `SELECT o.id, o.offer_name, o.display_name, o.offer_data, o.status, o.user_id,
-              o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at,
-              o.rejection_reason, o.sent_at, o.root_offer_id, o.version_number,
-              u.full_name AS owner_name, u.email AS owner_email
-       FROM offers o
-       LEFT JOIN users u ON u.id = o.user_id
-       WHERE o.id = $1
-         AND (o.user_id = $2 OR $3 OR ($4 AND o.status = 'pending_review'))`,
-      [offerId, session.userId, isAdmin, isSenior]
-    );
-
-    if (result.rows.length === 0) {
+    const access = await loadOfferAccess(ctx, Number.parseInt(id, 10));
+    if (!access) {
       return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
     }
 
-    const offer = result.rows[0];
-    // Tells the calculator whether to show approve/reject: a senior or admin on an offer that
-    // is pending review. The approve/reject endpoints enforce the same rule server-side.
-    const canReview = (isAdmin || isSenior) && offer.status === 'pending_review';
-    return NextResponse.json({ offer: { ...offer, can_review: canReview } });
+    const names = await pool.query(
+      `SELECT u.full_name AS owner_name, u.email AS owner_email, f.name AS flow_name
+       FROM offers o LEFT JOIN users u ON u.id = o.user_id LEFT JOIN flows f ON f.id = o.flow_id
+       WHERE o.id = $1`,
+      [access.offer.id]
+    );
+
+    return NextResponse.json({
+      offer: {
+        ...access.offer,
+        ...names.rows[0],
+        can_review: access.actions.canReview,
+        actions: access.actions,
+        steps: access.steps,
+        validation: access.assessment ? snapshotOf(access.assessment) : access.offer.validation_snapshot ?? null,
+      },
+    });
   } catch (error) {
     console.error('Error fetching offer:', error);
     return NextResponse.json({ error: 'Failed to fetch offer' }, { status: 500 });
   }
 }
 
-// PUT - Update offer.
-// Właściciel może edytować własną (nie sent).
-// Senior może też edytować cudzą ofertę w pending_review (poprawka przed zatwierdzeniem).
-// Oferta w statusie 'sent' jest read-only.
+type PutOutcome =
+  | { kind: 'ok'; row: Record<string, unknown> }
+  | { kind: 'error'; response: NextResponse };
+
+// PUT - Update offer. Who may edit is offerActions().canEdit: the owner before submit (and an
+// approved offer), a reviewer holding a pending step's level, the superuser. A 'sent' offer is
+// read-only for everyone.
 //
 // Wersjonowanie: gdy przesłane dane (nazwa lub offer_data) RÓŻNIĄ się od tego, co jest
 // w bazie, zapis NIE nadpisuje wiersza w miejscu — wstawia nowy wiersz-wersję
 // (root_offer_id/version_number), a oryginał zostaje nietknięty i nadal widoczny na
-// liście ofert. Zapis bez żadnej zmiany (np. samo ponowne kliknięcie "Zapisz") dalej
-// robi zwykły UPDATE, żeby nie mnożyć identycznych wersji.
+// liście ofert. Zapis bez żadnej zmiany robi zwykły UPDATE, żeby nie mnożyć wersji.
+//
+// A changed version is re-assessed for its OWNER (also when a reviewer edits it), so the new
+// version may need a different - possibly higher - level than the one being edited.
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const auth = await requireRole(['junior', 'senior', 'admin']);
+    const auth = await requireAccess();
     if ('error' in auth) return auth.error;
-    const { session } = auth;
+    const { ctx } = auth;
 
     const { id } = await params;
-    const offerId = parseInt(id);
+    const offerId = Number.parseInt(id, 10);
     const { offer_name, offer_data } = await request.json();
 
     // Nazwa opcjonalna - wyczyszczenie jej przywraca nazwę zastępczą "offer_<ID>"
@@ -100,108 +104,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (!offer_data) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
-
     const name = typeof offer_name === 'string' && offer_name.trim() ? offer_name.trim() : null;
 
-    // Admin edytuje KAŻDĄ ofertę w dowolnym statusie. Senior tylko cudzą w pending_review
-    // (poprawka przed zatwierdzeniem). Oferta 'sent' zostaje read-only dla WSZYSTKICH,
-    // łącznie z adminem — to, co poszło do klienta, musi zostać w historii bez zmian.
-    const isAdmin = session.role === 'admin';
-    const isSenior = session.role === 'senior';
-
-    // Jak w POST /api/offers: dane klienta lądują też w katalogu `clients`, w tej
-    // samej transakcji co zapis oferty.
-    const clientInfo = normalizeClientInfo((offer_data as Record<string, unknown>).clientInfo);
-
     const db = await pool.connect();
-    let result;
-    let notFoundReason: 'sent' | 'missing' | null = null;
+    let outcome: PutOutcome;
     try {
       await db.query('BEGIN');
-
-      // Wiersz blokujemy od razu (FOR UPDATE) — te same dane czytamy niżej do
-      // porównania i do wyliczenia numeru kolejnej wersji, więc nie chcemy, żeby
-      // równoległy zapis tej samej oferty wsunął się między odczyt a insert.
-      const existingResult = await db.query(
-        `SELECT id, user_id, status, offer_name, offer_data, root_offer_id, version_number
-         FROM offers WHERE id = $1
-         AND (user_id = $2 OR $3 OR ($4 AND status = 'pending_review'))
-         FOR UPDATE`,
-        [offerId, session.userId, isAdmin, isSenior]
-      );
-
-      if (existingResult.rows.length === 0) {
-        await db.query('ROLLBACK');
-        const check = await pool.query(`SELECT status FROM offers WHERE id = $1`, [offerId]);
-        notFoundReason = check.rows.length > 0 && check.rows[0].status === 'sent' ? 'sent' : 'missing';
-      } else {
-        const existing = existingResult.rows[0];
-
-        if (existing.status === 'sent') {
-          await db.query('ROLLBACK');
-          notFoundReason = 'sent';
-        } else {
-          const clientId = await upsertClientFromOffer(db, clientInfo, session.userId);
-          const unchanged = existing.offer_name === name && deepEqual(existing.offer_data, offer_data);
-
-          if (unchanged) {
-            result = await db.query(
-              `UPDATE offers
-               SET offer_name = $1, offer_data = $2, client_id = $3, updated_at = CURRENT_TIMESTAMP
-               WHERE id = $4
-               RETURNING id, offer_name, display_name, offer_data, status, created_at, updated_at,
-                         root_offer_id, version_number`,
-              [name, JSON.stringify(offer_data), clientId, offerId]
-            );
-          } else {
-            // Korzen rodziny: jesli edytowany wiersz to juz wersja, korzeniem zostaje
-            // jego wlasny root_offer_id (nie tworzymy lancucha korzeni).
-            const rootId = existing.root_offer_id ?? existing.id;
-            // Postgres nie pozwala łączyć FOR UPDATE z funkcją agregującą (MAX) —
-            // blokujemy więc same wiersze rodziny, a maksimum liczymy w JS.
-            const versionResult = await db.query(
-              `SELECT version_number FROM offers WHERE id = $1 OR root_offer_id = $1 FOR UPDATE`,
-              [rootId]
-            );
-            const nextVersion =
-              Math.max(0, ...versionResult.rows.map((r) => Number(r.version_number))) + 1;
-
-            // Wlasciciel i status wersji = wlasciciel i status edytowanego wiersza,
-            // NIE sesji zapisujacej - senior poprawiajacy cudza pending_review ofere
-            // nie ma "przejmowac" jej na siebie, a nowa wersja ma trafic do dalszego
-            // etapu tego samego obiegu (recenzja), nie wracac do szkicu.
-            //
-            // Wyjatek: jesli edytowany wiersz byl JUZ zatwierdzony (approved), a nowe
-            // dane znow wymagaja zatwierdzenia (patrz lib/offerReview.ts), zatwierdzenie
-            // przestaje byc aktualne - nowa wersja wraca do pending_review zamiast
-            // dziedziczyc "approved" po danych, ktore juz nie obowiazuja.
-            let versionStatus = existing.status;
-            if (existing.status === 'approved') {
-              const settingsResult = await db.query(
-                `SELECT eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, transport_base, min_margin_pct
-                 FROM app_settings WHERE id = 1`
-              );
-              const settings = settingsResult.rows.length > 0
-                ? settingsRowToAppSettings(settingsResult.rows[0])
-                : DEFAULT_SETTINGS;
-              const liveSettings = await applyQuarterlyPglOverride(settings);
-              if (offerNeedsReview((offer_data as { zestawienie?: ReviewableItem[] })?.zestawienie, liveSettings)) {
-                versionStatus = 'pending_review';
-              }
-            }
-
-            result = await db.query(
-              `INSERT INTO offers (user_id, offer_name, offer_data, client_id, status, root_offer_id, version_number)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)
-               RETURNING id, offer_name, display_name, offer_data, status, created_at, updated_at,
-                         root_offer_id, version_number`,
-              [existing.user_id, name, JSON.stringify(offer_data), clientId, versionStatus, rootId, nextVersion]
-            );
-          }
-
-          await db.query('COMMIT');
-        }
-      }
+      outcome = await updateInTransaction(db, ctx, offerId, name, offer_data);
+      await db.query(outcome.kind === 'ok' ? 'COMMIT' : 'ROLLBACK');
     } catch (error) {
       await db.query('ROLLBACK');
       throw error;
@@ -209,30 +119,125 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       db.release();
     }
 
-    if (notFoundReason === 'sent') {
-      return NextResponse.json(
-        { error: 'Oferta została wysłana do klienta i jest tylko do odczytu' },
-        { status: 409 }
-      );
-    }
-    if (notFoundReason === 'missing' || !result) {
-      return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ offer: result.rows[0] });
+    if (outcome.kind === 'error') return outcome.response;
+    return NextResponse.json({ offer: outcome.row });
   } catch (error) {
     console.error('Error updating offer:', error);
     return NextResponse.json({ error: 'Failed to update offer' }, { status: 500 });
   }
 }
 
-// DELETE - Delete offer (tylko właściciel, junior/senior).
-// Oferty wysłane ('sent') są read-only i nie podlegają usunięciu — zachowujemy historię.
+type Tx = PoolClient;
+
+function readOnlySent(): PutOutcome {
+  return {
+    kind: 'error',
+    response: NextResponse.json(
+      { error: 'Oferta została wysłana do klienta i jest tylko do odczytu' },
+      { status: 409 }
+    ),
+  };
+}
+
+async function updateInTransaction(
+  db: Tx,
+  ctx: AccessContext,
+  offerId: number,
+  name: string | null,
+  offerData: Record<string, unknown>
+): Promise<PutOutcome> {
+  // Row lock first (FOR UPDATE) - the same data is read below for the comparison and the next
+  // version number, so a parallel save must not slip in between.
+  const existing = await loadVisibleOffer(ctx, offerId, db, true);
+  if (!existing) {
+    return { kind: 'error', response: NextResponse.json({ error: 'Offer not found' }, { status: 404 }) };
+  }
+  if (existing.status === 'sent') return readOnlySent();
+
+  const { actions } = await describeOffer(ctx, existing, db);
+  if (!actions.canEdit) return { kind: 'error', response: accessError('cannot_edit') };
+
+  const editorPerms = ctx.memberships.find((m) => m.flowId === existing.flow_id)?.permissions;
+  const violation = fieldViolation(
+    ctx.isSuperuser || !editorPerms ? 'all' : editorPerms,
+    offerData,
+    existing.offer_data,
+    await loadBaseResolver(offerData.validFrom, db),
+    await loadDefaultMarginPct(db)
+  );
+  if (violation) return { kind: 'error', response: accessError(violation) };
+
+  // Jak w POST /api/offers: dane klienta lądują też w katalogu `clients`, w tej samej
+  // transakcji co zapis oferty.
+  const clientInfo = normalizeClientInfo(offerData.clientInfo);
+  const clientId = await upsertClientFromOffer(db, clientInfo, ctx.userId);
+  const unchanged = existing.offer_name === name && deepEqual(existing.offer_data, offerData);
+
+  if (unchanged) {
+    const result = await db.query(
+      `UPDATE offers
+       SET offer_name = $1, offer_data = $2, client_id = $3, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $4
+       RETURNING id, offer_name, display_name, offer_data, status, flow_id, created_at, updated_at,
+                 root_offer_id, version_number`,
+      [name, JSON.stringify(offerData), clientId, offerId]
+    );
+    return { kind: 'ok', row: result.rows[0] };
+  }
+
+  // Korzen rodziny: jesli edytowany wiersz to juz wersja, korzeniem zostaje jego wlasny
+  // root_offer_id. Postgres nie pozwala łączyć FOR UPDATE z MAX - blokujemy wiersze rodziny,
+  // a maksimum liczymy w JS.
+  const rootId = existing.root_offer_id ?? existing.id;
+  const versionResult = await db.query(
+    `SELECT version_number FROM offers WHERE id = $1 OR root_offer_id = $1 FOR UPDATE`,
+    [rootId]
+  );
+  const nextVersion = Math.max(0, ...versionResult.rows.map((r: { version_number: unknown }) => Number(r.version_number))) + 1;
+
+  const assessment = await assessOffer({ flowId: existing.flow_id, ownerId: existing.user_id, offerData }, db);
+
+  // Owner and flow of the version = those of the edited row, never the editor's: a reviewer
+  // correcting someone's offer must not take it over. A version of an offer in review (or an
+  // approved one) is re-assessed: still needs an approval -> review continues on the new
+  // version with fresh steps; nothing left to approve (e.g. the reviewer fixed the margin) ->
+  // approved. Draft / rejected versions keep their status.
+  let versionStatus = existing.status;
+  if (existing.status === 'pending_review' || existing.status === 'approved') {
+    if (assessment.plan.blocked) {
+      return { kind: 'error', response: accessError('level_conflict', { validation: snapshotOf(assessment) }) };
+    }
+    versionStatus = needsValidation(assessment.plan) ? 'pending_review' : 'approved';
+  }
+
+  const inserted = await db.query(
+    `INSERT INTO offers (user_id, offer_name, offer_data, client_id, status, root_offer_id,
+                         version_number, flow_id, validation_snapshot)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING id, offer_name, display_name, offer_data, status, flow_id, created_at, updated_at,
+               root_offer_id, version_number`,
+    [existing.user_id, name, JSON.stringify(offerData), clientId, versionStatus, rootId,
+      nextVersion, existing.flow_id, JSON.stringify(snapshotOf(assessment))]
+  );
+  const row = inserted.rows[0];
+
+  if (versionStatus === 'pending_review') {
+    await replacePendingSteps(row.id, assessment.plan, db);
+  }
+  // The edited version no longer waits for anyone - its open steps moved to the new version.
+  await db.query(
+    `UPDATE offer_approval_steps SET status = 'superseded' WHERE offer_id = $1 AND status = 'pending'`,
+    [existing.id]
+  );
+  return { kind: 'ok', row };
+}
+
+// DELETE - Delete offer (owner only). A 'sent' offer is read-only and cannot be deleted.
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const auth = await requireRole(['junior', 'senior', 'admin']);
+    const auth = await requireAccess();
     if ('error' in auth) return auth.error;
-    const { session } = auth;
+    const session = auth.ctx;
 
     const { id } = await params;
     const offerId = parseInt(id);

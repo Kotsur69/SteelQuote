@@ -186,3 +186,9 @@ export async function loadBaseResolver(validFrom: unknown, db: Db = pool): Promi
   const live = target ? await applyQuarterlyPglOverride(settings, target) : await applyQuarterlyPglOverride(settings);
   return (type: string) => pglBaseForType(type as SteelType, live);
 }
+
+/** Default margin % new offer items start with (Ustawienia min_margin_pct). */
+export async function loadDefaultMarginPct(db: Db = pool): Promise<number> {
+  const result = await db.query(`SELECT min_margin_pct FROM app_settings WHERE id = 1`);
+  return num(result.rows[0]?.min_margin_pct) ?? DEFAULT_SETTINGS.minMarginPct;
+}

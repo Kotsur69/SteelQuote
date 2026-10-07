@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await pool.query(
-      'SELECT id, email, password, role, is_active FROM users WHERE email = $1',
+      'SELECT id, email, password, is_superuser, is_active FROM users WHERE email = $1',
       [email]
     );
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const token = await createToken({ email: user.email, userId: user.id, role: user.role });
+    const token = await createToken({ email: user.email, userId: user.id, su: user.is_superuser === true });
 
     const response = NextResponse.json({ success: true, email: user.email });
     response.cookies.set('auth-token', token, {

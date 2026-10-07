@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import { DEFAULT_ORIGIN_ADDRESS } from '@/lib/transportTariff';
 import {
   addressCacheKey,
@@ -114,7 +114,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['junior', 'senior', 'admin']);
+  const auth = await requireAccess();
   if ('error' in auth) return auth.error;
 
   try {

@@ -17,7 +17,15 @@ import {
   visibilityFromRow,
   type Db,
 } from './config';
-import type { AccessContext, FlowSummary, Membership, PermissionKey } from './types';
+import {
+  PERMISSION_KEYS,
+  type AccessContext,
+  type AccessSummary,
+  type FlowSummary,
+  type Membership,
+  type PermissionKey,
+  type Permissions,
+} from './types';
 
 /** Cookie holding the flow switcher choice. Validated against memberships on every read. */
 export const ACTIVE_FLOW_COOKIE = 'active-flow';
@@ -163,4 +171,25 @@ export function can(ctx: AccessContext, flowId: number | null, perm: PermissionK
 /** Whether the user may approve/reject in at least one flow - unlocks the review panel. */
 export function isApproverAnywhere(ctx: AccessContext): boolean {
   return ctx.isSuperuser || ctx.memberships.some((m) => m.permissions.canApproveReject);
+}
+
+function permissionsIn(ctx: AccessContext, flowId: number | null): Permissions {
+  return Object.fromEntries(PERMISSION_KEYS.map((k) => [k, can(ctx, flowId, k)])) as Permissions;
+}
+
+export function toAccessSummary(ctx: AccessContext): AccessSummary {
+  const active = membershipFor(ctx, ctx.activeFlowId);
+  return {
+    userId: ctx.userId,
+    email: ctx.email,
+    fullName: ctx.fullName,
+    isSuperuser: ctx.isSuperuser,
+    isApprover: isApproverAnywhere(ctx),
+    activeFlowId: ctx.activeFlowId,
+    flows: ctx.flows,
+    memberships: ctx.memberships,
+    activePermissions: permissionsIn(ctx, ctx.activeFlowId),
+    activeRoleName: active?.roleName ?? null,
+    activeLevelCode: active?.level.code ?? null,
+  };
 }

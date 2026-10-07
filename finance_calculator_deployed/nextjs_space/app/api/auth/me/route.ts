@@ -1,28 +1,16 @@
 import { NextResponse } from 'next/server';
-import pool from '@/lib/db';
-import { getSession } from '@/lib/auth';
+import { requireAccess, toAccessSummary } from '@/lib/access/context';
 
-// GET - Informacje o zalogowanym użytkowniku (świeża rola + is_active z bazy).
-// Front używa tego do warunkowego renderowania akcji/linków.
+// GET - the signed-in user plus a FRESH access summary (memberships, active flow, permissions
+// in it). The UI renders actions and links from this; every API route re-checks on its own.
 export async function GET() {
   try {
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const result = await pool.query(
-      'SELECT id, email, full_name, role, is_active FROM users WHERE id = $1',
-      [session.userId]
-    );
-
-    if (result.rows.length === 0 || !result.rows[0].is_active) {
-      return NextResponse.json({ error: 'Konto nieaktywne' }, { status: 403 });
-    }
-
-    const u = result.rows[0];
+    const auth = await requireAccess();
+    if ('error' in auth) return auth.error;
+    const access = toAccessSummary(auth.ctx);
     return NextResponse.json({
-      user: { id: u.id, email: u.email, fullName: u.full_name, role: u.role },
+      user: { id: access.userId, email: access.email, fullName: access.fullName },
+      access,
     });
   } catch (error) {
     console.error('Error fetching current user:', error);

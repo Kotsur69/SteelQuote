@@ -9,5 +9,7 @@ export async function POST() {
     maxAge: 0,
     path: '/',
   });
+  // The flow switcher choice belongs to the session that made it.
+  response.cookies.set('active-flow', '', { httpOnly: true, sameSite: 'lax', maxAge: 0, path: '/' });
   return response;
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import { isCurrency, sanitizeRate, DEFAULT_CURRENCY, type Currency } from '@/lib/currency';
 import { isLanguage, type Language } from '@/lib/translations';
 import { PDF_LABELS, PDF_DATE_LOCALE } from '@/lib/pdfLabels';
@@ -291,11 +291,11 @@ function buildHtml(
 
 export async function POST(request: Request) {
   try {
-    const auth = await requireRole(['junior', 'senior', 'admin']);
+    const auth = await requireAccess();
     if ('error' in auth) {
       return auth.error;
     }
-    const session = auth.session;
+    const session = auth.ctx;
 
     const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language, validFrom, validTo, paymentTermDays } = await request.json();
     if (!items || !Array.isArray(items) || items.length === 0) {

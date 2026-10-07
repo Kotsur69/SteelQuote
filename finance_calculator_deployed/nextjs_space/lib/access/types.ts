@@ -76,6 +76,24 @@ export interface FlowSummary {
 export type ConflictPolicy = 'escalate_next' | 'block' | 'escalate_top';
 export type OrgScopeFallback = 'team' | 'flow';
 
+/** What the browser gets from /api/auth/me - enough to render UI, never trusted by the API. */
+export interface AccessSummary {
+  userId: number;
+  email: string;
+  fullName: string | null;
+  isSuperuser: boolean;
+  /** May approve/reject in at least one flow (review panel, dashboard link). */
+  isApprover: boolean;
+  activeFlowId: number | null;
+  flows: FlowSummary[];
+  memberships: Membership[];
+  /** Permissions in the active flow (all true for the superuser, all false without a flow). */
+  activePermissions: Permissions;
+  /** Role in the active flow; null for the superuser or without a membership. */
+  activeRoleName: string | null;
+  activeLevelCode: string | null;
+}
+
 export interface AccessContext {
   userId: number;
   email: string;

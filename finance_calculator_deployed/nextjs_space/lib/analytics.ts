@@ -5,7 +5,6 @@
 // modules. The aggregation itself lives in lib/analyticsAggregate.ts.
 
 import type { SteelType } from './calculatorData';
-import type { Role } from './auth';
 import type { LostReason } from './lostReasons';
 
 export type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
@@ -194,21 +193,23 @@ export interface AnalyticsRow {
 }
 
 export interface AnalyticsFacets {
-  users: { id: number; name: string; role: Role }[];
+  /**
+   * tier = the hierarchy level code the user holds (highest chain level, else a parallel
+   * level such as NPR); null without a membership. Drives the panel's tier filter.
+   */
+  users: { id: number; name: string; tier: string | null }[];
   clients: { id: number; name: string }[];
   steelTypes: SteelType[];
 }
 
 export interface AnalyticsPayload {
   scope: {
-    role: 'junior' | 'senior' | 'admin';
     userId: number;
-    /** true for admin - the whole company; drives the admin-only Excel salespeople sheet. */
+    /** true when the visibility matrix grants every offer (superuser, all-flows roles). */
     canSeeAll: boolean;
     /**
-     * true when the salesperson filter, split and breakdown make sense: admin (whole company)
-     * or a senior with at least one team member (migration 019). A junior, or a senior with no
-     * team, gets false and the controls stay hidden.
+     * true when the salesperson filter, split and breakdown make sense: the scope covers more
+     * than one salesperson. Otherwise the controls stay hidden.
      */
     canFilterSalespeople: boolean;
   };

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess } from '@/lib/access/context';
+import { loadOfferAccess } from '@/lib/access/offerAccess';
+import { accessError } from '@/lib/access/errors';
 import { CLIENT_DECISIONS, type ClientDecision } from '@/lib/analytics';
 import { DEFAULT_LOST_REASON, isLostReason, type LostReason } from '@/lib/lostReasons';
 
@@ -20,14 +22,14 @@ const MAX_NOTE_LENGTH = 500;
 // so the analytics panel can report a win rate without conflating the two.
 //
 // Only a 'sent' offer can carry a decision - the client has not seen anything else yet.
-// The owner records their own; senior and admin may record on anyone's, the same way they
-// already review and send other people's offers. Setting 'pending' clears the decision
+// The owner records their own; an approver of the offer's flow and the superuser may record
+// it on others' offers they can see. Setting 'pending' clears the decision
 // entirely, so a mis-click is undoable rather than permanent.
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const auth = await requireRole(['junior', 'senior', 'admin']);
+    const auth = await requireAccess();
     if ('error' in auth) return auth.error;
-    const { session } = auth;
+    const session = auth.ctx;
 
     const { id } = await params;
     const offerId = Number.parseInt(id, 10);
@@ -61,17 +63,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const reason: LostReason | null =
       value !== 'lost' ? null : isLostReason(body.reason) ? body.reason : DEFAULT_LOST_REASON;
 
-    // Senior and admin may decide on any sent offer; a junior only on their own. The check is
-    // part of the UPDATE rather than a prior SELECT, so a status change racing this request
-    // makes the write miss instead of landing on an offer that is no longer sent.
-    // $1..$5 are always the same; the optional ownership check takes $6, so no placeholder
-    // ever shifts position depending on the role.
+    // Who may record it is offerActions().canRecordDecision: the owner, an approver of the
+    // offer's flow, the superuser - and only on an offer they can see. The status check stays in
+    // the UPDATE, so a status change racing this request makes the write miss.
+    const access = await loadOfferAccess(session, offerId);
+    if (!access) return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
+    if (access.offer.status === 'sent' && !access.actions.canRecordDecision) return accessError('cannot_edit');
     const values: unknown[] = [offerId, value, session.userId, note, reason];
-    let ownershipClause = '';
-    if (session.role === 'junior') {
-      values.push(session.userId);
-      ownershipClause = `AND o.user_id = $${values.length}`;
-    }
 
     // $2 is cast to text at every use. Without it Postgres deduces the type twice - `character
     // varying` from `client_decision = $2` and `text` from `$2 = 'pending'` - and refuses the
@@ -85,7 +83,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
            client_decision_note = CASE WHEN $2::text = 'pending' THEN NULL ELSE $4::text END,
            client_decision_reason = CASE WHEN $2::text = 'lost' THEN $5::text ELSE NULL END,
            updated_at = CURRENT_TIMESTAMP
-       WHERE o.id = $1 AND o.status = 'sent' ${ownershipClause}
+       WHERE o.id = $1 AND o.status = 'sent'
        RETURNING o.id, o.client_decision, o.client_decision_at, o.client_decision_note,
                  o.client_decision_reason`,
       values

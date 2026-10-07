@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 
 export interface PglPriceHistoryEntry {
   id: number;
@@ -16,7 +16,7 @@ export interface PglPriceHistoryEntry {
 // jedyny może te ceny w ogóle zmieniać (PATCH /api/settings, migracja 013).
 // Query: ?limit= (domyślnie 200, maks. 1000).
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
 
   try {

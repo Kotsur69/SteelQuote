@@ -46,23 +46,44 @@ async function ownerFlowRole(ownerId: number | null, flowId: number, db: Db): Pr
   };
 }
 
-/** Evaluate the flow's rules for an offer and plan its approval steps. */
-export async function assessOffer(
-  input: { flowId: number; ownerId: number | null; offerData: OfferDataInput | null },
-  db: Db = pool
-): Promise<OfferAssessment> {
-  const [rules, levels, flowRoles, policies, creator, baseFor] = await Promise.all([
-    loadRulesForFlow(input.flowId, db),
-    loadLevels(db),
-    loadFlowRoles(input.flowId, db),
-    loadPolicies(db),
-    ownerFlowRole(input.ownerId, input.flowId, db),
-    loadBaseResolver(input.offerData?.validFrom, db),
-  ]);
-  const facts = computeOfferFacts(input.offerData, baseFor);
-  const evaluation = evaluateRules(rules, facts, levels, creator.flowRole?.roleId ?? null);
-  const plan = planApproval(evaluation, flowRoles, creator, policies.conflictPolicy);
-  return { evaluation, plan };
+export interface AssessInput {
+  flowId: number;
+  ownerId: number | null;
+  offerData: OfferDataInput | null;
+}
+
+/**
+ * Request-scoped assessor: loads levels/policies once and rules, flow roles, owners and base
+ * prices once per flow / owner / quarter, so assessing a whole offer list stays a handful of
+ * queries instead of several per offer. Never shared across requests - config edits apply on
+ * the next request.
+ */
+export function createAssessor(db: Db = pool): (input: AssessInput) => Promise<OfferAssessment> {
+  const memo = new Map<string, Promise<unknown>>();
+  function once<T>(key: string, load: () => Promise<T>): Promise<T> {
+    if (!memo.has(key)) memo.set(key, load());
+    return memo.get(key) as Promise<T>;
+  }
+  return async (input) => {
+    const validFrom = typeof input.offerData?.validFrom === 'string' ? input.offerData.validFrom.slice(0, 7) : '';
+    const [rules, levels, flowRoles, policies, creator, baseFor] = await Promise.all([
+      once(`rules:${input.flowId}`, () => loadRulesForFlow(input.flowId, db)),
+      once('levels', () => loadLevels(db)),
+      once(`roles:${input.flowId}`, () => loadFlowRoles(input.flowId, db)),
+      once('policies', () => loadPolicies(db)),
+      once(`owner:${input.ownerId}:${input.flowId}`, () => ownerFlowRole(input.ownerId, input.flowId, db)),
+      once(`base:${validFrom}`, () => loadBaseResolver(input.offerData?.validFrom, db)),
+    ]);
+    const facts = computeOfferFacts(input.offerData, baseFor);
+    const evaluation = evaluateRules(rules, facts, levels, creator.flowRole?.roleId ?? null);
+    const plan = planApproval(evaluation, flowRoles, creator, policies.conflictPolicy);
+    return { evaluation, plan };
+  };
+}
+
+/** Evaluate the flow's rules for one offer and plan its approval steps. */
+export async function assessOffer(input: AssessInput, db: Db = pool): Promise<OfferAssessment> {
+  return createAssessor(db)(input);
 }
 
 /** JSON stored in offers.validation_snapshot - what the reviewer UI explains from. */
@@ -139,6 +160,13 @@ export interface StepRow {
 }
 
 export async function loadSteps(offerId: number, db: Db = pool): Promise<StepRow[]> {
+  return (await loadStepsForOffers([offerId], db)).get(offerId) ?? [];
+}
+
+/** Live (non-superseded) steps of many offers in one query, keyed by offer id. */
+export async function loadStepsForOffers(offerIds: number[], db: Db = pool): Promise<Map<number, StepRow[]>> {
+  const byOffer = new Map<number, StepRow[]>();
+  if (offerIds.length === 0) return byOffer;
   const result = await db.query(
     `SELECT s.id, s.offer_id, s.track, s.level_id, l.code AS level_code,
             s.required_level_id, rl.code AS required_level_code, s.status,
@@ -148,11 +176,11 @@ export async function loadSteps(offerId: number, db: Db = pool): Promise<StepRow
      JOIN hierarchy_levels l  ON l.id = s.level_id
      JOIN hierarchy_levels rl ON rl.id = s.required_level_id
      LEFT JOIN users u ON u.id = s.decided_by
-     WHERE s.offer_id = $1 AND s.status <> 'superseded'
+     WHERE s.offer_id = ANY($1::int[]) AND s.status <> 'superseded'
      ORDER BY s.id`,
-    [offerId]
+    [offerIds]
   );
-  return result.rows.map((row) => ({
+  const rows: StepRow[] = result.rows.map((row) => ({
     id: Number(row.id),
     offerId: Number(row.offer_id),
     track: row.track,
@@ -166,6 +194,12 @@ export async function loadSteps(offerId: number, db: Db = pool): Promise<StepRow
     decidedAt: row.decided_at ? new Date(row.decided_at).toISOString() : null,
     comment: row.comment ?? null,
   }));
+  for (const row of rows) {
+    const list = byOffer.get(row.offerId) ?? [];
+    list.push(row);
+    byOffer.set(row.offerId, list);
+  }
+  return byOffer;
 }
 
 /**
@@ -200,4 +234,65 @@ export function isCurrentReviewer(
 /** Whether this user approved a step of the offer - lets them send it on the owner's behalf. */
 export function approvedByUser(ctx: AccessContext, steps: StepRow[]): boolean {
   return steps.some((s) => s.status === 'approved' && s.decidedBy === ctx.userId);
+}
+
+// --- Per-offer actions ----------------------------------------------------------------------
+
+export type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
+
+export interface OfferActions {
+  canEdit: boolean;
+  canSubmit: boolean;
+  /** Send to the client now (directly from draft, or an approved offer). */
+  canSend: boolean;
+  /** Approve / reject: holds a pending step's level in the offer's flow. */
+  canReview: boolean;
+  canDelete: boolean;
+  canDuplicate: boolean;
+  /** Record the client's decision on a sent offer. */
+  canRecordDecision: boolean;
+  /** The offer goes to the client without validation (rules + creator level). */
+  needsValidation: boolean;
+}
+
+export interface OfferForActions {
+  userId: number | null;
+  flowId: number;
+  status: OfferStatus;
+}
+
+/**
+ * What the user may do with an offer, computed from configuration only. Used by the list and
+ * detail APIs for the UI AND re-derived by every mutating route, so the buttons a user sees
+ * and what the server accepts never disagree. `plan` is the fresh assessment (null for a sent
+ * offer, which is read-only).
+ */
+export function offerActions(
+  ctx: AccessContext,
+  offer: OfferForActions,
+  steps: StepRow[],
+  plan: ApprovalPlan | null
+): OfferActions {
+  const isOwner = offer.userId === ctx.userId;
+  const perms = ctx.memberships.find((m) => m.flowId === offer.flowId)?.permissions;
+  const su = ctx.isSuperuser;
+  const editableByOwner = offer.status === 'draft' || offer.status === 'rejected' || offer.status === 'approved';
+  const reviewer = offer.status === 'pending_review' && isCurrentReviewer(ctx, steps, offer.flowId, offer.userId);
+  const validation = plan ? needsValidation(plan) : false;
+  const open = offer.status === 'draft' || offer.status === 'rejected';
+  const ownerSends = isOwner && open && !validation && (su || perms?.canCreateOffer === true);
+  const approvedSends =
+    offer.status === 'approved' && (isOwner || su || approvedByUser(ctx, steps));
+
+  return {
+    canEdit: offer.status !== 'sent' && (su || reviewer || (isOwner && editableByOwner && perms?.canEditOwnBeforeSubmit === true)),
+    canSubmit: isOwner && open && validation && (su || perms?.canSubmitToValidation === true),
+    canSend: ownerSends || approvedSends,
+    canReview: reviewer,
+    canDelete: isOwner && offer.status !== 'sent',
+    canDuplicate: isOwner || su,
+    canRecordDecision:
+      offer.status === 'sent' && (isOwner || su || perms?.canApproveReject === true),
+    needsValidation: validation,
+  };
 }

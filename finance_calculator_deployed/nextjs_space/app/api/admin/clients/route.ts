@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { forbidden, isApproverAnywhere, requireAccess, requireSuperuser } from '@/lib/access/context';
 import { syncPrimaryContact } from '@/lib/clientDirectory';
 
 // GET - Lista klientów + liczba powiązanych ofert.
@@ -9,8 +9,10 @@ import { syncPrimaryContact } from '@/lib/clientDirectory';
 // własny termin płatności (patrz PATCH niżej) — pełny odczyt jest tu nieszkodliwy,
 // bo to te same dane, które senior i tak widzi przez podpowiedzi w kalkulatorze.
 export async function GET() {
-  const auth = await requireRole(['senior', 'admin']);
+  const auth = await requireAccess();
   if ('error' in auth) return auth.error;
+  // Approvers (any flow) and the superuser - see the PATCH note below for what an approver may change.
+  if (!isApproverAnywhere(auth.ctx)) return forbidden();
 
   try {
     const result = await pool.query(
@@ -31,9 +33,9 @@ export async function GET() {
 
 // POST - Utwórz klienta. Wymaga choć jednego pola identyfikującego (firma/nazwisko).
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
-  const { session } = auth;
+  const session = auth.ctx;
 
   try {
     const b = await request.json();
@@ -88,9 +90,11 @@ export async function POST(request: NextRequest) {
 // kontakt...) zostaje zastrzeżona dla admina, tak jak dotąd. Ograniczenie jest wymuszone
 // tutaj, nie tylko ukryte w UI, bo to jest granica zaufania.
 export async function PATCH(request: NextRequest) {
-  const auth = await requireRole(['senior', 'admin']);
+  const auth = await requireAccess();
   if ('error' in auth) return auth.error;
-  const { session } = auth;
+  // Approvers (any flow) and the superuser - see the PATCH note below for what an approver may change.
+  if (!isApproverAnywhere(auth.ctx)) return forbidden();
+  const session = auth.ctx;
 
   try {
     const b = await request.json();
@@ -100,9 +104,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     const adminOnlyFields = ['first_name', 'last_name', 'company', 'nip', 'address', 'sap_id', 'phone', 'email'];
-    if (session.role === 'senior' && adminOnlyFields.some((f) => b[f] !== undefined)) {
+    if (!session.isSuperuser && adminOnlyFields.some((f) => b[f] !== undefined)) {
       return NextResponse.json(
-        { error: 'Senior może zmienić wyłącznie termin płatności klienta' },
+        { error: 'Tylko administrator może zmienić dane klienta poza terminem płatności' },
         { status: 403 }
       );
     }
@@ -111,7 +115,7 @@ export async function PATCH(request: NextRequest) {
     const values: unknown[] = [];
     let i = 1;
 
-    if (session.role === 'admin') {
+    if (session.isSuperuser) {
       for (const f of adminOnlyFields) {
         if (b[f] !== undefined) {
           sets.push(`${f} = $${i++}`);
@@ -194,7 +198,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Usuń klienta (?id=123). Powiązane oferty mają client_id ustawiony na NULL
 // (FK ON DELETE SET NULL) i zachowują swoje historyczne kolumny client_*.
 export async function DELETE(request: NextRequest) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
 
   try {

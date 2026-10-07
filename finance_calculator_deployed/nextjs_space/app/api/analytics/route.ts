@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess } from '@/lib/access/context';
+import { offerVisibilitySql } from '@/lib/access/scope';
 import {
   CLIENT_DECISIONS,
   DATE_BASES,
@@ -49,9 +50,9 @@ import type { SteelType } from '@/lib/calculatorData';
 //   decisions   comma-separated client decisions
 //   clients     comma-separated client ids
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['junior', 'senior', 'admin']);
+  const auth = await requireAccess();
   if ('error' in auth) return auth.error;
-  const { session } = auth;
+  const session = auth.ctx;
 
   try {
     const sp = request.nextUrl.searchParams;
@@ -100,9 +101,9 @@ export async function GET(request: NextRequest) {
       dateTo: period.to ?? '',
       basis,
       granularity,
-      // A junior has nobody to filter by; a senior's list is clamped to their team inside
-      // visibilityClause, so it is safe to parse the raw ids here for both senior and admin.
-      userIds: session.role === 'junior' ? [] : parseIdList(sp.get('users')),
+      // The id list is ANDed onto the visibility predicate in visibilityClause, so it can only
+      // narrow what the caller already sees - safe to parse the raw ids for everyone.
+      userIds: parseIdList(sp.get('users')),
       steelTypes: parseEnumList<SteelType>(sp.get('types'), STEEL_TYPE_SERIES_ORDER),
       statuses: parseEnumList(sp.get('statuses'), OFFER_STATUSES),
       decisions: parseEnumList(sp.get('decisions'), CLIENT_DECISIONS),
@@ -113,17 +114,16 @@ export async function GET(request: NextRequest) {
 
     // One round trip covers both windows: widen the query to the start of the comparison
     // period, then split the rows by date in memory.
-    const rows = await fetchAnalyticsRows(session.role, session.userId, filters, {
+    const rows = await fetchAnalyticsRows(session, filters, {
       from: comparison.from ?? period.from,
       to: period.to,
     });
 
-    const facets = await fetchFacets(session.role, session.userId);
-    // A senior's facet list always contains at least themselves; more than one entry means they
-    // have a team, which is what unlocks the salesperson controls for them.
-    const canFilterSalespeople =
-      session.role === 'admin' ||
-      (session.role === 'senior' && facets.users.length > 1);
+    const facets = await fetchFacets(session);
+    // The facet list always contains the caller; more than one entry means the visibility
+    // scope covers other salespeople, which is what unlocks the salesperson controls.
+    const canFilterSalespeople = facets.users.length > 1;
+    const canSeeAll = offerVisibilitySql(session, []) === 'TRUE';
     const userLabels = new Map(facets.users.map((u) => [String(u.id), u.name]));
     const clientLabels = new Map(facets.clients.map((c) => [String(c.id), c.name]));
 
@@ -171,9 +171,8 @@ export async function GET(request: NextRequest) {
 
     const payload: AnalyticsPayload = {
       scope: {
-        role: session.role,
         userId: session.userId,
-        canSeeAll: session.role === 'admin',
+        canSeeAll,
         canFilterSalespeople,
       },
       filters,

@@ -43,18 +43,28 @@ export function offerVisibilitySql(ctx: AccessContext, params: unknown[], alias 
 
   for (const m of ctx.memberships) {
     const v = m.visibility;
-    params.push(m.flowId);
-    const flow = `$${params.length}`;
+    // The flow id is bound lazily: a membership that grants nothing beyond the always-visible
+    // own offers must not leave an unreferenced parameter behind (Postgres rejects those).
+    let flowParam: string | null = null;
+    const flowRef = () => {
+      if (flowParam === null) {
+        params.push(m.flowId);
+        flowParam = `$${params.length}`;
+      }
+      return flowParam;
+    };
     const orgUnitIsFlow = ctx.orgScopeFallback === 'flow' && (v.seeBranch || v.seeRegion);
 
     if (v.seeAllInFlow || orgUnitIsFlow) {
-      clauses.push(`${alias}.flow_id = ${flow}`);
+      clauses.push(`${alias}.flow_id = ${flowRef()}`);
     } else if ((v.seeTeam || v.seeBranch || v.seeRegion) && ctx.teamUserIds.length > 0) {
+      const flow = flowRef();
       params.push(ctx.teamUserIds);
       clauses.push(`(${alias}.flow_id = ${flow} AND ${alias}.user_id = ANY($${params.length}::int[]))`);
     }
 
     if (v.seeAwaitingMyReview && m.permissions.canApproveReject) {
+      const flow = flowRef();
       params.push(m.level.id);
       clauses.push(
         `(${alias}.flow_id = ${flow} AND EXISTS (SELECT 1 FROM offer_approval_steps qs ` +

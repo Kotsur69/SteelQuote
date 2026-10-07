@@ -25,8 +25,8 @@ import {
   type DateBasis,
   type OfferStatus,
 } from './analytics';
-import type { Role } from './auth';
-import { teamMemberIds } from './teams';
+import type { AccessContext } from './access/types';
+import { offerVisibilitySql } from './access/scope';
 
 /** The column each date basis filters and buckets on. */
 const BASIS_COLUMN: Record<DateBasis, string> = {
@@ -67,39 +67,15 @@ export interface RowQueryWindow {
 }
 
 /**
- * Junior: own offers only. Senior: own offers plus every team member's (migration 019), which a
- * ?users= filter may narrow but never widen past the team. Admin: the whole company, optionally
- * narrowed to individual salespeople.
- *
- * `teamIds` is the senior's team, already fetched by the caller; it is ignored for other roles.
+ * Offers the caller may see (the visibility matrix, lib/access/scope.ts), optionally narrowed
+ * to individual salespeople. The ?users= filter is ANDed onto the visibility predicate, so a
+ * hand-edited query string can only narrow the scope, never widen it.
  */
-function visibilityClause(
-  role: Role,
-  userId: number,
-  filterUserIds: number[],
-  teamIds: number[],
-  params: unknown[]
-): string {
-  if (role === 'junior') {
-    params.push(userId);
-    return `o.user_id = $${params.length}`;
-  }
-
-  if (role === 'senior') {
-    // The filter can only pick from ids that are already in scope - anything else the client
-    // sends is dropped here, so a hand-edited query string cannot escape the team.
-    const allowed = new Set<number>([userId, ...teamIds]);
-    const requested = filterUserIds.filter((id) => allowed.has(id));
-    const ids = requested.length > 0 ? requested : [...allowed];
-    params.push(ids);
-    return `o.user_id = ANY($${params.length}::int[])`;
-  }
-
-  if (filterUserIds.length > 0) {
-    params.push(filterUserIds);
-    return `o.user_id = ANY($${params.length}::int[])`;
-  }
-  return 'TRUE';
+function visibilityClause(ctx: AccessContext, filterUserIds: number[], params: unknown[]): string {
+  const visible = offerVisibilitySql(ctx, params, 'o');
+  if (filterUserIds.length === 0) return visible;
+  params.push(filterUserIds);
+  return `(${visible} AND o.user_id = ANY($${params.length}::int[]))`;
 }
 
 /**
@@ -111,15 +87,13 @@ function visibilityClause(
  * decision date cannot include an offer nobody has decided on, so those rows drop out.
  */
 export async function fetchAnalyticsRows(
-  role: Role,
-  userId: number,
+  ctx: AccessContext,
   filters: AnalyticsFilters,
   window: RowQueryWindow,
   db: PoolClient | typeof pool = pool
 ): Promise<AnalyticsOfferRow[]> {
   const params: unknown[] = [];
-  const teamIds = role === 'senior' ? await teamMemberIds(userId, db) : [];
-  const visibility = visibilityClause(role, userId, filters.userIds, teamIds, params);
+  const visibility = visibilityClause(ctx, filters.userIds, params);
   const basis = BASIS_COLUMN[filters.basis];
 
   const conditions: string[] = [];
@@ -200,66 +174,45 @@ export async function fetchToday(db: PoolClient | typeof pool = pool): Promise<s
 }
 
 /**
- * Values the filter dropdowns offer. Clients are scoped the same way the rows are, so a
- * junior's client list contains only companies they have quoted and a senior's spans their
- * whole team. The salespeople list is empty for a junior (nobody to filter by), the senior
- * plus their team for a senior, and the whole company for an admin.
+ * Values the filter dropdowns offer, scoped exactly like the rows: the clients and the
+ * salespeople owning at least one offer the caller may see, plus the caller themselves. A
+ * deactivated salesperson stays filterable as long as their offers are in scope.
  */
 export async function fetchFacets(
-  role: Role,
-  userId: number,
+  ctx: AccessContext,
   db: PoolClient | typeof pool = pool
 ): Promise<{
-  users: { id: number; name: string; role: Role }[];
+  users: { id: number; name: string; tier: string | null }[];
   clients: { id: number; name: string }[];
 }> {
-  const teamIds = role === 'senior' ? await teamMemberIds(userId, db) : [];
-
   const clientParams: unknown[] = [];
-  let ownership: string;
-  if (role === 'admin') {
-    ownership = 'TRUE';
-  } else if (role === 'senior') {
-    clientParams.push([userId, ...teamIds]);
-    ownership = `o.user_id = ANY($${clientParams.length}::int[])`;
-  } else {
-    clientParams.push(userId);
-    ownership = `o.user_id = $${clientParams.length}`;
-  }
-
+  const clientScope = offerVisibilitySql(ctx, clientParams, 'o');
   const clientsResult = await db.query(
     `SELECT DISTINCT c.id, COALESCE(NULLIF(TRIM(c.company), ''), '#' || c.id::text) AS name
      FROM offers o
      JOIN clients c ON c.id = o.client_id
-     WHERE ${ownership}
+     WHERE ${clientScope}
      ORDER BY name ASC`,
     clientParams
   );
 
-  if (role === 'junior') {
-    return { users: [], clients: clientsResult.rows };
-  }
-
-  if (role === 'senior') {
-    // Exactly the ids the rows are scoped to: the senior and their team. With no team this is
-    // one entry, so the picker is inert rather than misleading.
-    const usersResult = await db.query(
-      `SELECT u.id, COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) AS name, u.role
-       FROM users u
-       WHERE u.id = $1 OR u.id = ANY($2::int[])
-       ORDER BY name ASC`,
-      [userId, teamIds]
-    );
-    return { users: usersResult.rows, clients: clientsResult.rows };
-  }
-
-  // Admin: everyone who either still has an account or already owns offers - a deactivated
-  // salesperson has to stay filterable, otherwise their history becomes unreachable.
+  // tier: the highest chain level the user holds in any flow, else a parallel level (NPR).
+  const userParams: unknown[] = [];
+  const userScope = offerVisibilitySql(ctx, userParams, 'o');
+  userParams.push(ctx.userId);
   const usersResult = await db.query(
-    `SELECT u.id, COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) AS name, u.role
+    `SELECT u.id, COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) AS name,
+            (SELECT l.code FROM user_flow_roles m
+               JOIN flow_roles fr ON fr.flow_id = m.flow_id AND fr.role_id = m.role_id
+               JOIN hierarchy_levels l ON l.id = fr.level_id
+              WHERE m.user_id = u.id
+              ORDER BY (l.kind = 'chain') DESC, l.chain_rank DESC NULLS LAST, l.sort_order
+              LIMIT 1) AS tier
      FROM users u
-     WHERE u.is_active = true OR EXISTS (SELECT 1 FROM offers o WHERE o.user_id = u.id)
-     ORDER BY name ASC`
+     WHERE u.id = $${userParams.length}
+        OR EXISTS (SELECT 1 FROM offers o WHERE o.user_id = u.id AND ${userScope})
+     ORDER BY name ASC`,
+    userParams
   );
 
   return { users: usersResult.rows, clients: clientsResult.rows };

@@ -7,30 +7,15 @@ export async function middleware(request: NextRequest) {
   const token = request.cookies.get('auth-token')?.value;
   const { pathname } = request.nextUrl;
 
-  // Panel seniora — tylko rola 'senior'.
-  if (pathname.startsWith('/senior')) {
-    if (!token) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
-    try {
-      const { payload } = await jwtVerify(token, secret);
-      if (payload.role !== 'senior') {
-        return NextResponse.redirect(new URL('/calculator', request.url));
-      }
-      return NextResponse.next();
-    } catch {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
-  }
-
-  // Panel admina — tylko rola 'admin'.
+  // Admin panel - superuser only. The edge runtime has no database, so this reads the `su`
+  // hint from the token; every /api/admin route re-checks users.is_superuser fresh.
   if (pathname.startsWith('/admin')) {
     if (!token) {
       return NextResponse.redirect(new URL('/', request.url));
     }
     try {
       const { payload } = await jwtVerify(token, secret);
-      if (payload.role !== 'admin') {
+      if (payload.su !== true) {
         return NextResponse.redirect(new URL('/calculator', request.url));
       }
       return NextResponse.next();
@@ -39,10 +24,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protected routes. /analytics is here rather than with the role-gated panels above: it is
-  // open to every logged-in role, and WHICH offers it reports on is decided server-side in
-  // lib/analyticsQuery.ts, not by the URL.
+  // Protected routes - any signed-in user. WHAT they see is decided server-side from their
+  // flow memberships (lib/access): the review panel (/senior) lists only offers awaiting the
+  // user's own level, analytics and offer lists apply the visibility matrix.
   if (
+    pathname.startsWith('/senior') ||
     pathname.startsWith('/calculator') ||
     pathname.startsWith('/offers') ||
     pathname.startsWith('/analytics')

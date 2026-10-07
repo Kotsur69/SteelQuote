@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import bcrypt from 'bcryptjs';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import { MIN_PASSWORD_LENGTH } from '@/lib/passwordPolicy';
 
 export async function POST(req: Request) {
@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     // BEZPIECZENSTWO: rejestracja NIE jest publiczna. Konta zakladaja wylacznie
     // administratorzy (przez panel admina albo ten endpoint). Bez tego kazdy moglby
     // samodzielnie utworzyc konto na publicznym adresie aplikacji.
-    const auth = await requireRole(['admin']);
+    const auth = await requireSuperuser();
     if ('error' in auth) return auth.error;
 
     const body = await req?.json?.();

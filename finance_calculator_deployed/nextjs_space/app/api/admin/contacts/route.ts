@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 
 // Panel admina — zakładki "Kontakty" i "Klienci": pełny CRUD nad client_contacts,
 // w odróżnieniu od /api/clients/contacts (GET podpowiedzi + POST zapisu przez handlowca,
@@ -9,7 +9,7 @@ import { requireRole } from '@/lib/rbac';
 
 // GET - Lista wszystkich kontaktów, z nazwą firmy (tylko admin).
 export async function GET() {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
 
   try {
@@ -33,9 +33,9 @@ export async function GET() {
 // z kalkulatora przy okazji zapisu oferty) admin tworzy wiersz wprost, dla dowolnego
 // klienta z katalogu, bez przechodzenia przez formularz oferty.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
-  const { session } = auth;
+  const session = auth.ctx;
 
   try {
     const b = await request.json();
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 // PATCH - Edytuj kontakt. Body: { id, first_name, last_name, phone, email }.
 // Nadpisuje pola wprost (nie gap-fill) — to świadoma korekta admina.
 export async function PATCH(request: NextRequest) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
 
   try {
@@ -138,7 +138,7 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE - Usuń kontakt (?id=123).
 export async function DELETE(request: NextRequest) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
 
   try {

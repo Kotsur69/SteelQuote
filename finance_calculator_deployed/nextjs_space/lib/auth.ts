@@ -2,12 +2,14 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import { JWT_SECRET_BYTES as secret } from './jwtSecret';
 
-export type Role = 'junior' | 'senior' | 'admin';
-
+// The token only identifies the user. What they may do is read fresh from the database on
+// every request (lib/access/context.ts). `su` (superuser) is a hint for middleware.ts, which
+// runs on the edge without database access, to route /admin; every admin API route still
+// re-checks users.is_superuser itself.
 export interface SessionPayload {
   email: string;
   userId: number;
-  role: Role;
+  su: boolean;
   [key: string]: unknown;
 }
 

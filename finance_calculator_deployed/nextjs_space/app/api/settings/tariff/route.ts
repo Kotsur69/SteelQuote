@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import type { TariffBand } from '@/lib/transportTariff';
 
 // PUT - podmiana całego cennika transportowego. Tylko admin.
@@ -99,9 +99,9 @@ function validateBands(raw: unknown): { bands: TariffBand[] } | { error: string 
 }
 
 export async function PUT(request: NextRequest) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
-  const { session } = auth;
+  const session = auth.ctx;
 
   try {
     const body = await request.json();

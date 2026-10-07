@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import { escapeLikePattern } from '@/lib/search';
 
 const VALID_STATUSES = ['draft', 'pending_review', 'approved', 'rejected', 'sent'];
@@ -8,9 +8,9 @@ const VALID_STATUSES = ['draft', 'pending_review', 'approved', 'rejected', 'sent
 // GET - Wszystkie oferty wszystkich handlowców z filtrami (tylko admin).
 // Query params: status, user_id, date_from (YYYY-MM-DD), date_to (YYYY-MM-DD).
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
-  const { session } = auth;
+  const session = auth.ctx;
 
   try {
     const sp = request.nextUrl.searchParams;
