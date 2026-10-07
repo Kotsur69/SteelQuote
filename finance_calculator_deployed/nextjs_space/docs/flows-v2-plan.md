@@ -97,3 +97,45 @@ Accounts created by an admin start with no membership (no access until assigned)
 6. Admin UI: Flows, Roles & Levels, Rules + completeness + simulator, Visibility matrix.
 7. Salespeople panel pyramid view + flow switcher.
 8. Seed accounts, translations x4, README, v2.0 report.
+
+## Open questions (2026-10-07)
+
+Business-facing version, in Polish and without jargon: `Historia wersji oraz md/questions_for_lukasz.md`.
+Current behaviour is the default listed; every item is a config change unless marked *code*.
+
+Spec contradictions / gaps
+1. CEO level in Flow 2 (ROLE says N+3, START/SYMULATOR say N+2) - seeded N+2.
+2. Flow 2 has no N+1, yet SYMULATOR names a "Dyrektor działu" for N+1 there.
+3. Base price change: START says min N+1, REGULY says NPR (both flows) - REGULY applied. In
+   Flow 1 only managers may edit PGL, so every Flow 1 base reduction lands on Head of Projects.
+4. Margin 2.1 read as a deficit in pp (target 4.5 -> fires at <= 2.4 %), not as an absolute 2.1 %.
+5. Margin basis = lowest item margin, not weighted offer margin (*code* to change).
+6. Margin target is one number per flow; SYMULATOR uses 7 %. Per client/product target = *code*.
+7. Quotation validity (48h) mapped to `paymentTermDays * 24`; Flow 1 jumps straight to N+2.
+8. Price-validity quarters are calendar-based: a 10-day window across a quarter boundary = 2
+   quarters -> N+2. Rolling 3-month definition would be *code*.
+9. Value thresholds: START mentions 200 and 1000 (unit unconfirmed), REGULY only 1000K €.
+   Whether transport counts toward value is undecided.
+10. REGULY `Priorytet` column (10/20/30) is ignored; MAX over levels decides.
+11. WIDOCZNOSC notes ("tylko własne") contradict the TAK cells for IFO/EFO/KAM - cells applied.
+    Head of Projects notes look copy-pasted ("kolejka N+1", "Flow 2" in the Flow 1 row).
+12. N+3 thresholds are all "do uzupełnienia", so today CEO never receives anything in either flow.
+
+Routing / workflow collisions
+13. Approvers without `can_submit_to_validation` (HoP, CEO) self-validate, so an NPR rule on a
+    CEO offer and an N+2 rule on a HoP offer in Flow 1 are never checked by anyone.
+14. Superuser can decide any step and never needs validation - business may want admin = IT only.
+15. Shared queue per flow, no branch/region model: any ASM approves any N+1 offer; no
+    substitute/holiday handling beyond that; a single-person level blocks when absent.
+16. Approval has no expiry; approved-but-unsent offers can wait indefinitely.
+17. PDF contact person when a reviewer sends on the seller's behalf (seller vs. `sent_by`).
+18. Flow of an offer = creator's active flow; no client -> flow binding. Legacy offers all Flow 1.
+
+Technical follow-ups (not business questions)
+19. Offer totals/margins are client-computed; the server only rejects zeroed values. A
+    server-side price recompute is needed before rules can be fully trusted (*code*).
+20. No notification when an offer lands in someone's queue (e-mail / in-app) (*code*).
+21. Branch/region org model (org_units + membership) to replace `org_scope_fallback` (*code*).
+22. Admins must log in again after deploy (JWT `su` claim). Migrations 025-029 in the bundle.
+23. `server-only` package not installed; no ESLint config; migration 020 `Kraków` default may be
+    mojibake on Windows psql (same `client_encoding` fix as 026/027).
