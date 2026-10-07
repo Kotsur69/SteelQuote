@@ -65,13 +65,12 @@ export default function SalesPyramid({ config }: Props) {
 
   return (
     <div className="space-y-4">
-      <div role="tablist" aria-label={at.flows} className="flex flex-wrap gap-2">
+      <div role="group" aria-label={at.flows} className="flex flex-wrap gap-2">
         {activeFlows.map((f) => (
           <button
             key={f.id}
             type="button"
-            role="tab"
-            aria-selected={f.id === flowId}
+            aria-pressed={f.id === flowId}
             onClick={() => setFlowId(f.id)}
             className={`min-h-[40px] px-4 py-2 rounded-lg text-xs font-medium border transition-colors ${
               f.id === flowId
@@ -136,8 +135,8 @@ function TierBox({ tier, width }: { tier: Tier; width: string }) {
   const at = useAccessT();
   return (
     <section
-      style={{ width }}
-      className={`rounded-md border p-3 bg-[var(--bg-card)] ${tier.approves ? 'border-[var(--accent-cr)]' : 'border-[var(--border)]'}`}
+      style={{ ['--tier-w' as string]: width }}
+      className={`w-full lg:w-[var(--tier-w)] rounded-md border p-3 bg-[var(--bg-card)] ${tier.approves ? 'border-[var(--accent-cr)]' : 'border-[var(--border)]'}`}
     >
       <header className="flex flex-wrap items-baseline gap-2">
         <span className="font-mono text-sm font-semibold text-[var(--text-primary)]">{tier.level.code}</span>

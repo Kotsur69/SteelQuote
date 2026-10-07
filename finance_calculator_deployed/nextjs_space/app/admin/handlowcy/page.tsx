@@ -270,13 +270,12 @@ export default function AdminSalespeoplePage() {
       </div>
 
       {/* Table or pyramid (org chart per flow) of the same people. */}
-      <div role="tablist" aria-label={`${at.pyramid.tableView} / ${at.pyramid.pyramidView}`} className="flex gap-2 mb-4">
+      <div role="group" aria-label={`${at.pyramid.tableView} / ${at.pyramid.pyramidView}`} className="flex gap-2 mb-4">
         {(['table', 'pyramid'] as const).map((v) => (
           <button
             key={v}
             type="button"
-            role="tab"
-            aria-selected={view === v}
+            aria-pressed={view === v}
             onClick={() => setView(v)}
             className={`min-h-[40px] px-4 py-2 rounded-lg text-xs font-medium border transition-all ${
               view === v

@@ -419,7 +419,8 @@ export default function SeniorPage() {
       )}
 
       {/* My team - drives what this senior can see in the Analytics panel */}
-      {access !== null && !access.isSuperuser && userId !== null && (
+      {/* Teams are led by approvers (the /api/teams rule); the superuser manages them in Handlowcy. */}
+      {access !== null && access.isApprover && !access.isSuperuser && userId !== null && (
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md p-4 mb-5">
           <div className="flex items-center gap-2.5 mb-3">
             <span className="w-2 h-2 rounded-full bg-[var(--accent-cr)]" />

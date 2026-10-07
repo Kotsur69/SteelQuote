@@ -33,9 +33,11 @@ export default function Navigation({ isDark }: NavigationProps) {
   // the calculator pick up the new context and permissions.
   const handleFlowChange = async (flowId: number) => {
     setSwitching(true);
-    const ok = await switchFlow(flowId);
-    setSwitching(false);
-    if (ok) window.location.reload();
+    try {
+      if (await switchFlow(flowId)) window.location.reload();
+    } finally {
+      setSwitching(false);
+    }
   };
   const activeRoleLabel = access?.isSuperuser ? at.superuser : access?.activeRoleName ?? at.noFlow;
 
@@ -126,7 +128,7 @@ export default function Navigation({ isDark }: NavigationProps) {
             <span className="hidden sm:inline">
               {access.fullName ? `${access.fullName} · ` : ''}{access.email}
             </span>
-            <span className="sm:hidden">{access.email}</span>
+            <span className="sm:hidden min-w-0 truncate max-w-[40vw]">{access.email}</span>
             <span className="px-1.5 py-0.5 rounded border border-[var(--border)] text-[10px]">
               {access.activeLevelCode ? `${activeRoleLabel} · ${access.activeLevelCode}` : activeRoleLabel}
             </span>

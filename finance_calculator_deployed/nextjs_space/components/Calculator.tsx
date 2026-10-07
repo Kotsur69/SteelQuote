@@ -218,7 +218,7 @@ export default function Calculator() {
   // Language
   const { t, language } = useLanguage();
   const at = useAccessT();
-  const { access } = useAccess();
+  const { access, loading: accessLoading } = useAccess();
   // Flow of the loaded offer (null = a new offer, created in the active flow). Field locks
   // follow the caller's permissions in THAT flow - the server enforces the same rule.
   const [offerFlowId, setOfferFlowId] = useState<number | null>(null);
@@ -379,10 +379,11 @@ export default function Calculator() {
   const [canReview, setCanReview] = useState(false);
   // PGL base / price-margin fields follow the role's permissions in the offer's flow (a new
   // offer: the active flow). The superuser may change everything.
-  const permissionFlowId = currentOfferId !== null ? offerFlowId : access?.activeFlowId ?? null;
+  // Fail closed: locked while the summary loads or when it could not be loaded.
+  const permissionFlowId = (currentOfferId !== null ? offerFlowId : null) ?? access?.activeFlowId ?? null;
   const flowPermissions = access?.memberships.find((m) => m.flowId === permissionFlowId)?.permissions;
-  const pglLocked = access !== null && !access.isSuperuser && flowPermissions?.canChangePglBase !== true;
-  const marginLocked = access !== null && !access.isSuperuser && flowPermissions?.canChangePriceMargin !== true;
+  const pglLocked = accessLoading || (!access?.isSuperuser && flowPermissions?.canChangePglBase !== true);
+  const marginLocked = accessLoading || (!access?.isSuperuser && flowPermissions?.canChangePriceMargin !== true);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveOfferName, setSaveOfferName] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
