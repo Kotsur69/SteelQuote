@@ -5,11 +5,17 @@
 -- admin panel edits. See docs/flows-v2-plan.md. users.role stays in place, unread by logic,
 -- until the cut-over is confirmed.
 --
--- Every migration runs on every start (steelquote-start.ps1), so seeds use ON CONFLICT DO
--- NOTHING on their natural keys: a re-run never duplicates rows and never reverts an edit the
--- admin made in the panel.
+-- Every migration runs on every start (steelquote-start.ps1). Schema statements are
+-- IF NOT EXISTS; the seeds run ONCE (schema_backfills marker), so a re-run never duplicates
+-- rows, never reverts an admin edit and never resurrects a row the admin deleted.
 
 BEGIN;
+
+-- One-shot markers for seeds and backfills (also used by 026, 027, 029).
+CREATE TABLE IF NOT EXISTS schema_backfills (
+    key        VARCHAR(60) PRIMARY KEY,
+    applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
 -- N0 = offer creator, N+1..N+3 = consecutive approval levels ordered by chain_rank,
 -- NPR = special approver outside the N-chain (kind 'parallel', no rank).
@@ -22,6 +28,10 @@ CREATE TABLE IF NOT EXISTS hierarchy_levels (
     sort_order  INTEGER NOT NULL DEFAULT 0,
     CONSTRAINT hierarchy_levels_rank_matches_kind CHECK ((kind = 'chain') = (chain_rank IS NOT NULL))
 );
+
+-- Two chain levels on the same position would make MAX over rules ambiguous.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_hierarchy_levels_chain_rank
+    ON hierarchy_levels(chain_rank) WHERE chain_rank IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS flows (
     id          SERIAL PRIMARY KEY,
@@ -57,24 +67,32 @@ CREATE TABLE IF NOT EXISTS flow_roles (
 );
 
 CREATE INDEX IF NOT EXISTS idx_flow_roles_level ON flow_roles(level_id);
+CREATE INDEX IF NOT EXISTS idx_flow_roles_role ON flow_roles(role_id);
 
 -- Administrator = technical superuser outside the pyramid, present in every flow.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superuser BOOLEAN NOT NULL DEFAULT false;
 -- Flow context remembered across logins (flow switcher).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_flow_id INTEGER REFERENCES flows(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_users_last_flow ON users(last_flow_id);
 
--- Membership: one role per user per flow.
+-- Membership: one role per user per flow. RESTRICT: a role cannot vanish from a flow while
+-- people hold it - the admin moves them first.
 CREATE TABLE IF NOT EXISTS user_flow_roles (
     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     flow_id     INTEGER NOT NULL,
     role_id     INTEGER NOT NULL,
     created_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, flow_id),
-    FOREIGN KEY (flow_id, role_id) REFERENCES flow_roles(flow_id, role_id) ON DELETE CASCADE
+    FOREIGN KEY (flow_id, role_id) REFERENCES flow_roles(flow_id, role_id) ON DELETE RESTRICT
 );
 
 -- Approver queues and the pyramid resolve "who holds this role in this flow".
 CREATE INDEX IF NOT EXISTS idx_user_flow_roles_flow_role ON user_flow_roles(flow_id, role_id);
+CREATE INDEX IF NOT EXISTS idx_user_flow_roles_role ON user_flow_roles(role_id);
+
+DO $$
+BEGIN
+IF NOT EXISTS (SELECT 1 FROM schema_backfills WHERE key = 'seed_025_flows_roles') THEN
 
 -- --- Seed: levels ------------------------------------------------------------------------
 
@@ -130,5 +148,9 @@ JOIN flows f            ON f.code = s.flow_code
 JOIN roles r            ON r.code = s.role_code
 JOIN hierarchy_levels l ON l.code = s.level_code
 ON CONFLICT (flow_id, role_id) DO NOTHING;
+
+INSERT INTO schema_backfills (key) VALUES ('seed_025_flows_roles') ON CONFLICT DO NOTHING;
+END IF;
+END $$;
 
 COMMIT;

@@ -192,8 +192,12 @@ export async function PATCH(request: NextRequest) {
   const session = auth.ctx;
 
   try {
-    const { id, is_superuser, is_active, full_name, password } = await request.json();
-    if (!id) {
+    const body = ((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+    const id = Number(body.id);
+    const { is_superuser, is_active, full_name, password } = body as {
+      is_superuser?: unknown; is_active?: unknown; full_name?: unknown; password?: unknown;
+    };
+    if (!Number.isInteger(id) || id <= 0) {
       return NextResponse.json({ error: 'Brak id użytkownika' }, { status: 400 });
     }
 
@@ -215,9 +219,18 @@ export async function PATCH(request: NextRequest) {
     const values: unknown[] = [];
     let i = 1;
     if (is_superuser !== undefined) { sets.push(`is_superuser = $${i++}`); values.push(is_superuser === true); }
+    if (is_active !== undefined && typeof is_active !== 'boolean') {
+      return NextResponse.json({ error: 'Nieprawidłowa wartość is_active' }, { status: 400 });
+    }
+    if (full_name !== undefined && full_name !== null && typeof full_name !== 'string') {
+      return NextResponse.json({ error: 'Nieprawidłowe imię i nazwisko' }, { status: 400 });
+    }
+    if (password !== undefined && password !== null && password !== '' && typeof password !== 'string') {
+      return NextResponse.json({ error: 'Nieprawidłowe hasło' }, { status: 400 });
+    }
     if (is_active !== undefined) { sets.push(`is_active = $${i++}`); values.push(is_active); }
     if (full_name !== undefined) { sets.push(`full_name = $${i++}`); values.push(full_name || null); }
-    if (password) {
+    if (typeof password === 'string' && password) {
       if (password.length < MIN_PASSWORD_LENGTH) {
         return NextResponse.json({ error: `Hasło musi mieć min. ${MIN_PASSWORD_LENGTH} znaków` }, { status: 400 });
       }

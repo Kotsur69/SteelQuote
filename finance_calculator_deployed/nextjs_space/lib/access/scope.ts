@@ -36,10 +36,17 @@ export function offerVisibilitySql(ctx: AccessContext, params: unknown[], alias 
 
   params.push(ctx.userId);
   const me = `$${params.length}`;
-  const clauses: string[] = [
-    `${alias}.user_id = ${me}`,
-    `EXISTS (SELECT 1 FROM offer_approval_steps hs WHERE hs.offer_id = ${alias}.id AND hs.decided_by = ${me})`,
-  ];
+  const clauses: string[] = [`${alias}.user_id = ${me}`];
+  // Offers the user decided as a reviewer stay visible - but only in flows where they still
+  // hold the approve permission, so a lost role does not keep a permanent window open.
+  const approverFlows = ctx.memberships.filter((m) => m.permissions.canApproveReject).map((m) => m.flowId);
+  if (approverFlows.length > 0) {
+    params.push(approverFlows);
+    clauses.push(
+      `(${alias}.flow_id = ANY($${params.length}::int[]) AND EXISTS (SELECT 1 FROM offer_approval_steps hs ` +
+        `WHERE hs.offer_id = ${alias}.id AND hs.decided_by = ${me}))`
+    );
+  }
 
   for (const m of ctx.memberships) {
     const v = m.visibility;

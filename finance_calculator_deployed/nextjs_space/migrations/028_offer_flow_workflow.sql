@@ -18,7 +18,9 @@ ALTER TABLE offers ADD COLUMN IF NOT EXISTS sent_by INTEGER REFERENCES users(id)
 -- Facts + triggered rules at the last evaluation, for the reviewer UI and audit.
 ALTER TABLE offers ADD COLUMN IF NOT EXISTS validation_snapshot JSONB;
 
-CREATE INDEX IF NOT EXISTS idx_offers_flow ON offers(flow_id);
+-- Visibility predicates filter by flow and, for the team scope, by flow + owner.
+CREATE INDEX IF NOT EXISTS idx_offers_flow_user ON offers(flow_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_offers_sent_by ON offers(sent_by);
 
 CREATE TABLE IF NOT EXISTS offer_approval_steps (
     id                 SERIAL PRIMARY KEY,
@@ -37,8 +39,16 @@ CREATE TABLE IF NOT EXISTS offer_approval_steps (
 );
 
 CREATE INDEX IF NOT EXISTS idx_offer_approval_steps_offer ON offer_approval_steps(offer_id);
--- "Offers awaiting my validation": pending steps by level.
-CREATE INDEX IF NOT EXISTS idx_offer_approval_steps_pending
-    ON offer_approval_steps(level_id) WHERE status = 'pending';
+-- "Offers awaiting my validation": pending steps by level, then offer.
+CREATE INDEX IF NOT EXISTS idx_offer_approval_steps_pending_level
+    ON offer_approval_steps(level_id, offer_id) WHERE status = 'pending';
+-- "Offers I decided" (a reviewer's own history).
+CREATE INDEX IF NOT EXISTS idx_offer_approval_steps_decided_by
+    ON offer_approval_steps(decided_by, offer_id);
+CREATE INDEX IF NOT EXISTS idx_offer_approval_steps_required_level
+    ON offer_approval_steps(required_level_id);
+-- At most one open step per offer, track and level.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_offer_approval_steps_one_pending
+    ON offer_approval_steps(offer_id, track, level_id) WHERE status = 'pending';
 
 COMMIT;

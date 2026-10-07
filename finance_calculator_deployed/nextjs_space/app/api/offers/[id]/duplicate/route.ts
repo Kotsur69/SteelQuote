@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { can, requireAccess } from '@/lib/access/context';
 import { accessError } from '@/lib/access/errors';
+import { fieldViolation } from '@/lib/access/fieldGuards';
+import { loadBaseResolver, loadDefaultMarginPct } from '@/lib/access/config';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -16,7 +18,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { ctx } = auth;
 
     const { id } = await params;
-    const offerId = parseInt(id);
+    const offerId = Number.parseInt(id, 10);
+    if (!Number.isInteger(offerId)) {
+      return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
+    }
 
     const originalResult = await pool.query(
       `SELECT display_name, offer_data, flow_id FROM offers WHERE id = $1 AND user_id = $2`,
@@ -33,6 +38,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         ? ctx.activeFlowId
         : null;
     if (flowId === null) return accessError('cannot_create');
+
+    // Copying into another flow is a new offer there: the PGL / price permissions of THAT
+    // flow apply to the copied content.
+    if (flowId !== original.flow_id) {
+      const perms = ctx.memberships.find((m) => m.flowId === flowId)?.permissions;
+      const violation = fieldViolation(
+        ctx.isSuperuser || !perms ? 'all' : perms,
+        original.offer_data,
+        null,
+        await loadBaseResolver(original.offer_data?.validFrom),
+        await loadDefaultMarginPct()
+      );
+      if (violation) return accessError(violation);
+    }
 
     // display_name, nie offer_name: oferta bez nazwy własnej dałaby "Kopia null".
     // Kopia dostaje nazwę WŁASNĄ (np. "Kopia offer_30") - to nowy rekord z nowym ID,

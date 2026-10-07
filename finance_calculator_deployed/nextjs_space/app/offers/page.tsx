@@ -15,7 +15,7 @@ import { getThemeVars } from '@/lib/themeVars';
 import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
-import { offerNeedsReview } from '@/lib/offerReview';
+import type { OfferActions } from '@/lib/access/workflow';
 import type { ClientDecision } from '@/lib/analytics';
 import {
   LOST_REASONS,
@@ -25,7 +25,6 @@ import {
   type LostReason,
 } from '@/lib/lostReasons';
 import { DECISION_COLOR, DECISION_ICON } from '@/lib/chartColors';
-import { useCurrency } from '@/contexts/CurrencyContext';
 import type { ItemInputs } from '@/lib/calculatorData';
 import {
   formatOfferMoney,
@@ -107,6 +106,13 @@ interface Offer {
   offer_data: OfferData;
   status: OfferStatus;
   user_id: number | null;
+  // Flow the offer belongs to and the actions the CALLER may take on it - computed on the
+  // server from the flow/role configuration (lib/access/workflow.ts offerActions).
+  flow_id?: number;
+  flow_name?: string | null;
+  actions?: OfferActions;
+  /** Level codes of the approval steps still pending (e.g. ["N+1", "NPR"]). */
+  pending_levels?: string[];
   owner_name?: string | null;
   owner_email?: string | null;
   reviewed_at?: string | null;
@@ -126,7 +132,6 @@ interface Offer {
 
 export default function OffersPage() {
   const { t, language } = useLanguage();
-  const { settings } = useCurrency();
   const router = useRouter();
   const [isDark, setIsDark] = useDarkMode();
   const [highContrast, setHighContrast] = useHighContrast();
@@ -134,7 +139,6 @@ export default function OffersPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [role, setRole] = useState<'junior' | 'senior' | 'admin' | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   // Która oferta ma rozwinięty podgląd pozycji (z cenami). null = wszystkie zwinięte.
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -168,7 +172,6 @@ export default function OffersPage() {
         const data = await res.json();
         if (!isCurrent()) return;
         setOffers(data.offers);
-        setRole(data.role ?? null);
         setCurrentUserId(data.userId ?? null);
       }
     } catch (error) {
@@ -449,7 +452,8 @@ export default function OffersPage() {
   // Czy oferta wymaga zatwierdzenia seniora/admina zamiast bezpośredniej wysyłki przez
   // juniora — patrz lib/offerReview.ts. Liczone na bieżących Ustawieniach (mogą się
   // różnić od tych z chwili dodania pozycji), tak samo jak serwer w /api/offers/[id]/send.
-  const needsReview = (offer: Offer) => offerNeedsReview(offer.offer_data.zestawienie, settings);
+  // Whether the flow's rules require validation before this offer may go to the client.
+  const needsReview = (offer: Offer) => offer.actions?.needsValidation === true;
 
   // Company name + NIP must be filled before an offer can go to the client. Mirrors the
   // server guard in /api/offers/[id]/send - the offer can still be saved and edited without
@@ -471,31 +475,20 @@ export default function OffersPage() {
     return info.sapId ? `${info.company} — SAP: ${info.sapId}` : info.company;
   };
 
-  // Uprawnienia do akcji na jednej ofercie, zależne od roli i statusu.
+  // Actions on one offer. The server computes them from the flow/role configuration and
+  // re-checks every one on the matching route, so these flags only drive the buttons.
   const perms = (offer: Offer) => {
     const isOwner = currentUserId !== null && offer.user_id === currentUserId;
-    const s = offer.status;
-    // Admin robi na WŁASNYCH ofertach dokładnie to, co senior — wcześniej wypadał z tej
-    // listy i po zapisaniu własnej oferty nie widział ani jednego przycisku.
-    // Oferta 'sent' zostaje read-only dla wszystkich (historia wysłana do klienta).
-    const canManageOwn = role === 'junior' || role === 'senior' || role === 'admin';
-    const isReviewer = role === 'senior' || role === 'admin';
+    const a = offer.actions;
     return {
       isOwner,
-      canEdit: isOwner && canManageOwn && s !== 'sent',
-      canDelete: isOwner && canManageOwn && s !== 'sent',
-      canDuplicate: isOwner && canManageOwn,
-      canSubmit: isOwner && role === 'junior' && (s === 'draft' || s === 'rejected'),
-      canSend:
-        isOwner &&
-        ((isReviewer && (s === 'draft' || s === 'approved')) ||
-          (role === 'junior' && (s === 'approved' || (s === 'draft' && !needsReview(offer))))),
-      // Senior i admin recenzują cudze oferty oczekujące na weryfikację.
-      canReview: isReviewer && !isOwner && s === 'pending_review',
-      // The client's answer can only be recorded once the offer is actually with the client.
-      // The owner records their own; senior and admin may record on anyone's, exactly as they
-      // already review and send other people's offers (server-side check in the same shape).
-      canDecide: s === 'sent' && (isOwner || isReviewer),
+      canEdit: a?.canEdit === true,
+      canDelete: a?.canDelete === true,
+      canDuplicate: a?.canDuplicate === true,
+      canSubmit: a?.canSubmit === true,
+      canSend: a?.canSend === true,
+      canReview: a?.canReview === true,
+      canDecide: a?.canRecordDecision === true,
     };
   };
 

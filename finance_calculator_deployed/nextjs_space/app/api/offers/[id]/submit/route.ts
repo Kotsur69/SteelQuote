@@ -35,7 +35,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         return accessError('wrong_status');
       }
 
-      const { assessment } = await describeOffer(ctx, offer, db);
+      const { assessment, actions } = await describeOffer(ctx, offer, db);
       if (!assessment) {
         await db.query('ROLLBACK');
         return accessError('wrong_status');
@@ -47,11 +47,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         return accessError('level_conflict', { validation: snapshot });
       }
 
-      const membership = ctx.memberships.find((m) => m.flowId === offer.flow_id);
+      // Same gates as the buttons (offerActions): with steps the caller must be allowed to
+      // submit, without any the offer is approved only if the owner could send it directly.
       const mayValidateDirectly = plan.steps.length === 0;
-      if (!mayValidateDirectly && !ctx.isSuperuser && !membership?.permissions.canSubmitToValidation) {
+      if (mayValidateDirectly ? !actions.canSend : !actions.canSubmit) {
         await db.query('ROLLBACK');
-        return accessError('cannot_submit');
+        return accessError(mayValidateDirectly ? 'cannot_send' : 'cannot_submit');
       }
 
       const status = mayValidateDirectly ? 'approved' : 'pending_review';
@@ -63,12 +64,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
          RETURNING id, status`,
         [offer.id, status, JSON.stringify(snapshot)]
       );
-      await replacePendingSteps(offer.id, plan, db);
+      await replacePendingSteps(offer.id, plan, db, true);
       await db.query('COMMIT');
 
       return NextResponse.json({ offer: result.rows[0], validation: snapshot });
     } catch (error) {
-      await db.query('ROLLBACK');
+      await db.query('ROLLBACK').catch(() => undefined);
       throw error;
     } finally {
       db.release();

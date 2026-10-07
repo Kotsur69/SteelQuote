@@ -7,6 +7,7 @@ const MESSAGES = {
   cannot_create: { status: 403, text: 'Twoja rola w tym flow nie może tworzyć ofert.' },
   cannot_edit: { status: 403, text: 'Nie możesz edytować tej oferty.' },
   cannot_submit: { status: 403, text: 'Twoja rola nie może wysyłać ofert do walidacji.' },
+  cannot_decide: { status: 403, text: 'Nie możesz zapisać decyzji klienta dla tej oferty.' },
   cannot_review: { status: 403, text: 'Ta oferta nie czeka na Twoją walidację.' },
   cannot_send: { status: 409, text: 'Nie można wysłać tej oferty do klienta w obecnym statusie.' },
   needs_validation: { status: 409, text: 'Oferta wymaga walidacji przed wysłaniem do klienta.' },

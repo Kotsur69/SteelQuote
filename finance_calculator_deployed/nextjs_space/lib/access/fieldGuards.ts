@@ -9,6 +9,7 @@
 import type { Permissions } from './types';
 
 interface Item {
+  id?: unknown;
   type?: unknown;
   pgl?: unknown;
   inputs?: { marginPct?: unknown } | null;
@@ -22,6 +23,25 @@ function items(data: unknown): Item[] {
 const EPSILON = 1e-6;
 const same = (a: number, b: number) => Math.abs(a - b) <= EPSILON;
 
+/** A number only when the value really is one - Number(null) / Number('') would give 0. */
+function num(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+/** The saved version of the same line: matched by id, else by position. */
+function previousItem(before: Item[], item: Item, index: number): Item | undefined {
+  if (item.id !== undefined && item.id !== null) {
+    const byId = before.find((b) => b.id === item.id);
+    if (byId) return byId;
+  }
+  return before[index];
+}
+
 export type FieldViolation = 'pgl_locked' | 'margin_locked';
 
 export function fieldViolation(
@@ -33,19 +53,23 @@ export function fieldViolation(
 ): FieldViolation | null {
   if (perms === 'all') return null;
   const before = items(previous);
-  const prevPgl = new Set(before.map((i) => Number(i.pgl)).filter(Number.isFinite));
-  const prevMargin = new Set(before.map((i) => Number(i.inputs?.marginPct)).filter(Number.isFinite));
 
-  for (const item of items(next)) {
-    const pgl = Number(item.pgl);
-    if (!perms.canChangePglBase && Number.isFinite(pgl)) {
+  for (const [index, item] of items(next).entries()) {
+    const prev = previousItem(before, item, index);
+    if (!perms.canChangePglBase) {
+      // A non-numeric PGL would slip past both this guard and the base-price rule.
+      const pgl = num(item.pgl);
+      if (pgl === null) return 'pgl_locked';
       const base = typeof item.type === 'string' ? baseFor(item.type) : Number.NaN;
-      const allowed = same(pgl, base) || [...prevPgl].some((p) => same(p, pgl));
-      if (!allowed) return 'pgl_locked';
+      const prevPgl = num(prev?.pgl);
+      if (!same(pgl, base) && !(prevPgl !== null && same(prevPgl, pgl))) return 'pgl_locked';
     }
-    const margin = Number(item.inputs?.marginPct);
-    if (!perms.canChangePriceMargin && Number.isFinite(margin)) {
-      const allowed = same(margin, defaultMarginPct) || [...prevMargin].some((p) => same(p, margin));
+    const marginRaw = item.inputs?.marginPct;
+    if (!perms.canChangePriceMargin && marginRaw !== undefined) {
+      const margin = num(marginRaw);
+      const prevMargin = num(prev?.inputs?.marginPct);
+      const allowed =
+        margin !== null && (same(margin, defaultMarginPct) || (prevMargin !== null && same(prevMargin, margin)));
       if (!allowed) return 'margin_locked';
     }
   }

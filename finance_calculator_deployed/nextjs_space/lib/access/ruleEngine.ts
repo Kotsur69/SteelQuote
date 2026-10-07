@@ -67,6 +67,8 @@ export interface OfferItemInput {
   type?: unknown;
   pgl?: unknown;
   totalValue?: unknown;
+  finalPrice?: unknown;
+  tons?: unknown;
   inputs?: { marginPct?: unknown } | null;
 }
 
@@ -82,6 +84,11 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const HOURS_PER_DAY = 24;
 // Tolerance for '=' / '!=' on values that went through float arithmetic (margins, %).
 const EPSILON = 1e-9;
+// A PGL counts as "below base" only beyond float noise - same tolerance as fieldGuards.ts.
+const BASE_TOLERANCE = 1e-6;
+// Validity used when the dates are missing, malformed or reversed: the worst case, so the
+// strictest validity rules fire (fail safe, like an unknown margin counting as 0 %).
+const WORST_VALIDITY = { quarters: 2, days: 9999 } as const;
 
 function parseDate(value: unknown): { y: number; m: number; utc: number } | null {
   if (typeof value !== 'string') return null;
@@ -91,7 +98,10 @@ function parseDate(value: unknown): { y: number; m: number; utc: number } | null
   const m = Number(match[2]);
   const d = Number(match[3]);
   if (m < 1 || m > 12 || d < 1 || d > 31) return null;
-  return { y, m, utc: Date.UTC(y, m - 1, d) };
+  const utc = Date.UTC(y, m - 1, d);
+  // Reject roll-overs such as 2026-02-30.
+  if (new Date(utc).getUTCDate() !== d) return null;
+  return { y, m, utc };
 }
 
 function finite(value: unknown): number | null {
@@ -103,11 +113,14 @@ function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
 }
 
-/** Price validity class and length from the offer's validFrom/validTo pair. */
+/**
+ * Price validity class and length from the offer's validFrom/validTo pair. A missing,
+ * malformed or reversed pair is treated as the worst case (see WORST_VALIDITY).
+ */
 export function priceValidity(validFrom: unknown, validTo: unknown): { quarters: number; days: number } {
   const from = parseDate(validFrom);
   const to = parseDate(validTo);
-  if (!from || !to || to.utc < from.utc) return { quarters: 0, days: 0 };
+  if (!from || !to || to.utc < from.utc) return { ...WORST_VALIDITY };
   const days = Math.round((to.utc - from.utc) / MS_PER_DAY) + 1;
   if (from.y === to.y && from.m === to.m) return { quarters: 0, days };
   const sameQuarter = from.y === to.y && Math.ceil(from.m / 3) === Math.ceil(to.m / 3);
@@ -138,20 +151,25 @@ export function computeOfferFacts(
 
     const pgl = finite(item?.pgl);
     const base = typeof item?.type === 'string' ? baseForType(item.type) : 0;
-    if (pgl !== null && base > 0 && pgl < base) {
+    if (pgl !== null && base > 0 && base - pgl > BASE_TOLERANCE) {
       baseReductionPct = Math.max(baseReductionPct, ((base - pgl) / base) * 100);
     }
 
-    offerValueEur += finite(item?.totalValue) ?? 0;
+    // The stored line total and price x tonnage are both client-computed; the larger one
+    // counts, and never below 0, so a zeroed total cannot hide the value of an offer.
+    const stored = finite(item?.totalValue) ?? 0;
+    const recomputed = (finite(item?.finalPrice) ?? 0) * (finite(item?.tons) ?? 0);
+    offerValueEur += Math.max(0, stored, recomputed);
   }
 
   const termDays = finite(data?.paymentTermDays);
   const validity = priceValidity(data?.validFrom, data?.validTo);
 
+  const roundedReduction = round4(baseReductionPct);
   return {
     minMarginPct,
-    baseChanged: baseReductionPct > 0 ? 1 : 0,
-    baseReductionPct: round4(baseReductionPct),
+    baseChanged: roundedReduction > 0 ? 1 : 0,
+    baseReductionPct: roundedReduction,
     quoteValidityHours: termDays !== null && termDays > 0 ? termDays * HOURS_PER_DAY : 0,
     priceValidityQuarters: validity.quarters,
     priceValidityDays: validity.days,
@@ -227,7 +245,9 @@ function ruleResult(rule: ApprovalRule, facts: OfferFacts, creatorRoleId: number
     return { rule, value: null, outcome: 'not_applicable' };
   }
   const value = factForRule(rule, facts);
-  if (rule.threshold === null) return { rule, value, outcome: 'unconfigured' };
+  if (rule.threshold === null || (rule.criterion === 'margin_deficit_pp' && rule.referenceValue === null)) {
+    return { rule, value, outcome: 'unconfigured' };
+  }
   if (value === null) return { rule, value, outcome: 'not_fired' };
   return { rule, value, outcome: compare(value, rule.operator, rule.threshold) ? 'fired' : 'not_fired' };
 }
@@ -280,7 +300,14 @@ export function evaluateRules(
   };
 }
 
-/** Active rules whose threshold is still empty - the spec's configuration completeness control. */
+/**
+ * Active rules that cannot fire because a parameter is still empty - the spec's configuration
+ * completeness control (threshold, or the target margin a deficit rule measures from).
+ */
 export function unconfiguredRules(rules: ApprovalRule[]): ApprovalRule[] {
-  return rules.filter((r) => r.isActive && r.threshold === null);
+  return rules.filter(
+    (r) =>
+      r.isActive &&
+      (r.threshold === null || (r.criterion === 'margin_deficit_pp' && r.referenceValue === null))
+  );
 }

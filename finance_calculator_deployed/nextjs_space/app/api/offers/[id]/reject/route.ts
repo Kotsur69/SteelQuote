@@ -67,7 +67,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       await db.query('COMMIT');
       return NextResponse.json({ offer: result.rows[0] });
     } catch (error) {
-      await db.query('ROLLBACK');
+      await db.query('ROLLBACK').catch(() => undefined);
       throw error;
     } finally {
       db.release();

@@ -68,7 +68,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // the UPDATE, so a status change racing this request makes the write miss.
     const access = await loadOfferAccess(session, offerId);
     if (!access) return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
-    if (access.offer.status === 'sent' && !access.actions.canRecordDecision) return accessError('cannot_edit');
+    if (access.offer.status === 'sent' && !access.actions.canRecordDecision) return accessError('cannot_decide');
     const values: unknown[] = [offerId, value, session.userId, note, reason];
 
     // $2 is cast to text at every use. Without it Postgres deduces the type twice - `character

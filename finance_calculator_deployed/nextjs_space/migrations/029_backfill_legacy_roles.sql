@@ -16,6 +16,9 @@
 
 BEGIN;
 
+-- Two app instances starting together must not both run the backfill.
+SELECT pg_advisory_xact_lock(hashtext('029_backfill_legacy_roles'));
+
 CREATE TABLE IF NOT EXISTS schema_backfills (
     key        VARCHAR(60) PRIMARY KEY,
     applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -52,10 +55,11 @@ BEGIN
 
     UPDATE offers SET flow_id = flow1_id WHERE flow_id IS NULL;
 
-    INSERT INTO schema_backfills (key) VALUES ('legacy_roles_v2');
-END $$;
+    -- Every offer now belongs to a flow; new ones get it from the creator's active flow.
+    -- Inside the one-shot block, so later starts take no exclusive lock on offers.
+    ALTER TABLE offers ALTER COLUMN flow_id SET NOT NULL;
 
--- Every offer now belongs to a flow; new ones get it from the creator's active flow.
-ALTER TABLE offers ALTER COLUMN flow_id SET NOT NULL;
+    INSERT INTO schema_backfills (key) VALUES ('legacy_roles_v2') ON CONFLICT DO NOTHING;
+END $$;
 
 COMMIT;

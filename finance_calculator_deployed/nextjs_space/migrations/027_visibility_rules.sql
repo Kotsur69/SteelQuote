@@ -23,8 +23,13 @@ CREATE TABLE IF NOT EXISTS visibility_rules (
     FOREIGN KEY (flow_id, role_id) REFERENCES flow_roles(flow_id, role_id) ON DELETE CASCADE
 );
 
+-- Seeded once (schema_backfills marker): a row the admin edits or a role/flow pair they remove
+-- is never touched again by a later start.
 -- Columns: own, team, branch, region, all in my flow, all flows, awaiting my validation.
 -- Head of Projects' Flow 1 note in the sheet was a copy of the Flow 2 one; corrected here.
+DO $$
+BEGIN
+IF NOT EXISTS (SELECT 1 FROM schema_backfills WHERE key = 'seed_027_visibility') THEN
 INSERT INTO visibility_rules (flow_id, role_id, see_own, see_team, see_branch, see_region,
                               see_all_in_flow, see_all_flows, see_awaiting_my_review, note)
 SELECT f.id, r.id, s.own, s.team, s.branch, s.region, s.flow_all, s.all_flows, s.awaiting, s.note
@@ -42,8 +47,11 @@ FROM (VALUES
 ) AS s(flow_code, role_code, own, team, branch, region, flow_all, all_flows, awaiting, note)
 JOIN flows f ON f.code = s.flow_code
 JOIN roles r ON r.code = s.role_code
--- Only for role/flow pairs that exist; a pair the admin removed is not resurrected.
 JOIN flow_roles fr ON fr.flow_id = f.id AND fr.role_id = r.id
 ON CONFLICT (flow_id, role_id) DO NOTHING;
+
+INSERT INTO schema_backfills (key) VALUES ('seed_027_visibility') ON CONFLICT DO NOTHING;
+END IF;
+END $$;
 
 COMMIT;

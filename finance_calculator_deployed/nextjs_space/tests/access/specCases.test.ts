@@ -1,7 +1,7 @@
 // Spec test cases T1-T5 (SYMULATOR sheet) plus the routing decisions confirmed for v2.0,
 // against an in-memory copy of the seeded configuration (migrations 025-027).
 import { describe, expect, it } from 'vitest';
-import { computeOfferFacts, evaluateRules, type ApprovalRule } from '@/lib/access/ruleEngine';
+import { computeOfferFacts, evaluateRules, priceValidity, type ApprovalRule } from '@/lib/access/ruleEngine';
 import { planApproval, type Creator } from '@/lib/access/routing';
 import { effectiveScope } from '@/lib/access/scope';
 import type { FlowRole, HierarchyLevel, Permissions } from '@/lib/access/types';
@@ -194,6 +194,39 @@ describe('confirmed routing decisions', () => {
   it('an item without a recorded margin is treated as 0 %', () => {
     const facts = computeOfferFacts({ zestawienie: [{ type: 'HRS', pgl: BASE, totalValue: 1 }] }, () => BASE);
     expect(facts.minMarginPct).toBe(0);
+  });
+});
+
+describe('fail-safe facts (review findings)', () => {
+  it('missing, reversed or impossible validity dates count as the worst case', () => {
+    expect(priceValidity(undefined, undefined).quarters).toBe(2);
+    expect(priceValidity('2026-10-31', '2026-10-01').quarters).toBe(2);
+    expect(priceValidity('2026-02-30', '2026-03-10').quarters).toBe(2);
+    expect(priceValidity('2026-12-15', '2027-01-15')).toEqual({ quarters: 2, days: 32 });
+  });
+
+  it('a PGL within float noise of the base is not a base change', () => {
+    const facts = computeOfferFacts(offer({ pgl: BASE - 1e-12 }), () => BASE);
+    expect(facts.baseChanged).toBe(0);
+    expect(facts.baseReductionPct).toBe(0);
+  });
+
+  it('a zeroed line total cannot hide the offer value', () => {
+    const data = { ...offer(), zestawienie: [{ type: 'HRS', pgl: BASE, totalValue: 0, finalPrice: 2000, tons: 600, inputs: { marginPct: 4.5 } }] };
+    expect(computeOfferFacts(data, () => BASE).offerValueEur).toBe(1_200_000);
+  });
+
+  it('an escalated parallel step landing on the chain level is one approval', () => {
+    // Flow 2 without HoP: NPR escalates to the top chain level (CEO N+2).
+    const noHop = FLOW2_ROLES.filter((r) => r.roleCode !== 'HOP');
+    const extra = [rule(FLOW2, 'offer_value_eur', '>', 50, L.N2)];
+    const { plan } = run(FLOW2, noHop, IFO2, { margin: 4.0, value: 100 }, extra);
+    expect(stepCodes(plan)).toEqual(['N+2']);
+  });
+
+  it('a rule scoped to another creator role does not apply', () => {
+    const scoped = [rule(FLOW1, 'offer_value_eur', '>', 50, L.N2, { appliesToRoleId: 2 })];
+    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, {}, scoped).plan)).toEqual([]);
   });
 });
 

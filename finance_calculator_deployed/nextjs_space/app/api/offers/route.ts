@@ -13,6 +13,9 @@ import { accessError } from '@/lib/access/errors';
 const OFFER_COLUMNS = `o.id, o.offer_name, o.display_name, o.offer_data, o.status, o.user_id,
   o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at, o.rejection_reason, o.sent_at,
   o.root_offer_id, o.version_number, o.flow_id, f.name AS flow_name,
+  NOT EXISTS (SELECT 1 FROM offers n
+              WHERE COALESCE(n.root_offer_id, n.id) = COALESCE(o.root_offer_id, o.id)
+                AND n.version_number > o.version_number) AS is_latest,
   o.client_decision, o.client_decision_at, o.client_decision_note, o.client_decision_reason,
   u.full_name AS owner_name, u.email AS owner_email`;
 
@@ -69,7 +72,12 @@ export async function GET(request: NextRequest) {
         const plan = status === 'sent'
           ? null
           : (await assess({ flowId: row.flow_id, ownerId: row.user_id, offerData: row.offer_data })).plan;
-        const actions = offerActions(ctx, { userId: row.user_id, flowId: row.flow_id, status }, steps, plan);
+        const actions = offerActions(
+          ctx,
+          { userId: row.user_id, flowId: row.flow_id, status, isLatest: row.is_latest === true },
+          steps,
+          plan
+        );
         return { ...row, actions, pending_levels: steps.filter((s) => s.status === 'pending').map((s) => s.levelCode) };
       })
     );
@@ -93,11 +101,14 @@ export async function POST(request: NextRequest) {
     if (flowId === null) return accessError('no_flow');
     if (!can(ctx, flowId, 'canCreateOffer')) return accessError('cannot_create');
 
-    const { offer_name, offer_data } = await request.json();
+    const { offer_name, offer_data } = ((await request.json().catch(() => null)) ?? {}) as {
+      offer_name?: unknown;
+      offer_data?: Record<string, unknown>;
+    };
 
     // Nazwa jest opcjonalna. Pusta => zapisujemy NULL, a baza (kolumna generowana
     // display_name) sama nada "offer_<ID>" w tym samym INSERCIE.
-    if (!offer_data) {
+    if (!offer_data || typeof offer_data !== 'object') {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -106,7 +117,7 @@ export async function POST(request: NextRequest) {
       ctx.isSuperuser || !membership ? 'all' : membership.permissions,
       offer_data,
       null,
-      await loadBaseResolver((offer_data as { validFrom?: unknown }).validFrom),
+      await loadBaseResolver(offer_data.validFrom),
       await loadDefaultMarginPct()
     );
     if (violation) return accessError(violation);
@@ -117,7 +128,7 @@ export async function POST(request: NextRequest) {
     // firmy/NIP-u w kalkulatorze uczyła się nowych klientów (patrz lib/clientDirectory.ts).
     // Klient i oferta zapisują się w JEDNEJ transakcji — nieudany INSERT oferty nie ma
     // zostawiać w katalogu firmy bez ani jednej oferty.
-    const clientInfo = normalizeClientInfo((offer_data as Record<string, unknown>).clientInfo);
+    const clientInfo = normalizeClientInfo(offer_data.clientInfo);
 
     const db = await pool.connect();
     try {
@@ -135,7 +146,7 @@ export async function POST(request: NextRequest) {
       await db.query('COMMIT');
       return NextResponse.json({ offer: result.rows[0] }, { status: 201 });
     } catch (error) {
-      await db.query('ROLLBACK');
+      await db.query('ROLLBACK').catch(() => undefined);
       throw error;
     } finally {
       db.release();

@@ -59,6 +59,12 @@ const levelBody = z.object({
   sortOrder: z.number().int(),
 });
 
+function checkRuleShape(rule: z.infer<typeof ruleBody>): void {
+  if (rule.criterion === 'base_price_change' && rule.threshold !== null && rule.threshold !== 0 && rule.threshold !== 1) {
+    throw new MutationError(400, 'Kryterium TAK/NIE przyjmuje próg 1 (TAK) albo 0 (NIE)');
+  }
+}
+
 function parse<T>(schema: z.ZodType<T>, body: unknown): T {
   const result = schema.safeParse(body);
   if (!result.success) {
@@ -138,6 +144,19 @@ const createLevel: Handler = async (body, _u, db) => {
 const updateLevel: Handler = async (body, _u, db) => {
   const b = parse(levelBody.extend({ id }), body);
   checkLevelShape(b);
+  // Changing chain <-> parallel would silently change what every rule and role on this level
+  // means; reordering (chain_rank) is fine.
+  const current = await db.query(
+    `SELECT kind,
+            EXISTS (SELECT 1 FROM flow_roles WHERE level_id = $1)
+         OR EXISTS (SELECT 1 FROM approval_rules WHERE target_level_id = $1)
+         OR EXISTS (SELECT 1 FROM offer_approval_steps WHERE level_id = $1 AND status = 'pending') AS used
+     FROM hierarchy_levels WHERE id = $1`,
+    [b.id]
+  );
+  if (current.rows[0] && current.rows[0].kind !== b.kind && current.rows[0].used) {
+    throw new MutationError(409, 'Poziom jest używany przez role, reguły lub oczekujące oferty - nie można zmienić jego typu');
+  }
   await assertRankFree(db, b.chainRank, b.id);
   return one(db,
     `UPDATE hierarchy_levels SET code=$2, name=$3, kind=$4, chain_rank=$5, sort_order=$6 WHERE id=$1 RETURNING *`,
@@ -170,9 +189,25 @@ const deleteRole: Handler = async (body, _u, db) => {
 
 // --- Roles inside flows (level + permissions) -------------------------------------------
 
-const upsertFlowRole: Handler = (body, _u, db) => {
+const upsertFlowRole: Handler = async (body, _u, db) => {
   const b = parse(z.object({ flowId: id, roleId: id, levelId: id, permissions }), body);
   const p = b.permissions;
+  // Moving a role to another level would orphan offers waiting at the old level when this
+  // role is the last approver there.
+  const orphans = await db.query(
+    `SELECT 1 FROM flow_roles fr
+     JOIN offer_approval_steps s ON s.level_id = fr.level_id AND s.status = 'pending'
+     JOIN offers o ON o.id = s.offer_id AND o.flow_id = fr.flow_id
+     WHERE fr.flow_id = $1 AND fr.role_id = $2 AND fr.level_id <> $3
+       AND NOT EXISTS (SELECT 1 FROM flow_roles other
+                       WHERE other.flow_id = fr.flow_id AND other.role_id <> fr.role_id
+                         AND other.level_id = fr.level_id AND other.can_approve_reject)
+     LIMIT 1`,
+    [b.flowId, b.roleId, b.levelId]
+  );
+  if (orphans.rows.length > 0) {
+    throw new MutationError(409, 'Na obecnym poziomie tej roli czekają oferty do walidacji - rozpatrz je przed zmianą poziomu');
+  }
   return one(db,
     `INSERT INTO flow_roles (flow_id, role_id, level_id, can_create_offer, can_edit_own_before_submit,
                              can_submit_to_validation, can_approve_reject, can_change_pgl_base,
@@ -227,6 +262,7 @@ function ruleValues(b: z.infer<typeof ruleBody>, userId: number): unknown[] {
 
 const createRule: Handler = (body, userId, db) => {
   const b = parse(ruleBody, body);
+  checkRuleShape(b);
   return one(db,
     `INSERT INTO approval_rules (flow_id, criterion, applies_to_role_id, condition_text, operator,
        threshold, reference_value, unit, priority, target_level_id, is_active, sort_order, updated_by)
@@ -236,6 +272,7 @@ const createRule: Handler = (body, userId, db) => {
 
 const updateRule: Handler = (body, userId, db) => {
   const b = parse(ruleBody.extend({ id }), body);
+  checkRuleShape(b);
   return one(db,
     `UPDATE approval_rules SET flow_id=$2, criterion=$3, applies_to_role_id=$4, condition_text=$5,
        operator=$6, threshold=$7, reference_value=$8, unit=$9, priority=$10, target_level_id=$11,

@@ -121,18 +121,25 @@ export function snapshotOf({ evaluation, plan }: OfferAssessment): Record<string
   };
 }
 
-/** Whether the offer may go to the client without any (further) approval. */
+/** Whether the offer still needs (further) approval before it may go to the client. */
 export function needsValidation(plan: ApprovalPlan): boolean {
   return plan.blocked || plan.steps.length > 0;
 }
 
 /**
  * Replace the offer's open steps with the plan's. Earlier pending steps become 'superseded'
- * (kept for audit); decided steps are left as they are.
+ * (kept for audit). With `newRound` (a fresh submit) the decided steps of earlier rounds are
+ * superseded too, so a past approval never counts for the new round.
  */
-export async function replacePendingSteps(offerId: number, plan: ApprovalPlan, db: Db): Promise<void> {
+export async function replacePendingSteps(
+  offerId: number,
+  plan: ApprovalPlan,
+  db: Db,
+  newRound = false
+): Promise<void> {
   await db.query(
-    `UPDATE offer_approval_steps SET status = 'superseded' WHERE offer_id = $1 AND status = 'pending'`,
+    `UPDATE offer_approval_steps SET status = 'superseded'
+     WHERE offer_id = $1 AND ${newRound ? "status <> 'superseded'" : "status = 'pending'"}`,
     [offerId]
   );
   for (const step of plan.steps) {
@@ -213,9 +220,10 @@ export function decidableSteps(
   flowId: number,
   ownerId: number | null
 ): StepRow[] {
+  // Nobody decides their own offer - not even the superuser (separation of duties).
+  if (ownerId === ctx.userId) return [];
   const pending = steps.filter((s) => s.status === 'pending');
   if (ctx.isSuperuser) return pending;
-  if (ownerId === ctx.userId) return [];
   const m = ctx.memberships.find((x) => x.flowId === flowId);
   if (!m || !m.permissions.canApproveReject) return [];
   return pending.filter((s) => s.levelId === m.level.id);
@@ -234,6 +242,11 @@ export function isCurrentReviewer(
 /** Whether this user approved a step of the offer - lets them send it on the owner's behalf. */
 export function approvedByUser(ctx: AccessContext, steps: StepRow[]): boolean {
   return steps.some((s) => s.status === 'approved' && s.decidedBy === ctx.userId);
+}
+
+/** Whether this user decided (approved or rejected) a step of the offer. */
+export function decidedByUser(ctx: AccessContext, steps: StepRow[]): boolean {
+  return steps.some((s) => (s.status === 'approved' || s.status === 'rejected') && s.decidedBy === ctx.userId);
 }
 
 // --- Per-offer actions ----------------------------------------------------------------------
@@ -259,6 +272,8 @@ export interface OfferForActions {
   userId: number | null;
   flowId: number;
   status: OfferStatus;
+  /** false for an older version of the offer family - read-only, only duplicable. */
+  isLatest: boolean;
 }
 
 /**
@@ -276,23 +291,30 @@ export function offerActions(
   const isOwner = offer.userId === ctx.userId;
   const perms = ctx.memberships.find((m) => m.flowId === offer.flowId)?.permissions;
   const su = ctx.isSuperuser;
+  const live = offer.isLatest;
+  const ownerMayCreate = su || perms?.canCreateOffer === true;
   const editableByOwner = offer.status === 'draft' || offer.status === 'rejected' || offer.status === 'approved';
-  const reviewer = offer.status === 'pending_review' && isCurrentReviewer(ctx, steps, offer.flowId, offer.userId);
+  const reviewer =
+    live && offer.status === 'pending_review' && isCurrentReviewer(ctx, steps, offer.flowId, offer.userId);
   const validation = plan ? needsValidation(plan) : false;
   const open = offer.status === 'draft' || offer.status === 'rejected';
-  const ownerSends = isOwner && open && !validation && (su || perms?.canCreateOffer === true);
-  const approvedSends =
-    offer.status === 'approved' && (isOwner || su || approvedByUser(ctx, steps));
+  const ownerSends = live && isOwner && open && !validation && ownerMayCreate;
+  // An approver may send on the owner's behalf only while they still hold the approve
+  // permission in that flow.
+  const approverSends = approvedByUser(ctx, steps) && (su || perms?.canApproveReject === true);
+  const approvedSends = live && offer.status === 'approved' && ((isOwner && ownerMayCreate) || su || approverSends);
 
   return {
-    canEdit: offer.status !== 'sent' && (su || reviewer || (isOwner && editableByOwner && perms?.canEditOwnBeforeSubmit === true)),
-    canSubmit: isOwner && open && validation && (su || perms?.canSubmitToValidation === true),
+    canEdit:
+      live && offer.status !== 'sent' &&
+      (su || reviewer || (isOwner && editableByOwner && perms?.canEditOwnBeforeSubmit === true)),
+    canSubmit: live && isOwner && open && validation && (su || perms?.canSubmitToValidation === true),
     canSend: ownerSends || approvedSends,
     canReview: reviewer,
-    canDelete: isOwner && offer.status !== 'sent',
-    canDuplicate: isOwner || su,
-    canRecordDecision:
-      offer.status === 'sent' && (isOwner || su || perms?.canApproveReject === true),
+    // Once in review (or past it) the approval trail must stay - only open offers are deletable.
+    canDelete: live && isOwner && open,
+    canDuplicate: isOwner,
+    canRecordDecision: offer.status === 'sent' && (isOwner || su || decidedByUser(ctx, steps)),
     needsValidation: validation,
   };
 }

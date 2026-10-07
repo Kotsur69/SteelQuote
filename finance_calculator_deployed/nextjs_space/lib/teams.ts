@@ -19,6 +19,12 @@ export interface TeamMember {
 
 export type AddResult = 'added' | 'exists' | 'not_assignable';
 
+/** SQL: the user aliased `u` shares at least one flow with the leader ($1). */
+const SHARES_FLOW_WITH_LEADER = `EXISTS (
+  SELECT 1 FROM user_flow_roles lm
+  JOIN user_flow_roles um ON um.flow_id = lm.flow_id
+  WHERE lm.user_id = $1 AND um.user_id = u.id)`;
+
 /** SQL: the user aliased `u` may approve somewhere - the condition for leading a team. */
 const IS_APPROVER = `EXISTS (
   SELECT 1 FROM user_flow_roles m
@@ -44,12 +50,16 @@ export async function listTeam(leaderId: number, db: Db = pool): Promise<TeamMem
   return result.rows as TeamMember[];
 }
 
-/** Active, non-superuser accounts NOT already on this team (and not the leader) - the add-picker pool. */
+/**
+ * Active, non-superuser accounts sharing a flow with the leader and NOT already on the team -
+ * the add-picker pool. A team cannot reach into a flow the leader is not part of.
+ */
 export async function listAssignableMembers(leaderId: number, db: Db = pool): Promise<TeamMember[]> {
   const result = await db.query(
     `SELECT u.id, u.email, u.full_name
      FROM users u
      WHERE u.is_active = true AND u.is_superuser = false AND u.id <> $1
+       AND ${SHARES_FLOW_WITH_LEADER}
        AND NOT EXISTS (
          SELECT 1 FROM team_members tm
          WHERE tm.senior_id = $1 AND tm.junior_id = u.id
@@ -62,14 +72,15 @@ export async function listAssignableMembers(leaderId: number, db: Db = pool): Pr
 
 /**
  * Add a member to a leader's team. The INSERT is gated by a SELECT on the users row, so a
- * memberId that is missing, inactive, a superuser or the leader returns 'not_assignable' and
- * writes nothing. A repeat add is 'exists' (idempotent, not an error).
+ * memberId that is missing, inactive, a superuser, the leader, or in no flow of the leader
+ * returns 'not_assignable' and writes nothing. A repeat add is 'exists' (idempotent, not an error).
  */
 export async function addTeamMember(leaderId: number, memberId: number, db: Db = pool): Promise<AddResult> {
   if (memberId === leaderId) return 'not_assignable';
   const target = await db.query(
-    `SELECT 1 FROM users WHERE id = $1 AND is_active = true AND is_superuser = false`,
-    [memberId]
+    `SELECT 1 FROM users u WHERE u.id = $2 AND u.is_active = true AND u.is_superuser = false
+       AND ${SHARES_FLOW_WITH_LEADER}`,
+    [leaderId, memberId]
   );
   if (target.rows.length === 0) return 'not_assignable';
 

@@ -9,21 +9,22 @@
 -- threshold IS NULL = "not configured yet": the rule never fires and the admin panel lists it
 -- in the configuration completeness control.
 --
--- seed_key identifies seeded rows so a re-run neither duplicates them nor reverts edits.
+-- The seed runs once (schema_backfills marker), so a re-run neither duplicates rows, reverts
+-- edits nor resurrects a rule the admin deleted. seed_key names the seeded rows.
 
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS approval_rules (
     id                 SERIAL PRIMARY KEY,
     seed_key           VARCHAR(40) UNIQUE,
-    flow_id            INTEGER REFERENCES flows(id) ON DELETE CASCADE,    -- NULL = every flow
+    flow_id            INTEGER REFERENCES flows(id) ON DELETE RESTRICT,   -- NULL = every flow
     criterion          VARCHAR(40) NOT NULL CHECK (criterion IN (
                            'margin_below_target', 'margin_deficit_pp',
                            'base_price_change', 'base_reduction_pct',
                            'quote_validity_hours',
                            'price_validity_quarters', 'price_validity_days',
                            'offer_value_eur')),
-    applies_to_role_id INTEGER REFERENCES roles(id) ON DELETE CASCADE,    -- NULL = all creators
+    applies_to_role_id INTEGER REFERENCES roles(id) ON DELETE RESTRICT,   -- NULL = all creators
     condition_text     TEXT NOT NULL DEFAULT '',
     operator           VARCHAR(2) NOT NULL CHECK (operator IN ('<', '<=', '>', '>=', '=', '!=')),
     threshold          NUMERIC(16,4),
@@ -40,6 +41,8 @@ CREATE TABLE IF NOT EXISTS approval_rules (
 
 -- Submit evaluates every active rule of one flow (plus the flow-less ones).
 CREATE INDEX IF NOT EXISTS idx_approval_rules_flow ON approval_rules(flow_id) WHERE is_active;
+CREATE INDEX IF NOT EXISTS idx_approval_rules_target_level ON approval_rules(target_level_id);
+CREATE INDEX IF NOT EXISTS idx_approval_rules_role ON approval_rules(applies_to_role_id);
 
 -- What happens when a rule demands a level the offer's flow has no approver for (test T5):
 --   escalate_next - nearest higher chain level present in the flow, else the highest one
@@ -68,6 +71,9 @@ ALTER TABLE app_settings
 -- Value: 1000K EUR. Rows with threshold NULL are the placeholders the spec leaves for the
 -- business to fill (completeness control).
 
+DO $$
+BEGIN
+IF NOT EXISTS (SELECT 1 FROM schema_backfills WHERE key = 'seed_026_rules') THEN
 INSERT INTO approval_rules (seed_key, flow_id, criterion, condition_text, operator, threshold,
                             reference_value, unit, priority, target_level_id, sort_order)
 SELECT s.seed_key, f.id, s.criterion, s.cond, s.op, s.threshold, s.ref, s.unit, s.prio, l.id, s.ord
@@ -93,5 +99,9 @@ LEFT JOIN flows f        ON f.code = s.flow_code
 JOIN hierarchy_levels l  ON l.code = s.level_code
 WHERE s.flow_code IS NULL OR f.id IS NOT NULL
 ON CONFLICT (seed_key) DO NOTHING;
+
+INSERT INTO schema_backfills (key) VALUES ('seed_026_rules') ON CONFLICT DO NOTHING;
+END IF;
+END $$;
 
 COMMIT;

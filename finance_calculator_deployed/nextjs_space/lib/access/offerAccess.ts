@@ -63,9 +63,16 @@ export async function describeOffer(ctx: AccessContext, offer: OfferRow, db: Db 
     offer.status === 'sent'
       ? null
       : await assessOffer({ flowId: offer.flow_id, ownerId: offer.user_id, offerData: offer.offer_data }, db);
+  const latest = await db.query(
+    `SELECT NOT EXISTS (
+       SELECT 1 FROM offers n
+       WHERE COALESCE(n.root_offer_id, n.id) = COALESCE($2::int, $1::int) AND n.version_number > $3
+     ) AS is_latest`,
+    [offer.id, offer.root_offer_id, offer.version_number]
+  );
   const actions = offerActions(
     ctx,
-    { userId: offer.user_id, flowId: offer.flow_id, status: offer.status },
+    { userId: offer.user_id, flowId: offer.flow_id, status: offer.status, isLatest: latest.rows[0].is_latest === true },
     steps,
     assessment?.plan ?? null
   );

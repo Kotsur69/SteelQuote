@@ -97,11 +97,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     const offerId = Number.parseInt(id, 10);
-    const { offer_name, offer_data } = await request.json();
+    const { offer_name, offer_data } = ((await request.json().catch(() => null)) ?? {}) as {
+      offer_name?: unknown;
+      offer_data?: Record<string, unknown>;
+    };
 
     // Nazwa opcjonalna - wyczyszczenie jej przywraca nazwę zastępczą "offer_<ID>"
     // (display_name to kolumna generowana, przelicza się sama przy UPDATE/INSERT).
-    if (!offer_data) {
+    if (!offer_data || typeof offer_data !== 'object' || !Number.isInteger(offerId)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     const name = typeof offer_name === 'string' && offer_name.trim() ? offer_name.trim() : null;
@@ -113,7 +116,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       outcome = await updateInTransaction(db, ctx, offerId, name, offer_data);
       await db.query(outcome.kind === 'ok' ? 'COMMIT' : 'ROLLBACK');
     } catch (error) {
-      await db.query('ROLLBACK');
+      await db.query('ROLLBACK').catch(() => undefined);
       throw error;
     } finally {
       db.release();
@@ -189,6 +192,9 @@ async function updateInTransaction(
   // root_offer_id. Postgres nie pozwala łączyć FOR UPDATE z MAX - blokujemy wiersze rodziny,
   // a maksimum liczymy w JS.
   const rootId = existing.root_offer_id ?? existing.id;
+  // Serialize version numbering per family: FOR UPDATE below cannot see a version a parallel
+  // transaction is inserting right now, so two saves could otherwise pick the same number.
+  await db.query(`SELECT pg_advisory_xact_lock(hashtext('offer_family'), $1)`, [rootId]);
   const versionResult = await db.query(
     `SELECT version_number FROM offers WHERE id = $1 OR root_offer_id = $1 FOR UPDATE`,
     [rootId]
@@ -232,7 +238,8 @@ async function updateInTransaction(
   return { kind: 'ok', row };
 }
 
-// DELETE - Delete offer (owner only). A 'sent' offer is read-only and cannot be deleted.
+// DELETE - Delete an own draft/rejected offer. An offer in review, approved or sent keeps its
+// approval trail and cannot be deleted.
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const auth = await requireAccess();
@@ -240,10 +247,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const session = auth.ctx;
 
     const { id } = await params;
-    const offerId = parseInt(id);
+    const offerId = Number.parseInt(id, 10);
+    if (!Number.isInteger(offerId)) {
+      return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
+    }
 
     const result = await pool.query(
-      `DELETE FROM offers WHERE id = $1 AND user_id = $2 AND status <> 'sent' RETURNING id`,
+      `DELETE FROM offers WHERE id = $1 AND user_id = $2 AND status IN ('draft', 'rejected') RETURNING id`,
       [offerId, session.userId]
     );
 
@@ -252,9 +262,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         `SELECT status FROM offers WHERE id = $1 AND user_id = $2`,
         [offerId, session.userId]
       );
-      if (existing.rows.length > 0 && existing.rows[0].status === 'sent') {
+      if (existing.rows.length > 0) {
         return NextResponse.json(
-          { error: 'Oferta wysłana do klienta nie może zostać usunięta' },
+          { error: 'Usunąć można tylko szkic lub odrzuconą ofertę' },
           { status: 409 }
         );
       }

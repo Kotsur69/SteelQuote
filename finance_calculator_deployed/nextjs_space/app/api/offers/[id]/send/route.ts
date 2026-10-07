@@ -50,7 +50,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       // A direct send from draft keeps the evaluation that allowed it (audit).
       if (assessment && offer.status !== 'approved') {
-        await replacePendingSteps(offer.id, assessment.plan, db);
+        await replacePendingSteps(offer.id, assessment.plan, db, true);
       }
       const result = await db.query(
         `UPDATE offers
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       if (result.rows.length === 0) return accessError('cannot_send');
       return NextResponse.json({ offer: result.rows[0] });
     } catch (error) {
-      await db.query('ROLLBACK');
+      await db.query('ROLLBACK').catch(() => undefined);
       throw error;
     } finally {
       db.release();
