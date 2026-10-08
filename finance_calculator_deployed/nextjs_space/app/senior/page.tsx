@@ -164,6 +164,8 @@ export default function SeniorPage() {
       } else {
         const data = await res.json().catch(() => ({}));
         showMessage('error', data.error || t.workflow.actionFailed);
+        // Re-routed to a higher level: the offer left this queue.
+        if (data.code === 'rerouted') fetchOffers(search);
       }
     } catch {
       showMessage('error', t.workflow.actionFailed);

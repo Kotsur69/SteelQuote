@@ -191,5 +191,6 @@ export const cs: AccessTexts = {
     pgl_locked: 'Vaše role nemůže měnit základ PGL.',
     margin_locked: 'Vaše role nemůže měnit cenu / marži.',
     wrong_status: 'Nabídka není ve správném stavu.',
+    rerouted: 'Pravidla nyní vyžadují vyšší úroveň - nabídka byla přesměrována a nebyla schválena.',
   },
 };

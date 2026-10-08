@@ -2,7 +2,7 @@
 // against an in-memory copy of the seeded configuration (migrations 025-027).
 import { describe, expect, it } from 'vitest';
 import { computeOfferFacts, evaluateRules, priceValidity, type ApprovalRule } from '@/lib/access/ruleEngine';
-import { planApproval, type Creator } from '@/lib/access/routing';
+import { planApproval, uncoveredSteps, type Creator } from '@/lib/access/routing';
 import { effectiveScope } from '@/lib/access/scope';
 import type { FlowRole, HierarchyLevel, Permissions } from '@/lib/access/types';
 
@@ -194,6 +194,30 @@ describe('confirmed routing decisions', () => {
   it('an item without a recorded margin is treated as 0 %', () => {
     const facts = computeOfferFacts({ zestawienie: [{ type: 'HRS', pgl: BASE, totalValue: 1 }] }, () => BASE);
     expect(facts.minMarginPct).toBe(0);
+  });
+});
+
+describe('stale approval steps (rules or data changed after submit)', () => {
+  // Worked example: submitted at margin 4.0 % (deficit 0.5 pp) -> N+1 step stored. The rules
+  // now see margin 2.4 % (deficit 2.1 pp) -> N+2. ASM (N+1) must not sign that off.
+  it('a stored N+1 step does not cover a fresh N+2 demand', () => {
+    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { margin: 2.4 });
+    expect(uncoveredSteps(plan, [L.N1]).map((s) => s.level.code)).toEqual(['N+2']);
+  });
+
+  it('a stored higher chain step covers a lower fresh demand (no downgrade)', () => {
+    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { margin: 4.0 });
+    expect(uncoveredSteps(plan, [L.N2])).toEqual([]);
+  });
+
+  it('a chain step never covers a parallel NPR demand', () => {
+    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { pgl: 600, margin: 2.0 });
+    expect(uncoveredSteps(plan, [L.N3]).map((s) => s.level.code)).toEqual(['NPR']);
+  });
+
+  it('an already approved NPR step still counts for the round', () => {
+    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { pgl: 600, margin: 2.0 });
+    expect(uncoveredSteps(plan, [L.N1, L.NPR]).map((s) => s.level.code)).toEqual(['N+2']);
   });
 });
 

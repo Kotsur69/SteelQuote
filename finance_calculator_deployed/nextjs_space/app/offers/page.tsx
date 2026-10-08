@@ -202,6 +202,8 @@ export default function OffersPage() {
       } else {
         const data = await res.json().catch(() => ({}));
         setMessage({ type: 'error', text: data.error || t.workflow.actionFailed });
+        // Re-routed to a higher level: refresh so the new pending level shows.
+        if (data.code === 'rerouted') fetchOffers(search);
       }
     } catch (error) {
       console.error(`Error on ${action}:`, error);

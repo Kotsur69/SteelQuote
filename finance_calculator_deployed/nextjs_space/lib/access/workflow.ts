@@ -18,7 +18,7 @@ import {
   type Db,
 } from './config';
 import { computeOfferFacts, evaluateRules, type Evaluation, type OfferDataInput } from './ruleEngine';
-import { planApproval, type ApprovalPlan } from './routing';
+import { planApproval, uncoveredSteps, type ApprovalPlan } from './routing';
 import type { AccessContext, FlowRole, HierarchyLevel } from './types';
 
 export interface OfferAssessment {
@@ -231,6 +231,42 @@ export function decidableSteps(
   const m = ctx.memberships.find((x) => x.flowId === flowId);
   if (!m || !m.permissions.canApproveReject) return [];
   return pending.filter((s) => s.levelId === m.level.id);
+}
+
+export type RerouteOutcome =
+  | { kind: 'current' }
+  | { kind: 'blocked'; assessment: OfferAssessment }
+  | { kind: 'rerouted'; assessment: OfferAssessment; levels: string[] };
+
+/**
+ * Re-checks an offer in review against the CURRENT rules before an approval. Steps are stored
+ * at submit time; when the rules or the reference data changed since and the fresh plan needs a
+ * level the current round does not have, the open steps are re-planned (pending ones
+ * superseded, approved ones kept) instead of letting a lower level sign off. Never lowers a
+ * stored step. Call inside the approving transaction, with the offer row locked.
+ */
+export async function rerouteIfOutgrown(
+  offer: { id: number; flow_id: number; user_id: number | null; offer_data: OfferDataInput | null },
+  steps: StepRow[],
+  db: Db
+): Promise<RerouteOutcome> {
+  const assessment = await assessOffer({ flowId: offer.flow_id, ownerId: offer.user_id, offerData: offer.offer_data }, db);
+  if (assessment.plan.blocked) return { kind: 'blocked', assessment };
+
+  const levelOf = (s: StepRow) => assessment.levels.find((l) => l.id === s.levelId);
+  const levelsWhere = (pred: (s: StepRow) => boolean) =>
+    steps.filter(pred).map(levelOf).filter((l): l is HierarchyLevel => l !== undefined);
+  const round = levelsWhere((s) => s.status === 'pending' || s.status === 'approved');
+  if (uncoveredSteps(assessment.plan, round).length === 0) return { kind: 'current' };
+
+  // Steps already approved in this round keep counting; everything else is planned afresh.
+  const fresh = uncoveredSteps(assessment.plan, levelsWhere((s) => s.status === 'approved'));
+  await replacePendingSteps(offer.id, { ...assessment.plan, steps: fresh }, db);
+  await db.query(
+    `UPDATE offers SET validation_snapshot = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+    [offer.id, JSON.stringify(snapshotOf(assessment))]
+  );
+  return { kind: 'rerouted', assessment, levels: fresh.map((s) => s.level.code) };
 }
 
 /** Whether this user may act as a reviewer on the offer right now (edit, approve, reject). */

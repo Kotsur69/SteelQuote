@@ -96,6 +96,22 @@ function coveredByCreator(step: PlannedStep, creator: FlowRole | null): boolean 
   return creator.level.kind === 'chain' && (creator.level.chainRank ?? 0) >= (step.level.chainRank ?? 0);
 }
 
+/** Whether an existing step at `held` covers a fresh demand at `wanted` (same level, or a higher chain level). */
+function levelCovers(held: HierarchyLevel, wanted: HierarchyLevel): boolean {
+  if (held.id === wanted.id) return true;
+  return held.kind === 'chain' && wanted.kind === 'chain' && (held.chainRank ?? 0) >= (wanted.chainRank ?? 0);
+}
+
+/**
+ * Fresh plan steps the offer's current round does not cover. `roundLevels` are the levels of
+ * its pending and approved steps. A non-empty result means the stored steps were planned
+ * against older rules or data, so a lower level would sign off what now needs a higher one.
+ * A plan that needs less than the stored steps is not a gap: the higher approver still decides.
+ */
+export function uncoveredSteps(plan: ApprovalPlan, roundLevels: HierarchyLevel[]): PlannedStep[] {
+  return plan.steps.filter((s) => !roundLevels.some((held) => levelCovers(held, s.level)));
+}
+
 export function planApproval(
   evaluation: Evaluation,
   flowRoles: FlowRole[],

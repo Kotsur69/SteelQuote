@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireAccess } from '@/lib/access/context';
 import { loadVisibleOffer } from '@/lib/access/offerAccess';
-import { decidableSteps, loadSteps } from '@/lib/access/workflow';
+import { decidableSteps, loadSteps, rerouteIfOutgrown, snapshotOf } from '@/lib/access/workflow';
 import { accessError } from '@/lib/access/errors';
 
 interface RouteParams {
@@ -14,7 +14,8 @@ const MAX_COMMENT_LENGTH = 1000;
 // POST - approve the pending step(s) the caller may decide: a role at exactly that step's
 // level with the approve permission in the offer's flow (the superuser: any). The offer becomes
 // 'approved' once no step is pending - with an NPR step next to a chain step, both approvers
-// must approve, in any order. pending_review -> approved.
+// must approve, in any order. pending_review -> approved. When the current rules need a level
+// the stored steps do not cover, nothing is approved: the steps are re-planned (409 rerouted).
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const auth = await requireAccess();
@@ -41,11 +42,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           { status: 409 }
         );
       }
-      const mine = decidableSteps(ctx, await loadSteps(offer.id, db), offer.flow_id, offer.user_id);
-      if (mine.length === 0) {
+      const steps = await loadSteps(offer.id, db);
+      if (decidableSteps(ctx, steps, offer.flow_id, offer.user_id).length === 0) {
         await db.query('ROLLBACK');
         return accessError('cannot_review');
       }
+      // Steps were planned at submit; if the rules now need a higher level, re-route instead.
+      const reroute = await rerouteIfOutgrown(offer, steps, db);
+      if (reroute.kind === 'blocked') {
+        await db.query('ROLLBACK');
+        return accessError('level_conflict', { validation: snapshotOf(reroute.assessment) });
+      }
+      if (reroute.kind === 'rerouted') {
+        await db.query('COMMIT');
+        return accessError('rerouted', { levels: reroute.levels, validation: snapshotOf(reroute.assessment) });
+      }
+      const mine = decidableSteps(ctx, steps, offer.flow_id, offer.user_id);
 
       await db.query(
         `UPDATE offer_approval_steps

@@ -228,6 +228,8 @@ function AdminOffersContent() {
       } else {
         const data = await res.json().catch(() => ({}));
         flash('error', data.error || t.workflow.actionFailed);
+        // Re-routed to a higher level: refresh so the new pending level shows.
+        if (data.code === 'rerouted') fetchOffers();
       }
     } catch {
       flash('error', t.workflow.actionFailed);

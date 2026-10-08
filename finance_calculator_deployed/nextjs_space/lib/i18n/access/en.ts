@@ -191,5 +191,6 @@ export const en: AccessTexts = {
     pgl_locked: 'Your role cannot change the PGL base.',
     margin_locked: 'Your role cannot change the price / margin.',
     wrong_status: 'The offer is not in the right status.',
+    rerouted: 'The rules now require a higher level - the offer was re-routed and not approved.',
   },
 };

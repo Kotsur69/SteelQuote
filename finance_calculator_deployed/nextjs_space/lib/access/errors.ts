@@ -15,6 +15,7 @@ const MESSAGES = {
   pgl_locked: { status: 403, text: 'Twoja rola nie może zmieniać bazy PGL.' },
   margin_locked: { status: 403, text: 'Twoja rola nie może zmieniać ceny / marży.' },
   wrong_status: { status: 409, text: 'Oferta nie jest w odpowiednim statusie.' },
+  rerouted: { status: 409, text: 'Reguły wymagają teraz wyższego poziomu - oferta została przekierowana i nie została zatwierdzona.' },
 } as const;
 
 export type AccessErrorCode = keyof typeof MESSAGES;

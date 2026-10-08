@@ -47,6 +47,8 @@ export default function OfferReviewBar({ offerId, isDirty, onDone }: Props) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
+      // Re-routed to a higher level: show the new requirement instead of the stale one.
+      if (data.code === 'rerouted' && data.validation) setValidation(data.validation as ValidationSnapshot);
       setError(accessErrorText(at, data, s.actionFailed));
       return null;
     }

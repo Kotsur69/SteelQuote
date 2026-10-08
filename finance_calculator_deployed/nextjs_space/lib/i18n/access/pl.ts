@@ -191,5 +191,6 @@ export const pl: AccessTexts = {
     pgl_locked: 'Twoja rola nie może zmieniać bazy PGL.',
     margin_locked: 'Twoja rola nie może zmieniać ceny / marży.',
     wrong_status: 'Oferta nie jest w odpowiednim statusie.',
+    rerouted: 'Reguły wymagają teraz wyższego poziomu - oferta została przekierowana i nie została zatwierdzona.',
   },
 };
