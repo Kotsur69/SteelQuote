@@ -713,8 +713,9 @@ export default function OffersPage() {
               return (
               <div
                 key={offer.id}
-                onClick={() => { if (p.canEdit) handleEdit(offer.id); }}
-                className={`p-4 transition-colors ${p.canEdit ? 'cursor-pointer' : ''} hover:bg-[rgba(255,255,255,0.02)] ${
+                // Every visible offer opens - the calculator shows a sent one read-only.
+                onClick={() => handleEdit(offer.id)}
+                className={`p-4 transition-colors cursor-pointer hover:bg-[rgba(255,255,255,0.02)] ${
                   !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
                 }`}
               >
@@ -1067,8 +1068,8 @@ export default function OffersPage() {
                           return (
                             <div
                               key={v.id}
-                              onClick={() => { if (vp.canEdit) handleEdit(v.id); }}
-                              className={`flex items-center justify-between gap-3 flex-wrap text-xs bg-[var(--bg-panel)] rounded px-2.5 py-1.5 ${vp.canEdit ? 'cursor-pointer hover:bg-[rgba(255,255,255,0.03)]' : ''}`}
+                              onClick={() => handleEdit(v.id)}
+                              className="flex items-center justify-between gap-3 flex-wrap text-xs bg-[var(--bg-panel)] rounded px-2.5 py-1.5 cursor-pointer hover:bg-[rgba(255,255,255,0.03)]"
                             >
                               <div className="flex items-center gap-2 flex-wrap min-w-0">
                                 <span className="font-mono text-[var(--text-secondary)]">{offerNumberLabel(v)}</span>

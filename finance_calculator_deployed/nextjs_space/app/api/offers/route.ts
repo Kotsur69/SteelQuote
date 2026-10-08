@@ -75,7 +75,13 @@ export async function GET(request: NextRequest) {
           : (await assess({ flowId: row.flow_id, ownerId: row.user_id, offerData: row.offer_data })).plan;
         const actions = offerActions(
           ctx,
-          { userId: row.user_id, flowId: row.flow_id, status, isLatest: row.is_latest === true },
+          {
+            userId: row.user_id,
+            flowId: row.flow_id,
+            status,
+            isLatest: row.is_latest === true,
+            clientDecision: row.client_decision,
+          },
           steps,
           plan
         );

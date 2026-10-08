@@ -81,7 +81,7 @@ type PutOutcome =
 
 // PUT - Update offer. Who may edit is offerActions().canEdit: the owner before submit (and an
 // approved offer), a reviewer holding a pending step's level, the superuser. A 'sent' offer is
-// read-only for everyone.
+// read-only for everyone, except a lost one, which may be renegotiated as a new draft version.
 //
 // Wersjonowanie: gdy przesłane dane (nazwa lub offer_data) RÓŻNIĄ się od tego, co jest
 // w bazie, zapis NIE nadpisuje wiersza w miejscu — wstawia nowy wiersz-wersję
@@ -160,9 +160,10 @@ async function updateInTransaction(
   if (!existing) {
     return { kind: 'error', response: NextResponse.json({ error: 'Offer not found' }, { status: 404 }) };
   }
-  if (existing.status === 'sent') return readOnlySent();
-
   const { actions } = await describeOffer(ctx, existing, db);
+  // A sent offer stays read-only, except the newest version of a LOST one: editing it is the
+  // next renegotiation round of the same offer (see isRenegotiable).
+  if (existing.status === 'sent' && !actions.canEdit) return readOnlySent();
   if (!actions.canEdit) return { kind: 'error', response: accessError('cannot_edit') };
 
   const editorPerms = ctx.memberships.find((m) => m.flowId === existing.flow_id)?.permissions;
@@ -180,6 +181,12 @@ async function updateInTransaction(
   const clientInfo = normalizeClientInfo(offerData.clientInfo);
   const clientId = await upsertClientFromOffer(db, clientInfo, ctx.userId);
   const unchanged = existing.offer_name === name && deepEqual(existing.offer_data, offerData);
+
+  // What went to the client is never rewritten in place - saving a lost offer without changes
+  // simply returns it.
+  if (unchanged && existing.status === 'sent') {
+    return { kind: 'ok', row: existing };
+  }
 
   if (unchanged) {
     const result = await db.query(
@@ -212,8 +219,10 @@ async function updateInTransaction(
   // correcting someone's offer must not take it over. A version of an offer in review (or an
   // approved one) is re-assessed: still needs an approval -> review continues on the new
   // version with fresh steps; nothing left to approve (e.g. the reviewer fixed the margin) ->
-  // approved. Draft / rejected versions keep their status.
-  let versionStatus = existing.status;
+  // approved. Draft / rejected versions keep their status. A renegotiated lost offer starts the
+  // new round as a draft (client_decision back to its 'pending' default) and goes through
+  // validation and sending like any other draft.
+  let versionStatus = existing.status === 'sent' ? 'draft' : existing.status;
   if (existing.status === 'pending_review' || existing.status === 'approved') {
     if (assessment.plan.blocked) {
       return { kind: 'error', response: accessError('level_conflict', { validation: snapshotOf(assessment) }) };

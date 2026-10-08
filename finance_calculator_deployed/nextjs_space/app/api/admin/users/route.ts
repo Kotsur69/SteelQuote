@@ -16,9 +16,9 @@ const safeNum = (expr: string) =>
 //
 // Three separate per-user aggregates, joined one row each to `users`, so they never multiply
 // together:
-//   * workflow  - offer counts by internal status. Counts EVERY row incl. version rows
-//                 (migration 015), unchanged from before so the "Liczba ofert" column stays
-//                 exactly as it was.
+//   * workflow  - offer counts by internal status, one per offer FAMILY (root + versions,
+//                 migration 015): a renegotiation sent four times is still one offer.
+//                 'sent' = families with any sent version.
 //   * perf      - win/loss + tonnage + weighted margin. Built from `latest` (one row per
 //                 offer family, newest version) - summing version rows would multi-count the
 //                 tonnage. Tonnage and margin live inside offer_data.zestawienie[], so the
@@ -76,9 +76,11 @@ export async function GET() {
        ),
        workflow AS (
          SELECT user_id,
-                COUNT(*)::int AS offers_total,
-                COUNT(*) FILTER (WHERE status = 'pending_review')::int AS offers_pending,
-                COUNT(*) FILTER (WHERE status = 'sent')::int AS offers_sent
+                COUNT(DISTINCT COALESCE(root_offer_id, id))::int AS offers_total,
+                COUNT(DISTINCT COALESCE(root_offer_id, id))
+                  FILTER (WHERE status = 'pending_review')::int AS offers_pending,
+                COUNT(DISTINCT COALESCE(root_offer_id, id))
+                  FILTER (WHERE status = 'sent')::int AS offers_sent
          FROM offers
          GROUP BY user_id
        )

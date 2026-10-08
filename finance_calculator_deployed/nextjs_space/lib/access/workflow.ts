@@ -314,6 +314,17 @@ export interface OfferForActions {
   status: OfferStatus;
   /** false for an older version of the offer family - read-only, only duplicable. */
   isLatest: boolean;
+  /** Client's answer on a sent offer; a lost one may be renegotiated as a new version. */
+  clientDecision?: 'pending' | 'won' | 'lost' | null;
+}
+
+/**
+ * A sent offer the client turned down, still the newest of its family: editing it starts the
+ * next round of the SAME offer (a new draft version), so a renegotiation spanning several sent
+ * versions stays one offer in the list and in analytics.
+ */
+export function isRenegotiable(offer: Pick<OfferForActions, 'status' | 'isLatest' | 'clientDecision'>): boolean {
+  return offer.isLatest && offer.status === 'sent' && offer.clientDecision === 'lost';
 }
 
 /**
@@ -344,17 +355,22 @@ export function offerActions(
   const approverSends = approvedByUser(ctx, steps) && (su || perms?.canApproveReject === true);
   const approvedSends = live && offer.status === 'approved' && ((isOwner && ownerMayCreate) || su || approverSends);
 
+  const renegotiable = isRenegotiable(offer);
+
   return {
     canEdit:
-      live && offer.status !== 'sent' &&
-      (su || reviewer || (isOwner && editableByOwner && perms?.canEditOwnBeforeSubmit === true)),
+      (live && offer.status !== 'sent' &&
+        (su || reviewer || (isOwner && editableByOwner && perms?.canEditOwnBeforeSubmit === true))) ||
+      (renegotiable && (su || (isOwner && ownerMayCreate))),
     canSubmit: live && isOwner && open && validation && (su || perms?.canSubmitToValidation === true),
     canSend: ownerSends || approvedSends,
     canReview: reviewer,
     // Once in review (or past it) the approval trail must stay - only open offers are deletable.
     canDelete: live && isOwner && open,
     canDuplicate: isOwner,
-    canRecordDecision: offer.status === 'sent' && (isOwner || su || decidedByUser(ctx, steps)),
+    // Only the newest version carries the family's outcome - once a lost offer is being
+    // renegotiated, the decision belongs to the new round, not the superseded one.
+    canRecordDecision: live && offer.status === 'sent' && (isOwner || su || decidedByUser(ctx, steps)),
     needsValidation: validation,
   };
 }

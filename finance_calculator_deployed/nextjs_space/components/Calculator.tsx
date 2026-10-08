@@ -378,6 +378,9 @@ export default function Calculator() {
   // True when a senior/admin opened an offer that is pending review (server decides, see GET
   // /api/offers/[id]) - shows the approve/reject bar. Cleared for new offers.
   const [canReview, setCanReview] = useState(false);
+  // How a loaded offer may be used: 'edit' (default), 'readOnly' (sent / older version - view
+  // and export only) or 'renegotiate' (a lost offer - saving starts a new draft version).
+  const [offerMode, setOfferMode] = useState<'edit' | 'readOnly' | 'renegotiate'>('edit');
   // PGL base / price-margin fields follow the role's permissions in the offer's flow (a new
   // offer: the active flow). The superuser may change everything.
   // Fail closed: locked while the summary loads or when it could not be loaded.
@@ -1254,6 +1257,11 @@ export default function Calculator() {
             setCurrentOfferRawName(offer.offer_name ?? '');
             setCurrentOfferLabel(offerNumberLabel(offer));
             setCanReview(offer.can_review === true);
+            setOfferMode(
+              offer.actions?.canEdit !== true
+                ? 'readOnly'
+                : offer.status === 'sent' ? 'renegotiate' : 'edit'
+            );
             setOfferFlowId(typeof offer.flow_id === 'number' ? offer.flow_id : null);
 
             // Przeterminowany PGL (inny kwartał niż "teraz") -> migrujemy na aktualne ceny
@@ -1407,6 +1415,8 @@ export default function Calculator() {
         // A saved edit of a pending offer becomes a new pending version - keep the review bar
         // for it; any other resulting status (e.g. a fresh draft) has nothing to review.
         setCanReview((wasReviewable) => wasReviewable && offer.status === 'pending_review');
+        // A renegotiated lost offer is now a fresh draft version - plain editing from here on.
+        if (offer.status !== 'sent') setOfferMode('edit');
         // Od tej chwili oferta ma własny, zamrożony kurs. Gdyby admin zmienił kurs, a
         // handlowiec zapisał ponownie tę samą ofertę z otwartej karty — zapisze się kurs
         // pierwotny, nie nowy.
@@ -1454,7 +1464,8 @@ export default function Calculator() {
   // Dirty = live snapshot differs from the last loaded/saved baseline. Null baseline (the
   // async window before the first capture) counts as clean, so no premature prompt.
   const currentSnapshot = JSON.stringify(collectOfferData());
-  const isDirty = baseline !== null && currentSnapshot !== baseline;
+  // A read-only offer cannot be saved, so changes made while browsing it never block navigation.
+  const isDirty = offerMode !== 'readOnly' && baseline !== null && currentSnapshot !== baseline;
 
   // Full reset to a clean offer. Reused by the "Nowa oferta" button and the "Kalkulator"
   // tab (via the guard). Anything not covered by restoreOfferData(INITIAL_OFFER_DATA) — the
@@ -1468,6 +1479,7 @@ export default function Calculator() {
     setCurrentOfferRawName('');
     setCurrentOfferLabel('');
     setCanReview(false);
+    setOfferMode('edit');
     setShowSaveModal(false);
     setSaveOfferName('');
     setSaveMessage(null);
@@ -1716,10 +1728,20 @@ export default function Calculator() {
       {/* Currently Editing Banner — bardzo widoczny pasek, żeby nie dało się przeoczyć,
           że kalkulator jest w trybie edycji istniejącej oferty, a nie tworzenia nowej. */}
       {currentOfferId && (
-        <div className="flex items-center gap-2.5 mb-6 px-4 py-2.5 rounded-md border-2 border-[var(--accent-cr)] bg-[rgba(59,142,245,0.12)] text-sm font-mono animate-[fadeIn_0.2s_ease]">
-          <span className="text-base">✏️</span>
+        <div className={`flex items-center gap-2.5 mb-6 px-4 py-2.5 rounded-md border-2 text-sm font-mono animate-[fadeIn_0.2s_ease] ${
+          offerMode === 'readOnly'
+            ? 'border-[var(--border-hi)] bg-[rgba(125,136,170,0.10)]'
+            : offerMode === 'renegotiate'
+              ? 'border-[var(--accent-hrs)] bg-[rgba(232,160,32,0.12)]'
+              : 'border-[var(--accent-cr)] bg-[rgba(59,142,245,0.12)]'
+        }`}>
+          <span className="text-base">{offerMode === 'readOnly' ? '👁️' : offerMode === 'renegotiate' ? '🔁' : '✏️'}</span>
           <span className="text-[var(--text-primary)]">
-            {t.offers?.currentlyEditingBanner || 'Teraz edytujesz ofertę:'}{' '}
+            {offerMode === 'readOnly'
+              ? t.offers.readOnlyBanner
+              : offerMode === 'renegotiate'
+                ? t.offers.renegotiateBanner
+                : t.offers?.currentlyEditingBanner || 'Teraz edytujesz ofertę:'}{' '}
             <span className="font-bold text-[var(--accent-cr)]">
               {currentOfferLabel || `offer_${currentOfferId}`}
             </span>
@@ -2874,18 +2896,20 @@ export default function Calculator() {
               >
                 📄 {pdfLoading ? (t.pdf?.generating || 'Generowanie...') : (t.pdf?.exportPdf || 'Eksportuj do PDF')}
               </button>
-              <button
-                onClick={() => {
-                  if (currentOfferId) {
-                    handleSaveOffer();
-                  } else {
-                    setShowSaveModal(true);
-                  }
-                }}
-                className="bg-transparent border border-[var(--accent-cr)] rounded px-3 py-1 text-[10px] font-mono text-[var(--accent-cr)] hover:bg-[rgba(59,142,245,0.1)] transition-colors flex items-center gap-1.5"
-              >
-                💾 {currentOfferId ? (t.common?.save || 'Zapisz') : (t.offers?.saveOffer || 'Zapisz ofertę')}
-              </button>
+              {offerMode !== 'readOnly' && (
+                <button
+                  onClick={() => {
+                    if (currentOfferId) {
+                      handleSaveOffer();
+                    } else {
+                      setShowSaveModal(true);
+                    }
+                  }}
+                  className="bg-transparent border border-[var(--accent-cr)] rounded px-3 py-1 text-[10px] font-mono text-[var(--accent-cr)] hover:bg-[rgba(59,142,245,0.1)] transition-colors flex items-center gap-1.5"
+                >
+                  💾 {currentOfferId ? (t.common?.save || 'Zapisz') : (t.offers?.saveOffer || 'Zapisz ofertę')}
+                </button>
+              )}
               <button
                 onClick={clearZestawienie}
                 className="bg-transparent border border-[var(--border)] rounded px-2.5 py-1 text-[10px] font-mono text-[var(--text-muted)] hover:border-[var(--accent-sum)] hover:text-[var(--accent-sum)] transition-colors"

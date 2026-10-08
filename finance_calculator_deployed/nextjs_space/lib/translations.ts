@@ -109,6 +109,8 @@ export interface Translations {
     saveFailed: string;
     editOffer: string;
     currentlyEditingBanner: string;
+    readOnlyBanner: string;
+    renegotiateBanner: string;
     stalePglBannerTitle: string;
     stalePglBannerBody: string;
     stalePglBannerLegacy: string;
@@ -867,6 +869,8 @@ export const pl: Translations = {
     saveFailed: 'Nie udało się zapisać oferty',
     editOffer: 'Edytuj ofertę',
     currentlyEditingBanner: 'Teraz edytujesz ofertę:',
+    readOnlyBanner: 'Podgląd (tylko do odczytu) - oferta wysłana do klienta:',
+    renegotiateBanner: 'Renegocjacja - zapis utworzy nową wersję tej samej oferty:',
     stalePglBannerTitle: 'PGL zaktualizowane',
     stalePglBannerBody: 'Ta oferta była wyceniona na Q{fromQ} {fromYear}. Edytujesz ją teraz w Q{toQ} {toYear} — PGL, ceny i okres ważności zostały automatycznie zaktualizowane do bieżącego kwartału ({count} pozycji przeliczonych).',
     stalePglBannerLegacy: '{count} starszych pozycji (bez pełnej zapisanej konfiguracji) dostało tylko nowe PGL — sprawdź je ręcznie, marża i cena mogły nie zostać przeliczone.',
@@ -1584,6 +1588,8 @@ export const en: Translations = {
     saveFailed: 'Failed to save offer',
     editOffer: 'Edit offer',
     currentlyEditingBanner: 'You are currently editing offer:',
+    readOnlyBanner: 'View only - this offer was sent to the client:',
+    renegotiateBanner: 'Renegotiation - saving creates a new version of the same offer:',
     stalePglBannerTitle: 'PGL updated',
     stalePglBannerBody: 'This offer was priced for Q{fromQ} {fromYear}. You are now editing it in Q{toQ} {toYear} — PGL, prices and the validity period were automatically updated to the current quarter ({count} item(s) recalculated).',
     stalePglBannerLegacy: '{count} older item(s) (without a full saved configuration) only got the new PGL swapped in — please review them manually, margin/price may not have been recalculated.',
@@ -2300,6 +2306,8 @@ export const cs: Translations = {
     saveFailed: 'Nabídku se nepodařilo uložit',
     editOffer: 'Upravit nabídku',
     currentlyEditingBanner: 'Nyní upravujete nabídku:',
+    readOnlyBanner: 'Pouze náhled - nabídka byla odeslána klientovi:',
+    renegotiateBanner: 'Nové vyjednávání - uložení vytvoří novou verzi téže nabídky:',
     stalePglBannerTitle: 'PGL aktualizováno',
     stalePglBannerBody: 'Tato nabídka byla oceněna pro Q{fromQ} {fromYear}. Nyní ji upravujete v Q{toQ} {toYear} — PGL, ceny a doba platnosti byly automaticky aktualizovány na aktuální čtvrtletí (přepočítáno {count} položek).',
     stalePglBannerLegacy: '{count} starších položek (bez plné uložené konfigurace) dostalo pouze nové PGL — zkontrolujte je ručně, marže/cena nemusí být přepočítány.',
@@ -3016,6 +3024,8 @@ export const de: Translations = {
     saveFailed: 'Angebot konnte nicht gespeichert werden',
     editOffer: 'Angebot bearbeiten',
     currentlyEditingBanner: 'Sie bearbeiten gerade Angebot:',
+    readOnlyBanner: 'Nur Ansicht - Angebot wurde an den Kunden gesendet:',
+    renegotiateBanner: 'Nachverhandlung - Speichern erstellt eine neue Version desselben Angebots:',
     stalePglBannerTitle: 'PGL aktualisiert',
     stalePglBannerBody: 'Dieses Angebot wurde für Q{fromQ} {fromYear} kalkuliert. Sie bearbeiten es jetzt in Q{toQ} {toYear} — PGL, Preise und Gültigkeitszeitraum wurden automatisch auf das aktuelle Quartal aktualisiert ({count} Position(en) neu berechnet).',
     stalePglBannerLegacy: '{count} ältere Position(en) (ohne vollständig gespeicherte Konfiguration) haben nur das neue PGL erhalten — bitte manuell prüfen, Marge/Preis wurden eventuell nicht neu berechnet.',

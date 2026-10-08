@@ -26,6 +26,7 @@ export interface OfferRow {
   offer_data: (OfferDataInput & Record<string, unknown>) | null;
   root_offer_id: number | null;
   version_number: number;
+  client_decision: 'pending' | 'won' | 'lost' | null;
   [key: string]: unknown;
 }
 
@@ -72,7 +73,13 @@ export async function describeOffer(ctx: AccessContext, offer: OfferRow, db: Db 
   );
   const actions = offerActions(
     ctx,
-    { userId: offer.user_id, flowId: offer.flow_id, status: offer.status, isLatest: latest.rows[0].is_latest === true },
+    {
+      userId: offer.user_id,
+      flowId: offer.flow_id,
+      status: offer.status,
+      isLatest: latest.rows[0].is_latest === true,
+      clientDecision: offer.client_decision,
+    },
     steps,
     assessment?.plan ?? null
   );

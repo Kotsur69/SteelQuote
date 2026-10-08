@@ -9,7 +9,9 @@
 //    ONE quote. Summing all of them triple-counts the tonnage. The latest version per
 //    family is picked FIRST, in a CTE, before any analytical filter runs - otherwise a
 //    status filter could drop the newest version and let an older one stand in for the
-//    family, reporting a state the offer left long ago.
+//    family, reporting a state the offer left long ago. This is also what makes a
+//    renegotiation count once: a lost offer edited and re-sent four times is one family,
+//    so it is one won offer if the last round was won, or one lost offer if all were lost.
 //
 // 2. TIMEZONE. The bucket dates are produced by to_char in Postgres, so the database
 //    timezone decides which day an offer belongs to. Node, which may well be running in
