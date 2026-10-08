@@ -10,6 +10,7 @@ import { fieldViolation } from '@/lib/access/fieldGuards';
 import { loadBaseResolver, loadDefaultMarginPct } from '@/lib/access/config';
 import { accessError } from '@/lib/access/errors';
 import type { AccessContext } from '@/lib/access/types';
+import { validateOfferItems } from '@/lib/offerItemValidation';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -106,6 +107,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // (display_name to kolumna generowana, przelicza się sama przy UPDATE/INSERT).
     if (!offer_data || typeof offer_data !== 'object' || !Number.isInteger(offerId)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+    const itemsError = validateOfferItems(offer_data);
+    if (itemsError) {
+      return NextResponse.json({ error: itemsError }, { status: 400 });
     }
     const name = typeof offer_name === 'string' && offer_name.trim() ? offer_name.trim() : null;
 

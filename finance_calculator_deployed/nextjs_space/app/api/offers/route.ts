@@ -9,6 +9,7 @@ import { createAssessor, loadStepsForOffers, offerActions, type OfferStatus } fr
 import { fieldViolation } from '@/lib/access/fieldGuards';
 import { loadBaseResolver, loadDefaultMarginPct } from '@/lib/access/config';
 import { accessError } from '@/lib/access/errors';
+import { validateOfferItems } from '@/lib/offerItemValidation';
 
 const OFFER_COLUMNS = `o.id, o.offer_name, o.display_name, o.offer_data, o.status, o.user_id,
   o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at, o.rejection_reason, o.sent_at,
@@ -110,6 +111,10 @@ export async function POST(request: NextRequest) {
     // display_name) sama nada "offer_<ID>" w tym samym INSERCIE.
     if (!offer_data || typeof offer_data !== 'object') {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+    const itemsError = validateOfferItems(offer_data);
+    if (itemsError) {
+      return NextResponse.json({ error: itemsError }, { status: 400 });
     }
 
     const membership = ctx.memberships.find((m) => m.flowId === flowId);
