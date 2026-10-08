@@ -1,0 +1,18 @@
+/* V9 Warm Sand: cream/sand light theme, burnt-orange accent, generous rounding, calm and friendly */
+:root,.dark,[style*="--bg: #0f1117"],[style*="--bg: #eef0f6"]{--logo:url(assets/logo-color.svg) !important;
+  --bg:#f7f2ec !important;--bg-panel:#efe7de !important;--bg-card:#fffdfa !important;--bg-input:#fbf7f2 !important;--border:#e5d9cc !important;--border-hi:#c4ad97 !important;
+  --accent-cr:var(--accent) !important;--accent:#C4501F !important;--accent-light:#F58847 !important;--accent-tint:rgba(196,80,31,.07) !important;--accent-tint-strong:rgba(196,80,31,.13) !important;
+  --accent-sum:#7F1878 !important;--text-primary:#2b1f17 !important;--text-secondary:#5a4636 !important;--text-muted:#9a8574 !important;--text-value:#2b1f17 !important}
+[class*="rounded-"]:not(.rounded-full){border-radius:16px !important}
+.bg-card{box-shadow:0 8px 24px -16px rgba(90,60,30,.35)}
+header.flex.mb-7{border-bottom:none !important}
+nav a{border-radius:999px !important}
+nav a[class*="border-[#3b8ef5]"]{background:#2b1f17 !important;border-color:#2b1f17 !important;color:#fff !important}
+[class*="from-[#e8a020]"][class*="to-[#f0c040]"]{background:linear-gradient(110deg,#E74341,#F58847) !important;border-radius:999px !important}
+/* Login */
+.min-h-screen[class*="bg-[#0f1117]"]{background:url(assets/AM_Graphic_Shapes_RGB_A4_2.png) right -80px bottom -40px/auto 75% no-repeat,#f7f2ec !important}
+[class*="bg-[#1e2333]"]{background:#fffdfa !important;border:1px solid #e5d9cc !important;border-radius:28px !important;box-shadow:0 30px 60px -30px rgba(90,60,30,.4) !important}
+[class*="text-[#e8ecf5]"]{color:#2b1f17 !important}
+[class*="text-[#7b88aa]"]{color:#7a6452 !important}
+[class*="text-[#4a536b]"]{color:#a8937f !important}
+[class*="bg-[#141720]"]{background:#fbf7f2 !important;border-color:#e5d9cc !important;color:#2b1f17 !important;border-radius:14px !important}

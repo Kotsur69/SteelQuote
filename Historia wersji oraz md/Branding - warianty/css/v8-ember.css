@@ -1,0 +1,17 @@
+/* V8 Ember Dark: near-black workspace with the full AM gradient header bar, warm red accent */
+:root,.dark,[style*="--bg: #0f1117"],[style*="--bg: #eef0f6"]{--logo:url(assets/logo-white.svg) !important;
+  --bg:#0d0c0e !important;--bg-panel:#161417 !important;--bg-card:#1b181c !important;--bg-input:#121013 !important;--border:#2c282e !important;--border-hi:#4d4650 !important;
+  --accent-cr:var(--accent) !important;--accent:#F06A55 !important;--accent-light:#F58847 !important;--accent-tint:rgba(240,106,85,.09) !important;--accent-tint-strong:rgba(240,106,85,.16) !important;
+  --accent-sum:#F58847 !important;--text-primary:#f4f0f2 !important;--text-secondary:#bdb4b9 !important;--text-muted:#7f767c !important;--text-value:#fff !important}
+header.flex.mb-7{background:var(--am-gradient);border:none !important;padding:18px 24px !important;border-radius:14px;box-shadow:0 20px 50px -25px rgba(231,67,65,.6)}
+header.flex.mb-7 h1,header.flex.mb-7 h1 *{color:#fff !important}
+header.flex.mb-7 p,header.flex.mb-7 p *{color:rgba(255,255,255,.85) !important}
+header.flex.mb-7 button,header.flex.mb-7 select,header.flex.mb-7 a,header.flex.mb-7 [class*="bg-"]:not([class*="from-"]){background:rgba(0,0,0,.18) !important;border-color:rgba(255,255,255,.35) !important;color:#fff !important}
+header.flex.mb-7 button *,header.flex.mb-7 a *{color:#fff !important}
+/* Login */
+.min-h-screen[class*="bg-[#0f1117]"]{background:url(assets/AM_Graphic_Shapes_RGB_A4_4.png) left -60px bottom/auto 90% no-repeat,#0d0c0e !important}
+[class*="bg-[#1e2333]"]{background:#1b181c !important;border:1px solid #2c282e !important;border-radius:16px !important;box-shadow:0 30px 80px -20px rgba(0,0,0,.8) !important}
+[class*="text-[#e8ecf5]"]{color:#f4f0f2 !important}
+[class*="text-[#7b88aa]"]{color:#bdb4b9 !important}
+[class*="text-[#4a536b]"]{color:#7f767c !important}
+[class*="bg-[#141720]"]{background:#121013 !important;border-color:#2c282e !important}

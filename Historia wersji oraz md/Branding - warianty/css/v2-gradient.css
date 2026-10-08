@@ -1,0 +1,23 @@
+/* V2 Gradient Header: full AM gradient app bar with white logo, clean light workspace */
+:root,[style*="--bg: #eef0f6"]{--logo:url(assets/logo-white.svg) !important;
+  --bg:#f7f6f8 !important;--bg-panel:#efedf1 !important;--bg-card:#ffffff !important;--bg-input:#faf9fb !important;--border:#e0dce4 !important;--border-hi:#b9b0c2 !important;
+  --accent-cr:var(--accent) !important;--accent:#7F1878 !important;--accent-light:#C12974 !important;--accent-tint:rgba(127,24,120,.06) !important;--accent-tint-strong:rgba(127,24,120,.11) !important;
+  --accent-sum:#C12974 !important;--text-primary:#1b1320 !important;--text-secondary:#4a3f50 !important;--text-muted:#8a8091 !important;--text-value:#1b1320 !important}
+.dark,[style*="--bg: #0f1117"]{--bg:#140f17 !important;--bg-panel:#1c1620 !important;--bg-card:#231c28 !important;--bg-input:#18121c !important;--border:#3a3040 !important;--border-hi:#5c4d66 !important;
+  --accent:#E55AA0 !important;--accent-cr:var(--accent) !important;--accent-light:#F58847 !important;--accent-tint:rgba(229,90,160,.10) !important;--accent-tint-strong:rgba(229,90,160,.17) !important;
+  --text-primary:#f4eef6 !important;--text-secondary:#bfb3c6 !important;--text-muted:#83778a !important;--text-value:#fff !important}
+header.flex.mb-7{background:var(--am-gradient);border:none !important;padding:18px 24px !important;border-radius:0 0 18px 18px}
+header.flex.mb-7 h1,header.flex.mb-7 h1 *{color:#fff !important}
+header.flex.mb-7 p,header.flex.mb-7 p *{color:rgba(255,255,255,.85) !important}
+header.flex.mb-7 button,header.flex.mb-7 select,header.flex.mb-7 a{background:rgba(255,255,255,.14) !important;border-color:rgba(255,255,255,.4) !important;color:#fff !important}
+header.flex.mb-7 button *,header.flex.mb-7 a *{color:#fff !important}
+/* Login: light backdrop with organic gradient shape, white card */
+.min-h-screen[class*="bg-[#0f1117]"]{background:url(assets/AM_Graphic_Shapes_RGB_A4_2.png) right top/auto 100% no-repeat,#ffffff !important}
+[class*="bg-[#1e2333]"]{background:#fff !important;border:none !important;box-shadow:0 30px 70px -25px rgba(127,24,120,.45) !important;border-radius:20px !important}
+[class*="bg-[#1e2333]"] [class*="from-[#3b8ef5]"]{--logo:url(assets/logo-color.svg)}
+[class*="text-[#e8ecf5]"]{color:#1b1320 !important}
+[class*="text-[#7b88aa]"]{color:#6e6375 !important}
+[class*="text-[#4a536b]"]{color:#9a90a0 !important}
+[class*="bg-[#141720]"]{background:#faf9fb !important;border-color:#e0dce4 !important;color:#1b1320 !important;border-radius:10px !important}
+[class*="from-[#e8a020]"][class*="to-[#f0c040]"]{border-radius:10px !important}
+header.flex.mb-7 [class*="bg-"]:not([class*="from-"]){background-color:rgba(255,255,255,.14) !important;color:#fff !important}

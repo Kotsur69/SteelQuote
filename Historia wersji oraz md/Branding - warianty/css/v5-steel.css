@@ -1,0 +1,21 @@
+/* V5 Steel Industrial: cool graphite + steel greys, sharp corners, orange accent, gradient only as a hairline */
+:root,.dark,[style*="--bg: #0f1117"],[style*="--bg: #eef0f6"]{--logo:url(assets/logo-color.svg) !important;
+  --bg:#eceef0 !important;--bg-panel:#e2e5e8 !important;--bg-card:#ffffff !important;--bg-input:#f5f6f7 !important;--border:#cfd4d9 !important;--border-hi:#9aa2ab !important;
+  --accent-cr:var(--accent) !important;--accent:#D9622B !important;--accent-light:#F58847 !important;--accent-tint:rgba(217,98,43,.07) !important;--accent-tint-strong:rgba(217,98,43,.13) !important;
+  --accent-sum:#414141 !important;--text-primary:#1f2328 !important;--text-secondary:#414141 !important;--text-muted:#7a828b !important;--text-value:#111418 !important}
+[class*="rounded-"]:not(.rounded-full){border-radius:3px !important}
+header.flex.mb-7{--logo:url(assets/logo-white.svg);background:#2b2f34;padding:16px 22px !important;border:none !important;border-bottom:3px solid transparent !important;border-image:var(--am-gradient) 1 !important}
+header.flex.mb-7 h1,header.flex.mb-7 h1 *{color:#fff !important;letter-spacing:.02em}
+header.flex.mb-7 p,header.flex.mb-7 p *{color:#b9c0c7 !important}
+header.flex.mb-7 button,header.flex.mb-7 select,header.flex.mb-7 a,header.flex.mb-7 [class*="bg-"]:not([class*="from-"]){background:#3a3f45 !important;border-color:#50565d !important;color:#fff !important}
+header.flex.mb-7 button *,header.flex.mb-7 a *{color:#fff !important}
+nav a{text-transform:uppercase;letter-spacing:.08em;font-size:12px !important}
+th{text-transform:uppercase;letter-spacing:.06em}
+[class*="from-[#e8a020]"][class*="to-[#f0c040]"]{background:#D9622B !important}
+/* Login */
+.min-h-screen[class*="bg-[#0f1117]"]{background:linear-gradient(180deg,#2b2f34 0 46%,#eceef0 46%) !important}
+[class*="bg-[#1e2333]"]{background:#fff !important;border:1px solid #cfd4d9 !important;border-top:4px solid transparent !important;border-image:var(--am-gradient) 1 !important;border-radius:3px !important;box-shadow:0 24px 50px -24px rgba(0,0,0,.45) !important}
+[class*="text-[#e8ecf5]"]{color:#1f2328 !important}
+[class*="text-[#7b88aa]"]{color:#5d656e !important}
+[class*="text-[#4a536b]"]{color:#8b939b !important}
+[class*="bg-[#141720]"]{background:#f5f6f7 !important;border-color:#cfd4d9 !important;color:#1f2328 !important;border-radius:3px !important}

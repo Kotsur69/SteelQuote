@@ -1,0 +1,17 @@
+/* V6 Aurora Light: soft pastel wash of the AM gradient behind frosted white cards, magenta accent */
+:root,.dark,[style*="--bg: #0f1117"],[style*="--bg: #eef0f6"]{--logo:url(assets/logo-color.svg) !important;
+  --bg:transparent !important;--bg-panel:rgba(255,255,255,.55) !important;--bg-card:rgba(255,255,255,.82) !important;--bg-input:rgba(255,255,255,.92) !important;--border:rgba(127,24,120,.13) !important;--border-hi:rgba(127,24,120,.32) !important;
+  --accent-cr:var(--accent) !important;--accent:#B0236A !important;--accent-light:#E74341 !important;--accent-tint:rgba(176,35,106,.07) !important;--accent-tint-strong:rgba(176,35,106,.13) !important;
+  --accent-sum:#7F1878 !important;--text-primary:#26142a !important;--text-secondary:#4d3a52 !important;--text-muted:#8d7d92 !important;--text-value:#26142a !important}
+html,body{background:radial-gradient(900px 600px at 0% 0%,#f3dcef 0%,transparent 60%),radial-gradient(900px 700px at 100% 10%,#fde3d6 0%,transparent 60%),radial-gradient(900px 700px at 50% 100%,#f8dbe4 0%,transparent 60%),#fbf6f8 !important;background-attachment:fixed !important}
+.bg-card,.bg-panel{backdrop-filter:blur(14px);box-shadow:0 10px 30px -18px rgba(127,24,120,.35)}
+[class*="rounded-"]:not(.rounded-full){border-radius:14px !important}
+nav a[class*="border-[#3b8ef5]"]{background:var(--am-gradient) !important;border-color:transparent !important;color:#fff !important}
+/* Login */
+.min-h-screen[class*="bg-[#0f1117]"]{background:radial-gradient(700px 500px at 10% 10%,#f0c6e6 0%,transparent 60%),radial-gradient(800px 600px at 95% 90%,#fdd0b8 0%,transparent 60%),#fbf6f8 !important}
+[class*="bg-[#1e2333]"]{background:rgba(255,255,255,.75) !important;backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.9) !important;border-radius:24px !important;box-shadow:0 30px 70px -30px rgba(127,24,120,.45) !important}
+[class*="text-[#e8ecf5]"]{color:#26142a !important}
+[class*="text-[#7b88aa]"]{color:#6f5d74 !important}
+[class*="text-[#4a536b]"]{color:#9a8b9f !important}
+[class*="bg-[#141720]"]{background:#fff !important;border-color:rgba(127,24,120,.15) !important;color:#26142a !important;border-radius:12px !important}
+[class*="from-[#e8a020]"][class*="to-[#f0c040]"]{border-radius:12px !important}

@@ -1,0 +1,14 @@
+/* V3 Midnight: dark warm charcoal, gradient for CTAs and active states, white logo */
+:root,.dark,[style*="--bg: #0f1117"],[style*="--bg: #eef0f6"]{--logo:url(assets/logo-white.svg) !important;
+  --bg:#121014 !important;--bg-panel:#1a171d !important;--bg-card:#201c24 !important;--bg-input:#17141a !important;--border:#332d38 !important;--border-hi:#574c5e !important;
+  --accent-cr:var(--accent) !important;--accent:#F58847 !important;--accent-light:#F7A06E !important;--accent-tint:rgba(245,136,71,.09) !important;--accent-tint-strong:rgba(245,136,71,.16) !important;
+  --accent-sum:#E74341 !important;--text-primary:#f5f1f6 !important;--text-secondary:#b9aebd !important;--text-muted:#857a8a !important;--text-value:#ffffff !important}
+body{background:radial-gradient(1200px 500px at 100% -10%,rgba(193,41,116,.20),transparent 60%),var(--bg) !important;background-attachment:fixed !important}
+nav a[class*="border-[#3b8ef5]"]{background:var(--am-gradient) !important;border-color:transparent !important;color:#fff !important}
+/* Login */
+.min-h-screen[class*="bg-[#0f1117]"]{background:url(assets/AM_Graphic_Shapes_RGB_A4_2.png) right -40px top/auto 100% no-repeat,#121014 !important}
+[class*="bg-[#1e2333]"]{background:#201c24 !important;border-color:#332d38 !important;box-shadow:0 30px 80px -20px rgba(0,0,0,.7) !important;border-radius:16px !important}
+[class*="text-[#e8ecf5]"]{color:#f5f1f6 !important}
+[class*="text-[#7b88aa]"]{color:#b9aebd !important}
+[class*="text-[#4a536b]"]{color:#857a8a !important}
+[class*="bg-[#141720]"]{background:#17141a !important;border-color:#332d38 !important}
