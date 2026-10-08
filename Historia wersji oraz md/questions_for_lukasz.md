@@ -13,7 +13,7 @@ Przy każdym pytaniu wystarczy krótka odpowiedź: „tak jak teraz” albo co z
 
 **1.1. Na jakim poziomie jest CEO w Flow 2 (Projekty)?**
 Arkusz ROLE podaje N+3, ale strona startowa i symulator mówią, że Flow 2 kończy się na N+2.
-Teraz: CEO jest w Flow 2 na poziomie N+2, a we Flow 1 na N+3.
+Teraz: CEO jest w Flow 2 na poziomie N+2, a we Flow 1 na N+3. 
 
 **1.2. Kto w Flow 2 jest „pierwszym przełożonym” (N+1)?**
 Symulator nazywa go „Dyrektorem działu”, ale w arkuszu ROLE w Flow 2 nie ma nikogo na poziomie
@@ -22,12 +22,12 @@ Teraz: w Flow 2 nie ma poziomu N+1. Gdyby jakaś reguła go wymagała, oferta id
 
 **1.3. Czym różni się Internal Front Office od External Front Office (Flow 1)?**
 W formularzu obie role mają identyczne uprawnienia i widoczność.
-Teraz: działają tak samo, różnią się tylko nazwą.
+Teraz: działają tak samo, różnią się tylko nazwą. brak
 
 **1.4. Czy jedna osoba może pracować w obu flow?**
 Na przykład handlowiec, który obsługuje i dystrybucję, i projekty.
 Teraz: tak. Taka osoba przełącza się między flow w górnym pasku, a nowa oferta trafia do flow,
-w którym akurat pracuje.
+w którym akurat pracuje. brak
 
 **1.5. Od czego zależy, do którego flow należy oferta?**
 Od osoby, która ją robi, od klienta czy od rodzaju zamówienia?
@@ -41,7 +41,7 @@ Teraz: wszystkie stare oferty są w Flow 1. Jeśli niektóre są projektowe, trz
 W formularzu Administrator ma wszystkie uprawnienia na „TAK”.
 Teraz: tak, może zatwierdzić lub odrzucić każdą ofertę i nie potrzebuje niczyjej zgody na własne
 oferty. Jeśli ma tylko zarządzać kontami i ustawieniami, a nie decydować o cenach, trzeba to
-wyłączyć.
+wyłączyć. brak 
 
 ---
 
@@ -50,11 +50,11 @@ wyłączyć.
 **2.1. Czy ofertę może zatwierdzić dowolny kierownik danego poziomu, czy tylko przełożony handlowca?**
 Na przykład: handlowiec z oddziału A wysyła ofertę do walidacji na poziomie N+1.
 Teraz: ofertę widzi i może zatwierdzić każdy Area Sales Manager w danym flow, czyli wspólna
-kolejka. W aplikacji nie ma jeszcze podziału na oddziały i regiony (patrz punkt 4.2).
+kolejka. W aplikacji nie ma jeszcze podziału na oddziały i regiony (patrz punkt 4.2). brak 
 
 **2.2. Kto przejmuje zatwierdzanie, gdy osoba z danego poziomu jest na urlopie?**
 Teraz: przy wspólnej kolejce zrobi to każdy inny kierownik z tego samego poziomu. Jeśli na danym
-poziomie jest tylko jedna osoba, oferta czeka.
+poziomie jest tylko jedna osoba, oferta czeka. brak 
 
 **2.3. Czy oferta przechodzi przez wszystkie szczeble po kolei, czy trafia od razu do właściwego poziomu?**
 Na przykład: oferta wymaga N+2. Czy najpierw zatwierdza N+1, a potem N+2?
@@ -81,14 +81,27 @@ handlowca.
 Teraz: zatwierdzający może poprawić ofertę, a potem zatwierdzić ją i od razu wysłać do klienta
 w imieniu handlowca. Aplikacja zapisuje, kto ją wysłał. Jeśli po poprawce oferta wymaga wyższego
 poziomu (np. bardziej obniżona marża), idzie wyżej.
-Pytanie: czyje dane kontaktowe mają być na PDF w takiej ofercie, handlowca czy zatwierdzającego?
+Pytanie: czyje dane kontaktowe mają być na PDF w takiej ofercie, handlowca czy zatwierdzającego? brak
 
 **2.8. Co, jeśli handlowiec zmieni ofertę już zatwierdzoną, ale jeszcze nie wysłaną?**
 Teraz: jeśli po zmianie oferta znów spełnia warunki walidacji, wraca do zatwierdzenia od nowa.
 
 **2.9. Jak długo zatwierdzenie jest ważne?**
 Czy zatwierdzona oferta może czekać na wysłanie dowolnie długo?
-Teraz: tak, bez limitu.
+Teraz: tak, bez limitu. brak 
+
+**2.10. Co, jeśli reguły zmienią się, gdy oferta już czeka na zatwierdzenie?**
+Wymagany poziom ustalany jest w chwili wysłania oferty do walidacji. Jeśli później reguły
+się zmienią (albo oferta pochodzi jeszcze ze starej wersji aplikacji), oferta mogła czekać
+u zbyt niskiego poziomu.
+Teraz: przy zatwierdzaniu aplikacja sprawdza reguły jeszcze raz. Jeśli dziś wymagają wyższego
+poziomu, oferta nie zostaje zatwierdzona, tylko przechodzi wyżej (np. od kierownika ASM do
+Head of Cluster i Head of Projects). Poziom nigdy nie jest obniżany, a zgody już udzielone
+(np. Head of Projects) pozostają ważne.
+Przykład: oferta wysłana przy marży 4,0% czekała u ASM; dziś ma marżę 2,4%, więc wymaga N+2.
+Pytanie: czy tak ma być również dla starych ofert, które czekały na zatwierdzenie przed
+wdrożeniem nowego obiegu (wtedy zatwierdzał je starszy handlowiec)? Czy te oferty powinien
+nadal móc zatwierdzić ASM, tak jak w starym systemie?
 
 ---
 
@@ -99,7 +112,7 @@ Teraz: tak, bez limitu.
 **3.1. Czy marżę liczymy dla całej oferty, czy osobno dla każdej pozycji?**
 Na przykład: oferta ma 5 pozycji, 4 z marżą 6% i jedną z marżą 2%.
 Teraz: liczy się najniższa marża spośród pozycji. Wystarczy jedna słaba pozycja, żeby oferta
-wymagała zgody.
+wymagała zgody. brak
 
 **3.2. Co oznacza „2,1” w regule marży na N+2?**
 Formularz mówi: „marża niższa niż zakładana, ≥ 2,1% → N+2”. Można to czytać na dwa sposoby:
@@ -189,16 +202,16 @@ widoczną adnotacją. Do wyboru są jeszcze: zablokować wysyłkę albo zawsze w
 Przy handlowcach Front Office i Key Account Managerze uwaga mówi „tylko własne oferty”, ale
 w kolumnach „oferty zespołu” i „oferty oddziału” jest „TAK”.
 Teraz: działa według zaznaczeń „TAK”, czyli handlowiec widzi też oferty zespołu.
-Co jest prawdą: tylko własne czy także zespołu i oddziału?
+Co jest prawdą: tylko własne czy także zespołu i oddziału? brak 
 
 **4.2. Jakie są oddziały i regiony i kto do nich należy?**
 Formularz używa pojęć „oddział” i „region”, ale ich nie definiuje.
 Teraz: aplikacja zna tylko zespoły (kierownik i jego handlowcy), więc „oddział” i „region”
 działają jak „zespół”. Potrzebujemy listy oddziałów i regionów z przypisanymi osobami. Wtedy
-zatwierdzanie może też trafiać do właściwego kierownika, a nie do wspólnej kolejki.
+zatwierdzanie może też trafiać do właściwego kierownika, a nie do wspólnej kolejki. brak 
 
 **4.3. Head of Cluster: „widoczność całego regionu”, ale „wszystkie oferty we flow” ma „NIE”.**
-To ma sens tylko wtedy, gdy regionów jest kilka. Ile ich jest?
+To ma sens tylko wtedy, gdy regionów jest kilka. Ile ich jest? brak
 
 **4.4. Uwaga przy Head of Projects mówi o „kolejce N+1”.**
 Head of Projects jest jednak na osobnym poziomie (NPR), a nie N+1. Do tego uwaga przy Head of
@@ -209,12 +222,53 @@ wymagają NPR.
 **4.5. Czy zatwierdzający widzi ofertę tylko na czas zatwierdzania, czy także później?**
 Na przykład: Head of Cluster zatwierdził ofertę spoza swojego regionu.
 Teraz: widzi ją tylko wtedy, gdy czeka na jego decyzję albo gdy pozwala na to jego zakres
-widoczności.
+widoczności. brak
 
 ---
 
 ## 5. Nowe konta
 
-**5.1. Kto zakłada konta i przypisuje role?**
+**5.1. Kto zakłada konta i przypisuje role?** 
 Teraz: nowe konto nie ma żadnego dostępu, dopóki Administrator nie przypisze go do flow i roli.
-Czy to zawsze ma być Administrator, czy na przykład także kierownik dla swoich handlowców?
+Czy to zawsze ma być Administrator, czy na przykład także kierownik dla swoich handlowców? brak 
+
+
+pare odpowiedzi: 
+ 1.1 niech ceo będzie n+2 w tym workflow ale zawsze jest na top jak mamy piramidę wizualną, jeśli będziemy chcieli dodać do workflow jednak do workflow 2 osobę n+2 to
+  ceo przyjmuje n+3 i tak włąsnie to wygląda w wizualnej wersji piramidy.
+ 1.2 teorytycznie jest to npr i n+3. w tym worflow po prostu nie ma n+2 który sam może
+  walidowac oferty. więc nie ma tam po prostu osoby która waliduje n+1 tylko oferta od razu idzie wyżej do osby która nie musi być walidowana czyli do n+3 
+1.3 (odp łukasza) na tą chwile tylko nazwą. 
+1.4 (odp łukasza)
+1.5 od osoby która tworzy ofertę 
+1.6 to są i tak oferty testowe także mogą zostać w flow1
+1.7 (odp łukasza) tak na tą chwile zostawiamy cały panel dla admina
+2.1 (odp łukasza) wszystko zależy od flow, w flow 1 oddział czy region to zakres. do oddziału należą Internal Front Office External Front Office Area Sales Manager - który widzi oferty oddziału. do regionu należy Head of Cluster - czyli osoba widząca wszystkie oddziały i wszystkie oferty z tych oddziałow ale nie widzi flow2 - tak mi się wydaje ale do ustalenia
+2.2 (odp łukasza)
+2.3 Przechodzi tylko do N+2
+2.4 tak jak myślisz 
+2.5 tak
+2.6 Jeżeli kilka warunków jest spełnionych jednocześnie, obowiązuje najwyższy wymagany poziom akceptacji.
+2.7 (odp łukasza)
+2.8 dokładnie tak
+2.9 (odp łukasza)
+2.10 (odp łukasza)
+3.1 (odp łukasza)
+3.2 wariant b - do możliwość zmiany w adminie
+3.3 tak 
+3.4 i niech tak zostanie póki co ale daj możliwość dodania reguł dla n+3 w flow1 ale na tą chwilę nie ceo niue waliduje niczego 
+3.5 tak niech idzie zgodnie z arkuszem reguł 
+3.6 zmiana w góre nie trzeba dodawać zgody
+3.7 tak o to chodzi
+3.8 (odp łukasza) zrób panel w panelu admina do możliwości zmiany poszczególnych wartości 
+3.9 tak dobrze rozumiemy 
+3.10 kwartał kalendarzowy dokładnie jak w tej chwili zbudowany jest system PGL q1-q2 itp. i tak n+2 ma być wwwzywany
+3.11 do jednego 1000000 ale z mozliwoscia dodania różnych progów i różnych osób do dodania modyfikacji do poszczególnych poziomów do walidacji
+3.12 (odp łukasza)
+3.13 (odp łukasza)
+4.1 (odp łukasza)
+4.2 (odp łukasza)
+4.3 (odp łukasza)
+4.4 i tak to ma działać
+4.5 (odp łukasza)
+5.1 (odp łukasza)
