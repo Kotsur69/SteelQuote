@@ -1,0 +1,18 @@
+/* V1 Classic Light: warm white, official logo colours, thin gradient strip on top */
+:root,[style*="--bg: #eef0f6"]{--logo:url(assets/logo-color.svg) !important;
+  --bg:#f6f5f3 !important;--bg-panel:#eeece9 !important;--bg-card:#ffffff !important;--bg-input:#f9f8f7 !important;--border:#dedad5 !important;--border-hi:#b3aba3 !important;
+  --accent-cr:var(--accent) !important;--accent:#E74341 !important;--accent-light:#F58847 !important;--accent-tint:rgba(231,67,65,.07) !important;--accent-tint-strong:rgba(231,67,65,.12) !important;
+  --accent-sum:#C12974 !important;--text-primary:#1d1d1f !important;--text-secondary:#414141 !important;--text-muted:#857f79 !important;--text-value:#1d1d1f !important}
+.dark,[style*="--bg: #0f1117"]{--logo:url(assets/logo-white.svg) !important;
+  --bg:#18171a !important;--bg-panel:#201f23 !important;--bg-card:#262429 !important;--bg-input:#1c1b1e !important;--border:#38353b !important;--border-hi:#5a5560 !important;
+  --accent:#F26B4F !important;--accent-cr:var(--accent) !important;--accent-light:#F58847 !important;--accent-tint:rgba(242,107,79,.10) !important;--accent-tint-strong:rgba(242,107,79,.16) !important;
+  --text-primary:#f2f0ee !important;--text-secondary:#b8b2ac !important;--text-muted:#7c766f !important;--text-value:#ffffff !important}
+body::before{content:'';position:fixed;top:0;left:0;right:0;height:4px;background:var(--am-gradient);z-index:100}
+/* Login */
+.min-h-screen[class*="bg-[#0f1117]"]{background:var(--bg) !important}
+[class*="bg-[#1e2333]"]{background:#fff !important;border-color:var(--border) !important;box-shadow:0 20px 50px -20px rgba(65,65,65,.25) !important;border-top:4px solid transparent !important;border-image:var(--am-gradient) 1 !important}
+[class*="bg-[#1e2333]"] [class*="from-[#3b8ef5]"]{--logo:url(assets/logo-color.svg)}
+[class*="text-[#e8ecf5]"]{color:#1d1d1f !important}
+[class*="text-[#7b88aa]"]{color:#6d6761 !important}
+[class*="text-[#4a536b]"]{color:#9a948d !important}
+[class*="bg-[#141720]"]{background:#f9f8f7 !important;border-color:#dedad5 !important;color:#1d1d1f !important}

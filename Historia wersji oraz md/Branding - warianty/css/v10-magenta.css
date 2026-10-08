@@ -1,0 +1,19 @@
+/* V10 Magenta Bold: white workspace, solid magenta header band, magenta active tab, gradient login */
+:root,.dark,[style*="--bg: #0f1117"],[style*="--bg: #eef0f6"]{--logo:url(assets/logo-white.svg) !important;
+  --bg:#f5f4f7 !important;--bg-panel:#eceaf0 !important;--bg-card:#ffffff !important;--bg-input:#faf9fb !important;--border:#dedae4 !important;--border-hi:#aea5b8 !important;
+  --accent-cr:var(--accent) !important;--accent:#C12974 !important;--accent-light:#E74341 !important;--accent-tint:rgba(193,41,116,.07) !important;--accent-tint-strong:rgba(193,41,116,.13) !important;
+  --accent-sum:#7F1878 !important;--text-primary:#1c1420 !important;--text-secondary:#4b4052 !important;--text-muted:#8b8193 !important;--text-value:#1c1420 !important}
+header.flex.mb-7{background:#C12974;border:none !important;padding:16px 24px !important;border-radius:12px}
+header.flex.mb-7 h1,header.flex.mb-7 h1 *{color:#fff !important}
+header.flex.mb-7 p,header.flex.mb-7 p *{color:rgba(255,255,255,.85) !important}
+header.flex.mb-7 button,header.flex.mb-7 select,header.flex.mb-7 a,header.flex.mb-7 [class*="bg-"]:not([class*="from-"]){background:rgba(255,255,255,.16) !important;border-color:rgba(255,255,255,.4) !important;color:#fff !important}
+header.flex.mb-7 button *,header.flex.mb-7 a *{color:#fff !important}
+nav a[class*="border-[#3b8ef5]"]{background:#C12974 !important;border-color:#C12974 !important;color:#fff !important}
+/* Login */
+.min-h-screen[class*="bg-[#0f1117]"]{background:linear-gradient(135deg,#7F1878 0%,#C12974 55%,#E74341 100%) !important}
+[class*="bg-[#1e2333]"]{background:#fff !important;border:none !important;border-radius:18px !important;box-shadow:0 40px 80px -30px rgba(40,0,30,.6) !important}
+[class*="bg-[#1e2333]"] [class*="from-[#3b8ef5]"]{--logo:url(assets/logo-color.svg)}
+[class*="text-[#e8ecf5]"]{color:#1c1420 !important}
+[class*="text-[#7b88aa]"]{color:#6b6072 !important}
+[class*="text-[#4a536b]"]{color:#9a90a2 !important}
+[class*="bg-[#141720]"]{background:#faf9fb !important;border-color:#dedae4 !important;color:#1c1420 !important;border-radius:10px !important}
