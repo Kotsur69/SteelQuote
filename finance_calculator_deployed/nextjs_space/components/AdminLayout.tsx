@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
+import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import { useDarkMode } from '@/lib/useDarkMode';
 import { useHighContrast } from '@/lib/useHighContrast';
 import { getThemeVars } from '@/lib/themeVars';
@@ -60,6 +61,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <LanguageSelector />
+          <AdminSettingsShortcut />
 
           <button
             onClick={() => setIsDark(!isDark)}

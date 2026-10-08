@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
+import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import Navigation from '@/components/Navigation';
 import Modal from '@/components/Modal';
 import { ClientInfo, normalizeClientInfo, hasRequiredCompanyDetails } from '@/lib/pdfGenerator';
@@ -521,6 +522,7 @@ export default function OffersPage() {
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <LanguageSelector />
+          <AdminSettingsShortcut />
 
           <button
             onClick={() => setIsDark(!isDark)}

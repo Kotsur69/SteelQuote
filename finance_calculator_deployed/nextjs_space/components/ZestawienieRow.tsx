@@ -36,6 +36,11 @@ export default function ZestawienieRow({
   onDelete,
 }: ZestawienieRowProps) {
   const dragControls = useDragControls();
+  // Margin % straight from the item snapshot; legacy items without `inputs` derive it
+  // from marza = (PGL + Σ Mill) × pct / 100 (see pricingEngine.computeCenaKoncowa).
+  const cenaWsadu = item.pgl + item.sumaHuta;
+  const rawMarginPct = item.inputs?.marginPct ?? (cenaWsadu > 0 ? (item.marza / cenaWsadu) * 100 : null);
+  const marginPct = rawMarginPct === null ? null : Math.round(rawMarginPct * 100) / 100;
 
   return (
     <Reorder.Item
@@ -96,12 +101,16 @@ export default function ZestawienieRow({
           {item.type}
         </span>
       </td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.pgl)}</td>
       <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaHuta)}</td>
       <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaSSC)}</td>
-      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.marza)}</td>
-      <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{moneyCeil(item.finalPrice)} {symbol}</td>
-      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{item.tons.toFixed(2)} {t.common.tons}</td>
-      <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{moneyCeil(item.totalValue)} {currencyUnit}</td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right whitespace-nowrap">
+        {money2(item.marza)}
+        {marginPct !== null && <span className="text-[var(--text-secondary)]"> / {marginPct}%</span>}
+      </td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right whitespace-nowrap">{moneyCeil(item.finalPrice)} {symbol}</td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right whitespace-nowrap">{item.tons.toFixed(2)} {t.common.tons}</td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right whitespace-nowrap">{moneyCeil(item.totalValue)} {currencyUnit}</td>
       <td className="px-2 sm:px-3.5 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
         <button onClick={() => onEdit(item.id)} className="bg-transparent border border-[var(--border)] rounded px-1 sm:px-2 py-1 text-[13px] hover:border-[var(--accent-cr)] hover:text-[var(--accent-cr)] transition-colors ml-0.5 sm:ml-1" title={t.common.edit}>✏️</button>
         <button onClick={() => onDuplicate(item.id)} className="bg-transparent border border-[var(--border)] rounded px-1 sm:px-2 py-1 text-[13px] hover:border-[#a78bfa] hover:text-[#a78bfa] transition-colors ml-0.5 sm:ml-1" title={t.common.duplicate}>⧉</button>

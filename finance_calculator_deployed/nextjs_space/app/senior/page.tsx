@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
+import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import Navigation from '@/components/Navigation';
 import TeamEditor from '@/components/TeamEditor';
 import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
@@ -16,6 +17,7 @@ import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
 import ClientPaymentTermsPanel from '@/components/ClientPaymentTermsPanel';
+import SeniorStatusTiles, { type SeniorFilter } from '@/components/SeniorStatusTiles';
 import ValidationNotice, { type ValidationSnapshot } from '@/components/ValidationNotice';
 import { useAccess } from '@/lib/useAccess';
 import type { ItemInputs } from '@/lib/calculatorData';
@@ -30,7 +32,7 @@ import {
 } from '@/lib/currency';
 
 type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
-type FilterTab = 'pending' | 'awaitingSend' | 'reviewed' | 'all' | 'clients';
+type FilterTab = SeniorFilter;
 
 interface Offer {
   id: number;
@@ -107,6 +109,8 @@ export default function SeniorPage() {
   const [rejectComment, setRejectComment] = useState('');
   const [rejectError, setRejectError] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Offer list container - the dashboard tiles scroll it into view after filtering.
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Szukanie po nazwie własnej, nazwie zastępczej ("offer_30") albo numerze oferty.
   // Filtruje baza (?q=) — ta sama fraza działa tak samo jak w /offers i /admin/oferty.
@@ -292,6 +296,9 @@ export default function SeniorPage() {
     if (activeTab === 'pending') return o.awaiting_me === true;
     if (activeTab === 'awaitingSend') return o.status === 'approved';
     if (activeTab === 'reviewed') return o.status === 'approved' || o.status === 'rejected';
+    if (activeTab === 'pending_review' || activeTab === 'rejected' || activeTab === 'sent') {
+      return o.status === activeTab;
+    }
     return true;
   });
 
@@ -348,6 +355,14 @@ export default function SeniorPage() {
 
   const pendingCount = offers.filter((o) => o.awaiting_me).length;
   const awaitingSendCount = offers.filter((o) => o.status === 'approved').length;
+  const statusCounts: Record<OfferStatus, number> = { draft: 0, pending_review: 0, approved: 0, rejected: 0, sent: 0 };
+  for (const o of offers) statusCounts[o.status]++;
+
+  // Tile click: filter the list, then bring it into view so the per-offer actions are right there.
+  const handleTileSelect = (filter: FilterTab) => {
+    setActiveTab(filter);
+    requestAnimationFrame(() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
 
   const cssVars = getThemeVars(isDark, highContrast);
 
@@ -371,6 +386,7 @@ export default function SeniorPage() {
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <LanguageSelector />
+          <AdminSettingsShortcut />
           <button
             onClick={() => setIsDark(!isDark)}
             className="bg-[var(--bg-card)] border border-[var(--border)] rounded-[20px] px-3.5 py-1.5 text-[11px] font-mono text-[var(--text-secondary)] flex items-center gap-1.5 hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] transition-colors"
@@ -405,6 +421,15 @@ export default function SeniorPage() {
       {/* Navigation */}
       <Navigation isDark={isDark} highContrast={highContrast} />
 
+      {/* Dashboard tiles - each one filters the offer list below */}
+      <SeniorStatusTiles
+        pendingCount={pendingCount}
+        awaitingSendCount={awaitingSendCount}
+        statusCounts={statusCounts}
+        activeFilter={activeTab}
+        onSelect={handleTileSelect}
+      />
+
       {/* Message Toast */}
       {message && (
         <div
@@ -433,7 +458,7 @@ export default function SeniorPage() {
       )}
 
       {/* Filter Tabs */}
-      <div className="flex flex-wrap gap-2 mb-5">
+      <div ref={listRef} className="flex flex-wrap gap-2 mb-5 scroll-mt-4">
         {(['pending', 'awaitingSend', 'reviewed', 'all'] as FilterTab[]).map((tab) => {
           const label =
             tab === 'pending'
@@ -479,7 +504,11 @@ export default function SeniorPage() {
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)] flex-wrap">
           <span className="w-2 h-2 rounded-full bg-[var(--accent-hrs)]" />
           <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">
-            {t.senior.pendingOffers}
+            {activeTab === 'pending_review' || activeTab === 'rejected' || activeTab === 'sent'
+              ? t.offerStatus[activeTab]
+              : activeTab === 'awaitingSend'
+                ? t.senior.awaitingSend
+                : t.senior.pendingOffers}
           </h2>
           <OfferSearchInput
             value={search}
@@ -530,7 +559,9 @@ export default function SeniorPage() {
           </div>
         ) : filteredOffers.length === 0 ? (
           <div className="p-8 text-center">
-            <p className="text-[var(--text-secondary)] text-sm">{t.senior.noOffersPending}</p>
+            <p className="text-[var(--text-secondary)] text-sm">
+              {activeTab === 'pending' ? t.senior.noOffersPending : t.senior.noOffersForFilter}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-[var(--border)]">

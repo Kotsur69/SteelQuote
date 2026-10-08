@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
+import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import Navigation from '@/components/Navigation';
 import { useDarkMode } from '@/lib/useDarkMode';
@@ -398,6 +399,7 @@ export default function AnalyticsPage() {
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <LanguageSelector />
+          <AdminSettingsShortcut />
 
           {/* Currency switch, same as the calculator: EUR is the stored truth, PLN a display
               layer converted with each offer's own frozen rate. */}

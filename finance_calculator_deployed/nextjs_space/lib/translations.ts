@@ -68,6 +68,11 @@ export interface Translations {
     pendingOnly: string;
     reviewedByMe: string;
     awaitingSend: string;
+    // Dashboard tiles on /senior - the action each big tile leads to, and the empty state
+    // for a status filter picked from the tiles.
+    tileReviewHint: string;
+    tileSendHint: string;
+    noOffersForFilter: string;
     // Zakładka "Klienci" (migracja 023) — senior ustawia tam własny termin płatności
     // klienta. Panel dzieli etykiety pól z client.paymentTermDays/-Hint/-Placeholder.
     clientsTabLabel: string;
@@ -827,6 +832,9 @@ export const pl: Translations = {
     pendingOnly: 'Oczekujące na weryfikację',
     reviewedByMe: 'Zweryfikowane przeze mnie',
     awaitingSend: 'Oczekujące na wysłanie',
+    tileReviewHint: 'Zatwierdź lub odrzuć →',
+    tileSendHint: 'Wyślij do klienta →',
+    noOffersForFilter: 'Brak ofert w tym widoku.',
     clientsTabLabel: 'Klienci',
   },
 
@@ -1541,6 +1549,9 @@ export const en: Translations = {
     pendingOnly: 'Awaiting review',
     reviewedByMe: 'Reviewed by me',
     awaitingSend: 'Awaiting send',
+    tileReviewHint: 'Approve or reject →',
+    tileSendHint: 'Send to client →',
+    noOffersForFilter: 'No offers in this view.',
     clientsTabLabel: 'Clients',
   },
 
@@ -2254,6 +2265,9 @@ export const cs: Translations = {
     pendingOnly: 'Čekající na kontrolu',
     reviewedByMe: 'Zkontrolováno mnou',
     awaitingSend: 'Čekající na odeslání',
+    tileReviewHint: 'Schválit nebo zamítnout →',
+    tileSendHint: 'Odeslat klientovi →',
+    noOffersForFilter: 'V tomto zobrazení nejsou žádné nabídky.',
     clientsTabLabel: 'Klienti',
   },
 
@@ -2967,6 +2981,9 @@ export const de: Translations = {
     pendingOnly: 'Ausstehende Prüfung',
     reviewedByMe: 'Von mir geprüft',
     awaitingSend: 'Wartend auf Versand',
+    tileReviewHint: 'Freigeben oder ablehnen →',
+    tileSendHint: 'An Kunden senden →',
+    noOffersForFilter: 'Keine Angebote in dieser Ansicht.',
     clientsTabLabel: 'Kunden',
   },
 

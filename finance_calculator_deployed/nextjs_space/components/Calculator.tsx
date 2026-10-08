@@ -46,6 +46,7 @@ import {
 import { attachNotesToZestawienie } from '@/lib/itemNotes';
 import { offerNumberLabel } from '@/lib/offerVersions';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
+import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
 import { useUnsavedGuard } from '@/lib/unsavedGuard';
 import { pglBaseForType, type AppSettings } from '@/lib/currency';
@@ -1670,6 +1671,7 @@ export default function Calculator() {
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <LanguageSelector />
+          <AdminSettingsShortcut />
 
           <button
             onClick={() => setIsDark(!isDark)}
@@ -2916,6 +2918,7 @@ export default function Calculator() {
                   <th className="px-1.5 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{language === 'pl' ? 'Lp.' : 'No.'}</th>
                   <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-left tracking-wide uppercase whitespace-nowrap min-w-[130px] sm:min-w-[180px]">{language === 'pl' ? 'Opis (Gatunek / Wymiary)' : 'Desc (Grade / Dimensions)'}</th>
                   <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-center tracking-wide uppercase whitespace-nowrap">{t.zestawienie.type}</th>
+                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">PGL</th>
                   <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">Σ {t.zestawienie.mill}</th>
                   <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">Σ {t.zestawienie.ssc}</th>
                   <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.margin}</th>
@@ -2928,7 +2931,7 @@ export default function Calculator() {
               {zestawienie.length === 0 ? (
                 <tbody>
                   <tr>
-                    <td colSpan={11} className="text-center py-7 font-mono text-xs text-[var(--text-muted)] italic">
+                    <td colSpan={12} className="text-center py-7 font-mono text-xs text-[var(--text-muted)] italic">
                       {t.zestawienie.empty}
                     </td>
                   </tr>
@@ -2962,7 +2965,7 @@ export default function Calculator() {
               {/* Total — aligned under the Tons / Value columns above */}
               <tfoot>
                 <tr className={`border-t-[1.5px] border-[var(--border-hi)] ${isDark ? 'bg-[rgba(0,0,0,0.10)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
-                  <td colSpan={8} className="px-3.5 py-3.5 text-[11px] font-bold tracking-widest uppercase text-[var(--text-secondary)] whitespace-nowrap">
+                  <td colSpan={9} className="px-3.5 py-3.5 text-[11px] font-bold tracking-widest uppercase text-[var(--text-secondary)] whitespace-nowrap">
                     {t.zestawienie.total}
                   </td>
                   <td className="px-3.5 py-3.5 font-mono text-sm font-bold text-[var(--text-value)] text-right whitespace-nowrap">
