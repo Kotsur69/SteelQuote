@@ -669,6 +669,73 @@ export interface Translations {
   };
 
   // Analytics panel (app/analytics)
+  priceBook: {
+    navLabel: string;
+    title: string;
+    subtitle: string;
+    linkHint: string;
+    retiredMark: string;
+    notMigrated: string;
+    loadFailed: string;
+    sectionGrades: string;
+    sectionHuta: string;
+    sectionSsc: string;
+    sectionMatrices: string;
+    sectionFallbacks: string;
+    sectionLog: string;
+    gradeSearch: string;
+    gradeName: string;
+    gradeSurcharge: string;
+    gradeYield: string;
+    gradeAdd: string;
+    gradeRetire: string;
+    gradeRestore: string;
+    gradeNew: string;
+    gradeRemoveNew: string;
+    gradeRetiredCount: string;
+    showRetired: string;
+    gradeNameRequired: string;
+    gradeDuplicate: string;
+    matrixDimension: string;
+    matrixCoating: string;
+    matrixBaseLength: string;
+    matrixBaseWidth: string;
+    matrixPickling: string;
+    matrixTeardrop: string;
+    thicknessMm: string;
+    widthMm: string;
+    lengthMm: string;
+    value: string;
+    emptyCell: string;
+    fallbackBase: string;
+    fallbackTeardrop: string;
+    yieldAmount: string;
+    defaultValue: string;
+    changedCount: string;
+    save: string;
+    saving: string;
+    discard: string;
+    saved: string;
+    saveFailed: string;
+    invalidValue: string;
+    unsaved: string;
+    logEmpty: string;
+    logWhen: string;
+    logWho: string;
+    logType: string;
+    logWhat: string;
+    logChange: string;
+    logAllTypes: string;
+    actionSet: string;
+    actionReset: string;
+    actionGradeAdd: string;
+    actionGradeSurcharge: string;
+    actionGradeYield: string;
+    actionGradeRetire: string;
+    actionGradeRestore: string;
+    forbiddenTitle: string;
+    forbiddenText: string;
+  };
   analytics: {
     title: string;
     subtitle: string;
@@ -1388,6 +1455,73 @@ export const pl: Translations = {
     },
   },
   // Analytics panel (app/analytics)
+  priceBook: {
+    navLabel: 'Cennik dopłat',
+    title: 'Cennik dopłat',
+    subtitle: 'Dopłaty huty i SSC osobno dla każdego typu stali. Zmiany działają od następnego otwarcia kalkulatora — zapisane oferty zachowują swoje ceny.',
+    linkHint: 'Gatunki, opcje, matryce i progi — osobno dla każdego typu stali',
+    retiredMark: 'wycofany',
+    notMigrated: 'Brak tabel cennika w bazie — uruchom migrations/031_price_book.sql. Kalkulator działa na wartościach domyślnych, zapis jest niedostępny.',
+    loadFailed: 'Nie udało się wczytać cennika',
+    sectionGrades: 'Gatunki',
+    sectionHuta: 'Opcje huty',
+    sectionSsc: 'Opcje SSC',
+    sectionMatrices: 'Matryce',
+    sectionFallbacks: 'Progi i dopłata Re',
+    sectionLog: 'Historia zmian',
+    gradeSearch: 'Szukaj gatunku…',
+    gradeName: 'Gatunek',
+    gradeSurcharge: 'Dopłata',
+    gradeYield: 'Dopłata Re',
+    gradeAdd: 'Dodaj gatunek',
+    gradeRetire: 'Wycofaj',
+    gradeRestore: 'Przywróć',
+    gradeNew: 'nowy',
+    gradeRemoveNew: 'Usuń',
+    gradeRetiredCount: 'wycofane: {count}',
+    showRetired: 'Pokaż wycofane',
+    gradeNameRequired: 'Podaj nazwę gatunku',
+    gradeDuplicate: 'Gatunek o tej nazwie już istnieje',
+    matrixDimension: 'Wymiar (grubość × szerokość)',
+    matrixCoating: 'Powłoka (grubość × klasa)',
+    matrixBaseLength: 'Dopłata bazowa SSC (grubość × długość)',
+    matrixBaseWidth: 'Dopłata bazowa SSC (grubość × szerokość)',
+    matrixPickling: 'Trawienie (grubość)',
+    matrixTeardrop: 'Łezka (szerokość)',
+    thicknessMm: 'Grubość [mm]',
+    widthMm: 'Szerokość [mm]',
+    lengthMm: 'Długość [mm]',
+    value: 'Dopłata',
+    emptyCell: 'brak w tabeli',
+    fallbackBase: 'Dopłata bazowa SSC poza tabelą',
+    fallbackTeardrop: 'Łezka — szerokość powyżej 2050 mm',
+    yieldAmount: 'Kwota dopłaty Re (gatunki oznaczone „Dopłata Re”)',
+    defaultValue: 'domyślnie {value}',
+    changedCount: 'Zmiany: {count}',
+    save: 'Zapisz {type}',
+    saving: 'Zapisywanie…',
+    discard: 'Odrzuć zmiany',
+    saved: 'Zapisano cennik {type}',
+    saveFailed: 'Nie udało się zapisać cennika',
+    invalidValue: 'Liczba od -1000 do 5000, maks. 2 miejsca po przecinku',
+    unsaved: 'niezapisane zmiany',
+    logEmpty: 'Brak zmian w cenniku',
+    logWhen: 'Kiedy',
+    logWho: 'Kto',
+    logType: 'Typ',
+    logWhat: 'Pozycja',
+    logChange: 'Zmiana',
+    logAllTypes: 'Wszystkie typy',
+    actionSet: 'zmiana',
+    actionReset: 'przywrócono domyślną',
+    actionGradeAdd: 'nowy gatunek',
+    actionGradeSurcharge: 'dopłata gatunku',
+    actionGradeYield: 'dopłata Re',
+    actionGradeRetire: 'wycofano gatunek',
+    actionGradeRestore: 'przywrócono gatunek',
+    forbiddenTitle: 'Brak dostępu',
+    forbiddenText: 'Cennik dopłat może edytować tylko superużytkownik.',
+  },
   analytics: {
     title: 'Analiza',
     subtitle: 'Tony, klienci i skuteczność ofert',
@@ -2107,6 +2241,73 @@ export const en: Translations = {
     },
   },
   // Analytics panel (app/analytics)
+  priceBook: {
+    navLabel: 'Price book',
+    title: 'Surcharge price book',
+    subtitle: 'Mill and SSC surcharges per steel type. Changes apply from the next calculator load — saved offers keep their prices.',
+    linkHint: 'Grades, options, matrices and fallbacks — per steel type',
+    retiredMark: 'retired',
+    notMigrated: 'Price book tables are missing — run migrations/031_price_book.sql. The calculator uses the defaults; saving is unavailable.',
+    loadFailed: 'Could not load the price book',
+    sectionGrades: 'Grades',
+    sectionHuta: 'Mill options',
+    sectionSsc: 'SSC options',
+    sectionMatrices: 'Matrices',
+    sectionFallbacks: 'Fallbacks and yield surcharge',
+    sectionLog: 'Change log',
+    gradeSearch: 'Search grade…',
+    gradeName: 'Grade',
+    gradeSurcharge: 'Surcharge',
+    gradeYield: 'Yield surcharge',
+    gradeAdd: 'Add grade',
+    gradeRetire: 'Retire',
+    gradeRestore: 'Restore',
+    gradeNew: 'new',
+    gradeRemoveNew: 'Remove',
+    gradeRetiredCount: 'retired: {count}',
+    showRetired: 'Show retired',
+    gradeNameRequired: 'Enter a grade name',
+    gradeDuplicate: 'A grade with this name already exists',
+    matrixDimension: 'Dimension (thickness × width)',
+    matrixCoating: 'Coating (thickness × class)',
+    matrixBaseLength: 'SSC base surcharge (thickness × length)',
+    matrixBaseWidth: 'SSC base surcharge (thickness × width)',
+    matrixPickling: 'Pickling (thickness)',
+    matrixTeardrop: 'Teardrop (width)',
+    thicknessMm: 'Thickness [mm]',
+    widthMm: 'Width [mm]',
+    lengthMm: 'Length [mm]',
+    value: 'Surcharge',
+    emptyCell: 'not in the table',
+    fallbackBase: 'SSC base surcharge outside the table',
+    fallbackTeardrop: 'Teardrop — width above 2050 mm',
+    yieldAmount: 'Yield surcharge amount (grades marked “Yield surcharge”)',
+    defaultValue: 'default {value}',
+    changedCount: 'Changes: {count}',
+    save: 'Save {type}',
+    saving: 'Saving…',
+    discard: 'Discard changes',
+    saved: 'Saved the {type} price book',
+    saveFailed: 'Could not save the price book',
+    invalidValue: 'Number from -1000 to 5000, max. 2 decimals',
+    unsaved: 'unsaved changes',
+    logEmpty: 'No price book changes yet',
+    logWhen: 'When',
+    logWho: 'Who',
+    logType: 'Type',
+    logWhat: 'Item',
+    logChange: 'Change',
+    logAllTypes: 'All types',
+    actionSet: 'changed',
+    actionReset: 'reset to default',
+    actionGradeAdd: 'grade added',
+    actionGradeSurcharge: 'grade surcharge',
+    actionGradeYield: 'yield surcharge',
+    actionGradeRetire: 'grade retired',
+    actionGradeRestore: 'grade restored',
+    forbiddenTitle: 'Access denied',
+    forbiddenText: 'Only the superuser can edit the price book.',
+  },
   analytics: {
     title: 'Analytics',
     subtitle: 'Tonnage, clients and offer success',
@@ -2825,6 +3026,73 @@ export const cs: Translations = {
     },
   },
   // Analytics panel (app/analytics)
+  priceBook: {
+    navLabel: 'Ceník příplatků',
+    title: 'Ceník příplatků',
+    subtitle: 'Příplatky hutě a SSC pro každý typ oceli zvlášť. Změny platí od dalšího otevření kalkulačky — uložené nabídky si ponechají své ceny.',
+    linkHint: 'Jakosti, volby, matice a meze — pro každý typ oceli',
+    retiredMark: 'vyřazená',
+    notMigrated: 'V databázi chybí tabulky ceníku — spusťte migrations/031_price_book.sql. Kalkulačka používá výchozí hodnoty, ukládání není dostupné.',
+    loadFailed: 'Ceník se nepodařilo načíst',
+    sectionGrades: 'Jakosti',
+    sectionHuta: 'Volby hutě',
+    sectionSsc: 'Volby SSC',
+    sectionMatrices: 'Matice',
+    sectionFallbacks: 'Meze a příplatek Re',
+    sectionLog: 'Historie změn',
+    gradeSearch: 'Hledat jakost…',
+    gradeName: 'Jakost',
+    gradeSurcharge: 'Příplatek',
+    gradeYield: 'Příplatek Re',
+    gradeAdd: 'Přidat jakost',
+    gradeRetire: 'Vyřadit',
+    gradeRestore: 'Obnovit',
+    gradeNew: 'nová',
+    gradeRemoveNew: 'Odebrat',
+    gradeRetiredCount: 'vyřazené: {count}',
+    showRetired: 'Zobrazit vyřazené',
+    gradeNameRequired: 'Zadejte název jakosti',
+    gradeDuplicate: 'Jakost s tímto názvem již existuje',
+    matrixDimension: 'Rozměr (tloušťka × šířka)',
+    matrixCoating: 'Povlak (tloušťka × třída)',
+    matrixBaseLength: 'Základní příplatek SSC (tloušťka × délka)',
+    matrixBaseWidth: 'Základní příplatek SSC (tloušťka × šířka)',
+    matrixPickling: 'Moření (tloušťka)',
+    matrixTeardrop: 'Slza (šířka)',
+    thicknessMm: 'Tloušťka [mm]',
+    widthMm: 'Šířka [mm]',
+    lengthMm: 'Délka [mm]',
+    value: 'Příplatek',
+    emptyCell: 'není v tabulce',
+    fallbackBase: 'Základní příplatek SSC mimo tabulku',
+    fallbackTeardrop: 'Slza — šířka nad 2050 mm',
+    yieldAmount: 'Výše příplatku Re (jakosti označené „Příplatek Re“)',
+    defaultValue: 'výchozí {value}',
+    changedCount: 'Změny: {count}',
+    save: 'Uložit {type}',
+    saving: 'Ukládání…',
+    discard: 'Zahodit změny',
+    saved: 'Ceník {type} uložen',
+    saveFailed: 'Ceník se nepodařilo uložit',
+    invalidValue: 'Číslo od -1000 do 5000, max. 2 desetinná místa',
+    unsaved: 'neuložené změny',
+    logEmpty: 'Zatím žádné změny ceníku',
+    logWhen: 'Kdy',
+    logWho: 'Kdo',
+    logType: 'Typ',
+    logWhat: 'Položka',
+    logChange: 'Změna',
+    logAllTypes: 'Všechny typy',
+    actionSet: 'změna',
+    actionReset: 'vráceno na výchozí',
+    actionGradeAdd: 'nová jakost',
+    actionGradeSurcharge: 'příplatek jakosti',
+    actionGradeYield: 'příplatek Re',
+    actionGradeRetire: 'jakost vyřazena',
+    actionGradeRestore: 'jakost obnovena',
+    forbiddenTitle: 'Přístup odepřen',
+    forbiddenText: 'Ceník příplatků může upravovat pouze superuživatel.',
+  },
   analytics: {
     title: 'Analýza',
     subtitle: 'Tonáž, zákazníci a úspěšnost nabídek',
@@ -3543,6 +3811,73 @@ export const de: Translations = {
     },
   },
   // Analytics panel (app/analytics)
+  priceBook: {
+    navLabel: 'Aufpreisliste',
+    title: 'Aufpreisliste',
+    subtitle: 'Werks- und SSC-Aufpreise je Stahlsorte. Änderungen gelten ab dem nächsten Öffnen des Kalkulators — gespeicherte Angebote behalten ihre Preise.',
+    linkHint: 'Güten, Optionen, Matrizen und Grenzwerte — je Stahlsorte',
+    retiredMark: 'ausgemustert',
+    notMigrated: 'Die Tabellen der Aufpreisliste fehlen — migrations/031_price_book.sql ausführen. Der Kalkulator nutzt die Standardwerte; Speichern ist nicht möglich.',
+    loadFailed: 'Aufpreisliste konnte nicht geladen werden',
+    sectionGrades: 'Güten',
+    sectionHuta: 'Werksoptionen',
+    sectionSsc: 'SSC-Optionen',
+    sectionMatrices: 'Matrizen',
+    sectionFallbacks: 'Grenzwerte und Re-Aufpreis',
+    sectionLog: 'Änderungsprotokoll',
+    gradeSearch: 'Güte suchen…',
+    gradeName: 'Güte',
+    gradeSurcharge: 'Aufpreis',
+    gradeYield: 'Re-Aufpreis',
+    gradeAdd: 'Güte hinzufügen',
+    gradeRetire: 'Ausmustern',
+    gradeRestore: 'Wiederherstellen',
+    gradeNew: 'neu',
+    gradeRemoveNew: 'Entfernen',
+    gradeRetiredCount: 'ausgemustert: {count}',
+    showRetired: 'Ausgemusterte anzeigen',
+    gradeNameRequired: 'Gütenname eingeben',
+    gradeDuplicate: 'Eine Güte mit diesem Namen existiert bereits',
+    matrixDimension: 'Abmessung (Dicke × Breite)',
+    matrixCoating: 'Beschichtung (Dicke × Klasse)',
+    matrixBaseLength: 'SSC-Grundaufpreis (Dicke × Länge)',
+    matrixBaseWidth: 'SSC-Grundaufpreis (Dicke × Breite)',
+    matrixPickling: 'Beizen (Dicke)',
+    matrixTeardrop: 'Tränenblech (Breite)',
+    thicknessMm: 'Dicke [mm]',
+    widthMm: 'Breite [mm]',
+    lengthMm: 'Länge [mm]',
+    value: 'Aufpreis',
+    emptyCell: 'nicht in der Tabelle',
+    fallbackBase: 'SSC-Grundaufpreis außerhalb der Tabelle',
+    fallbackTeardrop: 'Tränenblech — Breite über 2050 mm',
+    yieldAmount: 'Höhe des Re-Aufpreises (Güten mit „Re-Aufpreis“)',
+    defaultValue: 'Standard {value}',
+    changedCount: 'Änderungen: {count}',
+    save: '{type} speichern',
+    saving: 'Speichern…',
+    discard: 'Änderungen verwerfen',
+    saved: 'Aufpreisliste {type} gespeichert',
+    saveFailed: 'Aufpreisliste konnte nicht gespeichert werden',
+    invalidValue: 'Zahl von -1000 bis 5000, max. 2 Nachkommastellen',
+    unsaved: 'ungespeicherte Änderungen',
+    logEmpty: 'Noch keine Änderungen',
+    logWhen: 'Wann',
+    logWho: 'Wer',
+    logType: 'Sorte',
+    logWhat: 'Position',
+    logChange: 'Änderung',
+    logAllTypes: 'Alle Sorten',
+    actionSet: 'geändert',
+    actionReset: 'auf Standard zurückgesetzt',
+    actionGradeAdd: 'Güte hinzugefügt',
+    actionGradeSurcharge: 'Gütenaufpreis',
+    actionGradeYield: 'Re-Aufpreis',
+    actionGradeRetire: 'Güte ausgemustert',
+    actionGradeRestore: 'Güte wiederhergestellt',
+    forbiddenTitle: 'Kein Zugriff',
+    forbiddenText: 'Nur der Superuser darf die Aufpreisliste bearbeiten.',
+  },
   analytics: {
     title: 'Analyse',
     subtitle: 'Tonnage, Kunden und Angebotserfolg',

@@ -2,7 +2,7 @@
 
 import { Reorder, useDragControls } from 'framer-motion';
 import { GripVertical } from 'lucide-react';
-import { GRADE_TABLES } from '@/lib/calculatorData';
+import { findGrade, type PriceBook } from '@/lib/priceBook';
 import type { Translations, Language } from '@/lib/translations';
 import type { ZestawienieItem } from '@/components/Calculator';
 
@@ -16,6 +16,7 @@ interface ZestawienieRowProps {
   currencyUnit: string;
   money2: (eur: number) => string;
   moneyCeil: (eur: number) => string;
+  priceBook: PriceBook;
   onEdit: (id: number) => void;
   onDuplicate: (id: number) => void;
   onDelete: (id: number) => void;
@@ -31,6 +32,7 @@ export default function ZestawienieRow({
   currencyUnit,
   money2,
   moneyCeil,
+  priceBook,
   onEdit,
   onDuplicate,
   onDelete,
@@ -41,6 +43,12 @@ export default function ZestawienieRow({
   const cenaWsadu = item.pgl + item.sumaHuta;
   const rawMarginPct = item.inputs?.marginPct ?? (cenaWsadu > 0 ? (item.marza / cenaWsadu) * 100 : null);
   const marginPct = rawMarginPct === null ? null : Math.round(rawMarginPct * 100) / 100;
+  // One-time = the saved grade is not in the price book at all; retired = still in the book
+  // but no longer offered for new items.
+  const snapshotGrade = item.inputs?.selectedGrade;
+  const bookGrade = snapshotGrade ? findGrade(priceBook, item.type, snapshotGrade.name) : undefined;
+  const isOneTimeGrade = !!snapshotGrade && !bookGrade;
+  const isRetiredGrade = bookGrade?.retired === true;
 
   return (
     <Reorder.Item
@@ -76,12 +84,16 @@ export default function ZestawienieRow({
           {/* Znacznik gatunku jednorazowego — wyłącznie wewnętrzny (PDF i Excel
               pokazują samą nazwę). Sprawdzamy snapshot, a nie item.grade, żeby
               stare pozycje bez `inputs` nigdy nie dostały fałszywej etykiety. */}
-          {item.inputs?.selectedGrade &&
-            !GRADE_TABLES[item.type].some(g => g.name === item.inputs!.selectedGrade!.name) && (
-              <span className="text-[9px] font-semibold tracking-wider uppercase text-[var(--accent-cr)] border border-[var(--accent-cr)] rounded px-1.5 py-0.5">
-                {t.inputs.oneTimeGradeBadge}
-              </span>
-            )}
+          {isOneTimeGrade && (
+            <span className="text-[9px] font-semibold tracking-wider uppercase text-[var(--accent-cr)] border border-[var(--accent-cr)] rounded px-1.5 py-0.5">
+              {t.inputs.oneTimeGradeBadge}
+            </span>
+          )}
+          {isRetiredGrade && (
+            <span className="text-[9px] font-semibold tracking-wider uppercase text-[var(--text-muted)] border border-[var(--border)] rounded px-1.5 py-0.5">
+              {t.priceBook.retiredMark}
+            </span>
+          )}
         </div>
         <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">
           {item.thickness} × {item.width}{item.isCoil ? '' : ` × ${item.length}`} mm

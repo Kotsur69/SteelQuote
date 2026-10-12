@@ -9,29 +9,18 @@ import ZestawienieRow from '@/components/ZestawienieRow';
 import TransportPanel, { EMPTY_TRANSPORT_ROUTE, type TransportRoute } from '@/components/TransportPanel';
 import PaymentTermPicker from '@/components/PaymentTermPicker';
 import OfferValidityPicker from '@/components/OfferValidityPicker';
-import OfferReviewBar from '@/components/OfferReviewBar';
+import OfferReviewBar, { reviewReturnPath } from '@/components/OfferReviewBar';
 import { useAccess } from '@/lib/useAccess';
 import { accessErrorText, useAccessT } from '@/lib/i18n/access';
 import { computeTransport } from '@/lib/transportTariff';
 import {
-  GRADE_TABLES,
-  DIMENSION_MATRIX_HRS,
-  DIMENSION_MATRIX_CR,
-  DIMENSION_MATRIX_HDG,
-  DIMENSION_MATRIX_PICKLED,
-  DIMENSION_MATRIX_TEARDROP,
-  DIMENSION_MATRIX_ZM,
   MIN_THICKNESS_HRS,
   MIN_THICKNESS_CR,
   MIN_THICKNESS_HDG,
   MIN_THICKNESS_PICKLED,
   MIN_THICKNESS_TEARDROP,
   MIN_THICKNESS_ZM,
-  COATING_MATRIX_HDG,
-  COATING_MATRIX_ZM,
-  getTeardropSurcharge,
   TOL_THICK_OPTIONS,
-  YIELD_GRADES,
   SteelType,
   Grade,
   ItemInputs,
@@ -53,6 +42,24 @@ import { pglBaseForType, type AppSettings } from '@/lib/currency';
 import { quarterOfDateString, quarterOf, thisMonthValidityRange, type Quarter } from '@/lib/quarterUtils';
 import { addDaysToDateString, todayDateString, daysBetweenDateStrings } from '@/lib/dateUtils';
 import * as pricingEngine from '@/lib/pricingEngine';
+import {
+  DEFAULT_PRICE_BOOK,
+  DIMENSION_BANDS,
+  activeGrades,
+  findGrade,
+  optionValue,
+  scalarValue,
+  withBookPrices,
+  type OptionGroup,
+  type PriceBook,
+} from '@/lib/priceBook';
+import {
+  defaultOptionSelection,
+  optionSelectionFields,
+  restoreOptionSelection,
+  type OptionSelection,
+} from '@/lib/optionSelection';
+import { usePriceBook } from '@/lib/usePriceBook';
 import { formatWarning } from '@/lib/translations';
 import {
   ClientInfo,
@@ -124,15 +131,9 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
   isCoilMode: false,
   gradeInput: 'S235JR+N',
   selectedGrade: { name: 'S235JR+N', value: 24 },
-  tolThick: 0, tolThickIdx: 0,
-  cert: 5,
+  // Option selection by index (+ the default prices); restore re-prices from the live book.
+  ...optionSelectionFields(DEFAULT_PRICE_BOOK, 'HRS', defaultOptionSelection('HRS')),
   selectedCoating: 'Z275',
-  crZabezp: 0, crOpak: 5, crOpakIdx: 1, crPowierz: 0, crWykon: 0, crWykonIdx: 0, crZgrzew: -3,
-  hdgZabezp: 0, hdgZabezpIdx: 3, hdgOpak: 5, hdgOpakIdx: 1, hdgPowierz: 0, hdgWykon: 0, hdgZgrzew: -3,
-  zmZabezp: 0, zmZabezpIdx: 2, zmOpak: 5, zmOpakIdx: 1, zmPowierz: 0, zmZgrzew: -3,
-  sscLenTol: 0, sscFlatness: 0, sscSurface: 10,
-  sscMaxWeight: 0, sscMarking: 0, sscEdging: 0,
-  sscPacking: 0, sscPackingIdx: 0, sscLabels: 0,
   pglBase: 645, marginPct: 7, extra: 0, extraComment: '', extraCommentInPdf: false, transport: 20, tons: 1,
   validFrom: '', validTo: '', paymentTermDays: null,
   zestawienie: [],
@@ -160,7 +161,8 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
  */
 function migrateStaleOfferData(
   data: Record<string, any>,
-  freshSettings: AppSettings
+  freshSettings: AppSettings,
+  priceBook: PriceBook
 ): { data: Record<string, any>; notice: StalePglMigrationInfo | null } {
   const rawValidFrom: string = typeof data.validFrom === 'string' ? data.validFrom : '';
   const fromQ = rawValidFrom ? quarterOfDateString(rawValidFrom) : null;
@@ -187,7 +189,7 @@ function migrateStaleOfferData(
   const items: ZestawienieItem[] = Array.isArray(data.zestawienie) ? data.zestawienie : [];
   const nextZestawienie = items.map((item) => {
     const newPgl = pglBaseForType(item.type, freshSettings);
-    const recomputed = pricingEngine.computeItemPricing(item, newPgl, freshSettings);
+    const recomputed = pricingEngine.computeItemPricing(item, newPgl, freshSettings, priceBook);
     if (recomputed) {
       recalculatedCount += 1;
       return { ...item, ...recomputed };
@@ -259,6 +261,9 @@ export default function Calculator() {
     [currency, toDisplay]
   );
 
+  // Editable surcharge price book (code defaults until GET /api/price-book answers).
+  const { priceBook, ready: priceBookReady } = usePriceBook();
+
   // Steel type
   const [currentType, setCurrentType] = useState<SteelType>('HRS');
   
@@ -287,49 +292,49 @@ export default function Calculator() {
   const [gradeInput, setGradeInput] = useState('S235JR+N');
   const [selectedGrade, setSelectedGrade] = useState<Grade | null>({ name: 'S235JR+N', value: 24 });
   
-  // Huta surcharges
-  const [tolThick, setTolThick] = useState(0);
-  const [tolThickIdx, setTolThickIdx] = useState(0);
-  const [cert, setCert] = useState(5);
+  // Huta + SSC surcharge options: one selected index per option group. Prices are derived
+  // from the live price book by index (never stored here), so editing an item or loading an
+  // offer re-prices it from the current book. See lib/optionSelection.ts.
+  const [optionIdx, setOptionIdx] = useState<OptionSelection>(() => defaultOptionSelection('HRS'));
+  const setGroupIdx = useCallback((group: OptionGroup, idx: number) => {
+    setOptionIdx(prev => (prev[group] === idx ? prev : { ...prev, [group]: idx }));
+  }, []);
+  const priceOf = (group: OptionGroup) => optionValue(priceBook, currentType, group, optionIdx[group]);
   const [selectedCoating, setSelectedCoating] = useState('Z275');
-  
-  // CR specific
-  const [crZabezp, setCrZabezp] = useState(0);
-  const [crOpak, setCrOpak] = useState(5);
-  const [crOpakIdx, setCrOpakIdx] = useState(1); // paperPlastic
-  const [crPowierz, setCrPowierz] = useState(0);
-  const [crWykon, setCrWykon] = useState(0);
-  const [crWykonIdx, setCrWykonIdx] = useState(0); // normalFinish
-  const [crZgrzew, setCrZgrzew] = useState(-3);
-  
-  // HDG specific
-  const [hdgZabezp, setHdgZabezp] = useState(0);
-  const [hdgZabezpIdx, setHdgZabezpIdx] = useState(3); // CE (value 0)
-  const [hdgOpak, setHdgOpak] = useState(5);
-  const [hdgOpakIdx, setHdgOpakIdx] = useState(1); // paperPlastic
-  const [hdgPowierz, setHdgPowierz] = useState(0);
-  const [hdgWykon, setHdgWykon] = useState(0);
-  const [hdgZgrzew, setHdgZgrzew] = useState(-3);
 
-  // ZM specific (Magnelis) — bez osobnego "wykonania", tylko 4 grupy dopłat
-  const [zmZabezp, setZmZabezp] = useState(0);
-  const [zmZabezpIdx, setZmZabezpIdx] = useState(2); // CE (value 0)
-  const [zmOpak, setZmOpak] = useState(5);
-  const [zmOpakIdx, setZmOpakIdx] = useState(1); // paperPlastic
-  const [zmPowierz, setZmPowierz] = useState(0);
-  const [zmZgrzew, setZmZgrzew] = useState(-3);
+  const tolThick = priceOf('tolerance');
+  const cert = priceOf('cert');
+  const crZabezp = priceOf('crProtection');
+  const crOpak = priceOf('crPackaging');
+  const crPowierz = priceOf('crSurface');
+  const crWykon = priceOf('crFinish');
+  const crZgrzew = priceOf('crWeld');
+  const hdgZabezp = priceOf('hdgProtection');
+  const hdgOpak = priceOf('hdgPackaging');
+  const hdgPowierz = priceOf('hdgSurface');
+  const hdgWykon = priceOf('hdgFinish');
+  const hdgZgrzew = priceOf('hdgWeld');
+  const zmZabezp = priceOf('zmProtection');
+  const zmOpak = priceOf('zmPackaging');
+  const zmPowierz = priceOf('zmSurface');
+  const zmZgrzew = priceOf('zmWeld');
+  const sscLenTol = priceOf('sscLenTol');
+  const sscFlatness = priceOf('sscFlatness');
+  const sscSurface = priceOf('sscSurface');
+  const sscMaxWeight = priceOf('sscMaxWeight');
+  const sscMarking = priceOf('sscMarking');
+  const sscEdging = priceOf('sscEdging');
+  const sscPacking = priceOf('sscPacking');
+  const sscLabels = priceOf('sscLabels');
 
-  // SSC surcharges
-  const [sscLenTol, setSscLenTol] = useState(0);
-  const [sscFlatness, setSscFlatness] = useState(0);
-  const [sscSurface, setSscSurface] = useState(10);
-  const [sscMaxWeight, setSscMaxWeight] = useState(0);
-  const [sscMarking, setSscMarking] = useState(0);
-  const [sscEdging, setSscEdging] = useState(0);
-  const [sscPacking, setSscPacking] = useState(0);
-  const [sscPackingIdx, setSscPackingIdx] = useState(0); // S01
-  const [sscLabels, setSscLabels] = useState(0);
-  
+  // Props for a ToggleGroup of one option group: code labels, book prices, index selection.
+  const toggleProps = <T extends { label: string; value: number }>(group: OptionGroup, labeled: readonly T[]) => ({
+    options: withBookPrices(priceBook, currentType, group, labeled),
+    value: priceOf(group),
+    selectedIdx: optionIdx[group],
+    onChangeIdx: (_value: number, idx: number) => setGroupIdx(group, idx),
+  });
+
   // Summary
   const [pglBase, setPglBase] = useState(645);
   const [marginPct, setMarginPct] = useState(7);
@@ -479,17 +484,8 @@ export default function Calculator() {
   const gradeInputRef = useRef<HTMLInputElement>(null);
   const calculatorTopRef = useRef<HTMLDivElement>(null);
   
-  // Get active matrices based on type
-  const activeDimensionMatrix = useMemo(() => {
-    switch (currentType) {
-      case 'CR': return DIMENSION_MATRIX_CR;
-      case 'HDG': return DIMENSION_MATRIX_HDG;
-      case 'PICKLED': return DIMENSION_MATRIX_PICKLED;
-      case 'TEARDROP': return DIMENSION_MATRIX_TEARDROP;
-      case 'ZM': return DIMENSION_MATRIX_ZM;
-      default: return DIMENSION_MATRIX_HRS;
-    }
-  }, [currentType]);
+  // Band definitions of the active type (boundaries fixed in code, prices in the book).
+  const activeDimensionMatrix = DIMENSION_BANDS[currentType];
 
   const activeMinThickness = useMemo(() => {
     switch (currentType) {
@@ -502,12 +498,25 @@ export default function Calculator() {
     }
   }, [currentType]);
   
-  const activeGradeTable = useMemo(() => GRADE_TABLES[currentType], [currentType]);
-  
+  // Grades offered for new selections: the active ones from the book. A retired grade stays
+  // listed (marked) only while it is the current selection, e.g. on an edited old item.
+  const activeGradeTable = useMemo(() => {
+    const list: (Grade & { retired?: boolean })[] = activeGrades(priceBook, currentType)
+      .map(g => ({ name: g.name, value: g.surcharge }));
+    const selectedRetired = selectedGrade ? findGrade(priceBook, currentType, selectedGrade.name) : undefined;
+    if (selectedRetired?.retired) {
+      list.push({ name: selectedRetired.name, value: selectedRetired.surcharge, retired: true });
+    }
+    return list;
+  }, [priceBook, currentType, selectedGrade]);
+
+  // Book-priced grade surcharge (a one-time grade keeps its typed-in value).
+  const gradeValue = pricingEngine.effectiveGradeValue(priceBook, currentType, selectedGrade);
+
   // Get dimension surcharge — deleguje do lib/pricingEngine.ts (jedyne źródło prawdy,
   // współdzielone z migracją przeterminowanego PGL).
   const getDimensionSurcharge = useCallback((th: number, w: number): number | null =>
-    pricingEngine.getDimensionSurcharge(currentType, th, w), [currentType]);
+    pricingEngine.getDimensionSurcharge(priceBook, currentType, th, w), [priceBook, currentType]);
   
   // Get min thickness for width
   const getMinThicknessForWidth = useCallback((w: number): number | null => {
@@ -518,23 +527,6 @@ export default function Calculator() {
     }
     return null;
   }, [activeMinThickness]);
-  
-  // Get coating surcharge for HDG or ZM (matrix wybierana wg aktywnego typu) — deleguje do
-  // lib/pricingEngine.ts.
-  const getCoatingSurcharge = useCallback((th: number, coating: string, matrix: typeof COATING_MATRIX_HDG | typeof COATING_MATRIX_ZM): number | null =>
-    pricingEngine.getCoatingSurcharge(th, coating, matrix), []);
-
-  // Trawienie (PICKLED) — dopłata zależna wyłącznie od grubości.
-  const getPicklingSurcharge = useCallback((th: number): number | null =>
-    pricingEngine.getPicklingSurcharge(th), []);
-
-  // Get base length surcharge for HRS
-  const getBaseLengthSurchargeHRS = useCallback((th: number, len: number): number | null =>
-    pricingEngine.getBaseLengthSurchargeHRS(th, len), []);
-
-  // Get base surcharge for CR/HDG
-  const getBaseSurchargeCRHDG = useCallback((th: number, w: number): number | null =>
-    pricingEngine.getBaseSurchargeCRHDG(th, w), []);
   
   // Calculate dimension surcharge and warning
   const dimSurcharge = getDimensionSurcharge(thickness, width);
@@ -573,52 +565,45 @@ export default function Calculator() {
     return formatWarning(t.warnings.widthOutOfRange, { width });
   }, [dimSurcharge, thickness, width, minTh, activeDimensionMatrix, t.warnings]);
   
-  // Calculate coating surcharge for HDG or ZM
-  const coatingSurcharge = useMemo(() => {
-    if (currentType === 'HDG') return getCoatingSurcharge(thickness, selectedCoating, COATING_MATRIX_HDG) || 0;
-    if (currentType === 'ZM') return getCoatingSurcharge(thickness, selectedCoating, COATING_MATRIX_ZM) || 0;
-    return 0;
-  }, [currentType, thickness, selectedCoating, getCoatingSurcharge]);
+  // Calculate coating surcharge for HDG or ZM (null = class unavailable for this thickness)
+  const coatingSurcharge = (currentType === 'HDG' || currentType === 'ZM')
+    ? pricingEngine.getCoatingSurcharge(priceBook, currentType, thickness, selectedCoating)
+    : 0;
 
   // Trawienie — tylko PICKLED, zależne wyłącznie od grubości (nie toggle, jak dimSurcharge)
-  const picklingSurcharge = useMemo(() => {
-    if (currentType !== 'PICKLED') return 0;
-    return getPicklingSurcharge(thickness) || 0;
-  }, [currentType, thickness, getPicklingSurcharge]);
+  const picklingSurcharge = pricingEngine.computePicklingSurcharge(priceBook, currentType, thickness);
 
   // Dopłata Łezka — tylko TEARDROP, zależna od szerokości taśmy
-  const teardropSurcharge = currentType === 'TEARDROP' ? getTeardropSurcharge(width) : 0;
+  const teardropSurcharge = pricingEngine.computeTeardropSurcharge(priceBook, currentType, width);
 
   // Calculate base surcharge
-  const baseSurchargeRaw = useMemo(() => {
-    if (isCoilMode) return null;
-    if (currentType === 'HRS' || currentType === 'PICKLED' || currentType === 'TEARDROP') {
-      return getBaseLengthSurchargeHRS(thickness, length);
-    }
-    return getBaseSurchargeCRHDG(thickness, width);
-  }, [currentType, thickness, length, width, isCoilMode, getBaseLengthSurchargeHRS, getBaseSurchargeCRHDG]);
-  const baseSurcharge = isCoilMode ? 0 : (baseSurchargeRaw ?? 29);
+  const baseSurchargeRaw = isCoilMode
+    ? null
+    : pricingEngine.getBaseSurchargeRaw(priceBook, currentType, thickness, width, length);
+  const baseSurchargeFallback = scalarValue(priceBook, currentType, 'baseFallback');
+  const baseSurcharge = isCoilMode ? 0 : (baseSurchargeRaw ?? baseSurchargeFallback);
 
   const baseSurchargeWarning = useMemo(() => {
     if (isCoilMode || baseSurchargeRaw !== null) return null;
     return formatWarning(t.warnings.baseSurchargeFallback, {
       thickness: thickness.toFixed(2),
-      value: 29,
+      value: baseSurchargeFallback,
     });
-  }, [isCoilMode, baseSurchargeRaw, thickness, t.warnings]);
-  
-  // Check yield visibility
-  const showYield = currentType === 'HRS' && YIELD_GRADES.includes(gradeInput);
+  }, [isCoilMode, baseSurchargeRaw, baseSurchargeFallback, thickness, t.warnings]);
+
+  // Yield-strength surcharge: shown for grades flagged with it in the book.
+  const showYield = pricingEngine.hasYieldSurcharge(priceBook, currentType, gradeInput);
+  const yieldValue = pricingEngine.computeYieldValue(priceBook, currentType, gradeInput);
 
   // Calculate HUTA sum — deleguje do lib/pricingEngine.ts (jedyne źródło prawdy, współdzielone
   // z migracją przeterminowanego PGL, patrz staleOfferCheck niżej w loadOffer()).
   const sumaHuta = useMemo(() => pricingEngine.computeSumaHuta(
-    currentType, thickness, width, tolThick, cert,
-    selectedGrade ? selectedGrade.value : 0, selectedCoating,
+    priceBook, currentType, thickness, width, tolThick, cert,
+    gradeValue, selectedCoating,
     { crZabezp, crOpak, crPowierz, crWykon, crZgrzew,
       hdgZabezp, hdgOpak, hdgPowierz, hdgWykon, hdgZgrzew,
       zmZabezp, zmOpak, zmPowierz, zmZgrzew }
-  ), [currentType, thickness, width, tolThick, cert, selectedGrade, selectedCoating,
+  ), [priceBook, currentType, thickness, width, tolThick, cert, gradeValue, selectedCoating,
       crZabezp, crOpak, crPowierz, crWykon, crZgrzew,
       hdgZabezp, hdgOpak, hdgPowierz, hdgWykon, hdgZgrzew,
       zmZabezp, zmOpak, zmPowierz, zmZgrzew]);
@@ -628,9 +613,9 @@ export default function Calculator() {
 
   // Calculate SSC sum (w tym złom — % ceny wsadu, konfigurowalny w Ustawieniach, migracja 022)
   const { sumaSSC, scrapAmount } = useMemo(() => pricingEngine.computeSumaSSC(
-    currentType, thickness, width, length, isCoilMode, gradeInput, cenaWsadu, settings.scrapPct,
+    priceBook, currentType, thickness, width, length, isCoilMode, gradeInput, cenaWsadu, settings.scrapPct,
     { sscLenTol, sscFlatness, sscSurface, sscMaxWeight, sscMarking, sscEdging, sscPacking, sscLabels }
-  ), [currentType, thickness, width, length, isCoilMode, gradeInput, cenaWsadu, settings.scrapPct,
+  ), [priceBook, currentType, thickness, width, length, isCoilMode, gradeInput, cenaWsadu, settings.scrapPct,
       sscLenTol, sscFlatness, sscSurface, sscMaxWeight, sscMarking, sscEdging, sscPacking, sscLabels]);
 
   // Calculate final values
@@ -770,8 +755,8 @@ export default function Calculator() {
   // zapisanych ofert. Efekt uboczny (pożądany): pozycja ze starej oferty, której gatunek
   // zniknął potem z cennika, zamiast liczyć się po cichu jako 0 staje się edytowalna.
   const isCustomGrade = useMemo(
-    () => selectedGrade !== null && !activeGradeTable.some(g => g.name === selectedGrade.name),
-    [selectedGrade, activeGradeTable]
+    () => selectedGrade !== null && !findGrade(priceBook, currentType, selectedGrade.name),
+    [selectedGrade, priceBook, currentType]
   );
 
   // Propozycja gatunku jednorazowego pojawia się tylko wtedy, gdy wpisana nazwa nie jest
@@ -779,7 +764,7 @@ export default function Calculator() {
   const oneTimeGradeName = gradeInput.trim();
   const showOneTimeGradeOption =
     oneTimeGradeName.length > 0 &&
-    !activeGradeTable.some(g => g.name.toLowerCase() === oneTimeGradeName.toLowerCase());
+    !(priceBook[currentType]?.grades ?? []).some(g => g.name.toLowerCase() === oneTimeGradeName.toLowerCase());
 
   // Select grade from dropdown
   const selectGrade = (grade: Grade) => {
@@ -815,10 +800,14 @@ export default function Calculator() {
       PICKLED: 'S235JR+N', TEARDROP: 'S235JR+N', ZM: 'DX51D+ZM',
     };
     const defaultName = defaultGrades[type];
-    const defaultEntry = defaultName
-      ? GRADE_TABLES[type].find(g =>
+    const typeGrades = activeGrades(priceBook, type);
+    const defaultBookGrade = defaultName
+      ? typeGrades.find(g =>
           g.name.replace(/\s/g, '').toLowerCase() === defaultName.replace(/\s/g, '').toLowerCase()
-        ) || GRADE_TABLES[type][0] || null
+        ) || typeGrades[0] || null
+      : null;
+    const defaultEntry: Grade | null = defaultBookGrade
+      ? { name: defaultBookGrade.name, value: defaultBookGrade.surcharge }
       : null;
 
     setGradeInput(defaultEntry ? defaultEntry.name : '');
@@ -829,76 +818,28 @@ export default function Calculator() {
       setThickness(4);
       setWidth(1500);
       setLength(3000);
-      setSscSurface(10); // Improved = default for HRS/PICKLED
     } else if (type === 'CR') {
       setThickness(1.5);
       setWidth(1500);
       setLength(3000);
-      setSscSurface(0);
     } else if (type === 'HDG' || type === 'ZM') {
       setThickness(2);
       setWidth(1500);
       setLength(3000);
-      setSscSurface(0);
     } else if (type === 'TEARDROP') {
       // Matryca TEARDROP jest aliasem HRS (min. grubość 1.60mm przy 1500mm) — domyślne
       // 1.5mm dawałoby fałszywe ostrzeżenie "za mała grubość" od razu po wyborze zakładki.
       setThickness(4);
       setWidth(1500);
       setLength(3000);
-      setSscSurface(0);
     }
 
-    // Reset tolerances
-    setTolThick(0);
-    setTolThickIdx(0);
-    setCert(type === 'CR' || type === 'ZM' ? 0 : 5);
-
-    // Reset SSC options to defaults
-    setSscLenTol(0);
-    setSscFlatness(0);
-    setSscMaxWeight(0);
-    setSscMarking(0);
-    setSscEdging(0);
-    setSscPacking(0);
-    setSscPackingIdx(0); // S01
-    setSscLabels(0);
-
-    // Reset coating for HDG
-    if (type === 'HDG') {
-      setSelectedCoating('Z275');
-      setHdgZabezp(0);
-      setHdgZabezpIdx(3); // CE
-      setHdgOpak(5);
-      setHdgOpakIdx(1); // paperPlastic
-      setHdgPowierz(0);
-      setHdgWykon(0);
-      setHdgZgrzew(-3);
-    }
-
-    // Reset CR-specific
-    if (type === 'CR') {
-      setCrZabezp(0);
-      setCrOpak(5);
-      setCrOpakIdx(1); // paperPlastic
-      setCrPowierz(0);
-      setCrWykon(0);
-      setCrWykonIdx(0); // normalFinish
-      setCrZgrzew(-3);
-    }
-
-    // Reset ZM-specific (protection/packaging/surface/weld + coating)
-    if (type === 'ZM') {
-      setSelectedCoating('ZM120');
-      setZmZabezp(0);
-      setZmZabezpIdx(2); // CE
-      setZmOpak(5);
-      setZmOpakIdx(1); // paperPlastic
-      setZmPowierz(0);
-      setZmZgrzew(-3);
-    }
+    // Reset every surcharge option (incl. SSC) to the type's defaults; prices follow from the book.
+    setOptionIdx(defaultOptionSelection(type));
+    if (type === 'HDG') setSelectedCoating('Z275');
+    if (type === 'ZM') setSelectedCoating('ZM120');
   };
-  
+
   // Toggle button component - uses index-based tracking for groups with duplicate values
   const ToggleGroup = ({ options, value, onChange, selectedIdx, onChangeIdx }: {
     options: { label: string; value: number; title?: string }[];
@@ -964,16 +905,35 @@ export default function Calculator() {
       pgl: pglBase,
       isCoil: isCoilMode,
       coating: (currentType === 'HDG' || currentType === 'ZM') ? selectedCoating : undefined,
+      // Frozen snapshot: the prices this item was priced at, plus the option indices that
+      // let a later edit re-price it from the then-current book.
       inputs: {
-        selectedGrade,
-        tolThick, tolThickIdx,
-        cert,
+        tolThick, tolThickIdx: optionIdx.tolerance,
+        cert, certIdx: optionIdx.cert,
+        crZabezp, crZabezpIdx: optionIdx.crProtection,
+        crOpak, crOpakIdx: optionIdx.crPackaging,
+        crPowierz, crPowierzIdx: optionIdx.crSurface,
+        crWykon, crWykonIdx: optionIdx.crFinish,
+        crZgrzew, crZgrzewIdx: optionIdx.crWeld,
+        hdgZabezp, hdgZabezpIdx: optionIdx.hdgProtection,
+        hdgOpak, hdgOpakIdx: optionIdx.hdgPackaging,
+        hdgPowierz, hdgPowierzIdx: optionIdx.hdgSurface,
+        hdgWykon, hdgWykonIdx: optionIdx.hdgFinish,
+        hdgZgrzew, hdgZgrzewIdx: optionIdx.hdgWeld,
+        zmZabezp, zmZabezpIdx: optionIdx.zmProtection,
+        zmOpak, zmOpakIdx: optionIdx.zmPackaging,
+        zmPowierz, zmPowierzIdx: optionIdx.zmSurface,
+        zmZgrzew, zmZgrzewIdx: optionIdx.zmWeld,
+        sscLenTol, sscLenTolIdx: optionIdx.sscLenTol,
+        sscFlatness, sscFlatnessIdx: optionIdx.sscFlatness,
+        sscSurface, sscSurfaceIdx: optionIdx.sscSurface,
+        sscMaxWeight, sscMaxWeightIdx: optionIdx.sscMaxWeight,
+        sscMarking, sscMarkingIdx: optionIdx.sscMarking,
+        sscEdging, sscEdgingIdx: optionIdx.sscEdging,
+        sscPacking, sscPackingIdx: optionIdx.sscPacking,
+        sscLabels, sscLabelsIdx: optionIdx.sscLabels,
+        selectedGrade: selectedGrade ? { name: selectedGrade.name, value: gradeValue } : null,
         selectedCoating,
-        crZabezp, crOpak, crOpakIdx, crPowierz, crWykon, crWykonIdx, crZgrzew,
-        hdgZabezp, hdgZabezpIdx, hdgOpak, hdgOpakIdx, hdgPowierz, hdgWykon, hdgZgrzew,
-        zmZabezp, zmZabezpIdx, zmOpak, zmOpakIdx, zmPowierz, zmZgrzew,
-        sscLenTol, sscFlatness, sscSurface, sscMaxWeight, sscMarking, sscEdging,
-        sscPacking, sscPackingIdx, sscLabels,
         marginPct, extra, extraComment, extraCommentInPdf, transport,
       },
     };
@@ -1009,23 +969,12 @@ export default function Calculator() {
     const inp = item.inputs;
     setLegacyEditWarning(!inp);
     if (inp) {
-      // Odtwarzamy pełną konfigurację dopłat zapisaną przy dodaniu pozycji.
+      // Odtwarzamy pełną konfigurację dopłat zapisaną przy dodaniu pozycji — opcje PO INDEKSIE
+      // (stare pozycje bez indeksów: po wartości względem cennika domyślnego), ceny z bieżącego
+      // cennika. Gatunek z cennika (także wycofany) też przelicza się wg bieżącej stawki.
       setSelectedGrade(inp.selectedGrade);
-      setTolThick(inp.tolThick); setTolThickIdx(inp.tolThickIdx);
-      setCert(inp.cert);
+      setOptionIdx(restoreOptionSelection(defaultOptionSelection(item.type), item.type, { ...inp }));
       setSelectedCoating(inp.selectedCoating);
-      setCrZabezp(inp.crZabezp); setCrOpak(inp.crOpak); setCrOpakIdx(inp.crOpakIdx);
-      setCrPowierz(inp.crPowierz); setCrWykon(inp.crWykon); setCrWykonIdx(inp.crWykonIdx);
-      setCrZgrzew(inp.crZgrzew);
-      setHdgZabezp(inp.hdgZabezp); setHdgZabezpIdx(inp.hdgZabezpIdx);
-      setHdgOpak(inp.hdgOpak); setHdgOpakIdx(inp.hdgOpakIdx);
-      setHdgPowierz(inp.hdgPowierz); setHdgWykon(inp.hdgWykon); setHdgZgrzew(inp.hdgZgrzew);
-      setZmZabezp(inp.zmZabezp); setZmZabezpIdx(inp.zmZabezpIdx);
-      setZmOpak(inp.zmOpak); setZmOpakIdx(inp.zmOpakIdx);
-      setZmPowierz(inp.zmPowierz); setZmZgrzew(inp.zmZgrzew);
-      setSscLenTol(inp.sscLenTol); setSscFlatness(inp.sscFlatness); setSscSurface(inp.sscSurface);
-      setSscMaxWeight(inp.sscMaxWeight); setSscMarking(inp.sscMarking); setSscEdging(inp.sscEdging);
-      setSscPacking(inp.sscPacking); setSscPackingIdx(inp.sscPackingIdx); setSscLabels(inp.sscLabels);
       setMarginPct(inp.marginPct); setExtra(inp.extra); setTransport(inp.transport);
       // Stare pozycje (sprzed dodania komentarza do dopłaty) nie mają tych pól.
       setExtraComment(inp.extraComment ?? '');
@@ -1033,8 +982,8 @@ export default function Calculator() {
     } else {
       // Stara pozycja bez snapshotu (oferta zapisana przed tą poprawką): najlepszy wysiłek —
       // odtwarzamy przynajmniej obiekt gatunku po nazwie, żeby dopłata gatunkowa się zgadzała.
-      const g = GRADE_TABLES[item.type].find(x => x.name === item.grade) || null;
-      setSelectedGrade(g);
+      const g = findGrade(priceBook, item.type, item.grade);
+      setSelectedGrade(g ? { name: g.name, value: g.surcharge } : null);
     }
   };
   
@@ -1072,15 +1021,8 @@ export default function Calculator() {
     isCoilMode,
     gradeInput,
     selectedGrade,
-    tolThick, tolThickIdx,
-    cert,
+    ...optionSelectionFields(priceBook, currentType, optionIdx),
     selectedCoating,
-    crZabezp, crOpak, crOpakIdx, crPowierz, crWykon, crWykonIdx, crZgrzew,
-    hdgZabezp, hdgZabezpIdx, hdgOpak, hdgOpakIdx, hdgPowierz, hdgWykon, hdgZgrzew,
-    zmZabezp, zmZabezpIdx, zmOpak, zmOpakIdx, zmPowierz, zmZgrzew,
-    sscLenTol, sscFlatness, sscSurface,
-    sscMaxWeight, sscMarking, sscEdging,
-    sscPacking, sscPackingIdx, sscLabels,
     pglBase, marginPct, extra, extraComment, extraCommentInPdf, transport, tons,
     // Okres ważności oferty — mrożony razem z resztą, tak jak pglBase/transport: po ponownym
     // otwarciu widać dokładnie te daty, na które oferta była wyceniona.
@@ -1110,39 +1052,11 @@ export default function Calculator() {
     if (data.isCoilMode !== undefined) setIsCoilMode(data.isCoilMode);
     if (data.gradeInput !== undefined) setGradeInput(data.gradeInput);
     if (data.selectedGrade !== undefined) setSelectedGrade(data.selectedGrade);
-    if (data.tolThick !== undefined) setTolThick(data.tolThick);
-    if (data.tolThickIdx !== undefined) setTolThickIdx(data.tolThickIdx);
-    if (data.cert !== undefined) setCert(data.cert);
+    // Options by index; offers saved before the price book are matched by value against the
+    // default book. Prices then come from the live book.
+    const restoredType = (data.currentType as SteelType | undefined) ?? currentType;
+    setOptionIdx(prev => restoreOptionSelection(prev, restoredType, data));
     if (data.selectedCoating !== undefined) setSelectedCoating(data.selectedCoating);
-    if (data.crZabezp !== undefined) setCrZabezp(data.crZabezp);
-    if (data.crOpak !== undefined) setCrOpak(data.crOpak);
-    if (data.crOpakIdx !== undefined) setCrOpakIdx(data.crOpakIdx);
-    if (data.crPowierz !== undefined) setCrPowierz(data.crPowierz);
-    if (data.crWykon !== undefined) setCrWykon(data.crWykon);
-    if (data.crWykonIdx !== undefined) setCrWykonIdx(data.crWykonIdx);
-    if (data.crZgrzew !== undefined) setCrZgrzew(data.crZgrzew);
-    if (data.hdgZabezp !== undefined) setHdgZabezp(data.hdgZabezp);
-    if (data.hdgZabezpIdx !== undefined) setHdgZabezpIdx(data.hdgZabezpIdx);
-    if (data.hdgOpak !== undefined) setHdgOpak(data.hdgOpak);
-    if (data.hdgOpakIdx !== undefined) setHdgOpakIdx(data.hdgOpakIdx);
-    if (data.hdgPowierz !== undefined) setHdgPowierz(data.hdgPowierz);
-    if (data.hdgWykon !== undefined) setHdgWykon(data.hdgWykon);
-    if (data.hdgZgrzew !== undefined) setHdgZgrzew(data.hdgZgrzew);
-    if (data.zmZabezp !== undefined) setZmZabezp(data.zmZabezp);
-    if (data.zmZabezpIdx !== undefined) setZmZabezpIdx(data.zmZabezpIdx);
-    if (data.zmOpak !== undefined) setZmOpak(data.zmOpak);
-    if (data.zmOpakIdx !== undefined) setZmOpakIdx(data.zmOpakIdx);
-    if (data.zmPowierz !== undefined) setZmPowierz(data.zmPowierz);
-    if (data.zmZgrzew !== undefined) setZmZgrzew(data.zmZgrzew);
-    if (data.sscLenTol !== undefined) setSscLenTol(data.sscLenTol);
-    if (data.sscFlatness !== undefined) setSscFlatness(data.sscFlatness);
-    if (data.sscSurface !== undefined) setSscSurface(data.sscSurface);
-    if (data.sscMaxWeight !== undefined) setSscMaxWeight(data.sscMaxWeight);
-    if (data.sscMarking !== undefined) setSscMarking(data.sscMarking);
-    if (data.sscEdging !== undefined) setSscEdging(data.sscEdging);
-    if (data.sscPacking !== undefined) setSscPacking(data.sscPacking);
-    if (data.sscPackingIdx !== undefined) setSscPackingIdx(data.sscPackingIdx);
-    if (data.sscLabels !== undefined) setSscLabels(data.sscLabels);
     if (data.pglBase !== undefined) setPglBase(data.pglBase);
     if (data.marginPct !== undefined) setMarginPct(data.marginPct);
     if (data.extra !== undefined) setExtra(data.extra);
@@ -1245,6 +1159,9 @@ export default function Calculator() {
 
   // Load offer when edit param is present
   useEffect(() => {
+    // Wait for the price book: offer state is restored (and the dirty-check baseline captured)
+    // against the real book, not the code defaults it starts with.
+    if (!priceBookReady) return;
     const editId = searchParams.get('edit');
     if (editId) {
       const loadOffer = async () => {
@@ -1270,7 +1187,7 @@ export default function Calculator() {
             // z nałożonym harmonogramem kwartalnym dla BIEŻĄCEGO kwartału (to samo źródło co
             // domyślne PGL dla nowej oferty).
             const freshSettings = (await refreshSettings()) ?? settings;
-            const { data: maybeMigratedData, notice } = migrateStaleOfferData(offer.offer_data, freshSettings);
+            const { data: maybeMigratedData, notice } = migrateStaleOfferData(offer.offer_data, freshSettings, priceBook);
             setStaleOfferNotice(notice);
             restoreOfferData(maybeMigratedData);
             // Re-capture the dirty-check baseline once the restored state has settled.
@@ -1287,7 +1204,7 @@ export default function Calculator() {
       loadOffer();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, priceBookReady]);
 
   // Domyślne PGL i transport z panelu admina — TYLKO dla nowej kalkulacji.
   //
@@ -1304,6 +1221,7 @@ export default function Calculator() {
   const defaultsAppliedRef = useRef(false);
   useEffect(() => {
     if (defaultsAppliedRef.current) return;
+    if (!priceBookReady) return;
     if (searchParams.get('edit')) return;
     defaultsAppliedRef.current = true;
     (async () => {
@@ -1323,7 +1241,7 @@ export default function Calculator() {
       setBaselineNonce(n => n + 1);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  }, [searchParams, priceBookReady]);
 
   // Kwartał wyliczony z "Ważna od"/"Ważna do" — steruje ostrzeżeniem, gdy zakres wykracza poza
   // jeden kwartał (harmonogram PGL ma granulację kwartalną, więc taki zakres jest niejednoznaczny
@@ -1433,7 +1351,10 @@ export default function Calculator() {
         });
         // Update URL without full navigation
         if (urlNeedsUpdate) {
-          router.replace(`/calculator?edit=${offer.id}`, { scroll: false });
+          // Keep ?from so a reviewer's decision still returns to the list they came from.
+          const from = searchParams.get('from');
+          const fromParam = from !== null ? `&from=${encodeURIComponent(from)}` : '';
+          router.replace(`/calculator?edit=${offer.id}${fromParam}`, { scroll: false });
         }
         // The just-saved state is the new dirty-check baseline.
         setBaselineNonce(n => n + 1);
@@ -1721,7 +1642,7 @@ export default function Calculator() {
         <OfferReviewBar
           offerId={currentOfferId}
           isDirty={isDirty}
-          onDone={() => router.push('/senior')}
+          onDone={() => router.push(reviewReturnPath(searchParams.get('from')))}
         />
       )}
 
@@ -2205,6 +2126,11 @@ export default function Calculator() {
                 >
                   <span className="font-mono text-[11px] text-[var(--text-value)]">
                     {grade.name}
+                    {grade.retired && (
+                      <span className="ml-1.5 text-[9px] font-semibold tracking-wider uppercase text-[var(--text-muted)]">
+                        ({t.priceBook.retiredMark})
+                      </span>
+                    )}
                   </span>
                   <span className="font-mono text-xs font-semibold text-[var(--accent-hrs)] bg-[rgba(232,160,32,0.08)] px-2 py-0.5 rounded">
                     {money(grade.value)} {symbol}
@@ -2326,7 +2252,7 @@ export default function Calculator() {
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.grade}</span>
               <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">
-                {money(selectedGrade ? selectedGrade.value : 0)}
+                {money(gradeValue)}
               </span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -2334,12 +2260,7 @@ export default function Calculator() {
             {/* Thickness Tolerance */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.thicknessTolerance}</span>
-              <ToggleGroup
-                options={TOL_THICK_OPTIONS[currentType]}
-                value={tolThick}
-                selectedIdx={tolThickIdx}
-                onChangeIdx={(v, idx) => { setTolThick(v); setTolThickIdx(idx); }}
-              />
+              <ToggleGroup {...toggleProps('tolerance', TOL_THICK_OPTIONS[currentType])} />
               <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(tolThick)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -2347,11 +2268,7 @@ export default function Calculator() {
             {/* Certificate */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.certificate}</span>
-              <ToggleGroup
-                options={CERT_OPTIONS}
-                value={cert}
-                onChange={setCert}
-              />
+              <ToggleGroup {...toggleProps('cert', CERT_OPTIONS)} />
               <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(cert)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -2401,31 +2318,31 @@ export default function Calculator() {
               <>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.protection}</span>
-                  <ToggleGroup options={CR_PROTECTION_OPTIONS} value={crZabezp} onChange={setCrZabezp} />
+                  <ToggleGroup {...toggleProps('crProtection', CR_PROTECTION_OPTIONS)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(crZabezp)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.packaging}</span>
-                  <ToggleGroup options={getLocalizedOptions.crPackaging} value={crOpak} selectedIdx={crOpakIdx} onChangeIdx={(v, idx) => { setCrOpak(v); setCrOpakIdx(idx); }} />
+                  <ToggleGroup {...toggleProps('crPackaging', getLocalizedOptions.crPackaging)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(crOpak)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.surface} (CR)</span>
-                  <ToggleGroup options={getLocalizedOptions.crSurface} value={crPowierz} onChange={setCrPowierz} />
+                  <ToggleGroup {...toggleProps('crSurface', getLocalizedOptions.crSurface)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(crPowierz)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.surfaceFinish}</span>
-                  <ToggleGroup options={getLocalizedOptions.crFinish} value={crWykon} selectedIdx={crWykonIdx} onChangeIdx={(v, idx) => { setCrWykon(v); setCrWykonIdx(idx); }} />
+                  <ToggleGroup {...toggleProps('crFinish', getLocalizedOptions.crFinish)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(crWykon)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.weld}</span>
-                  <ToggleGroup options={getLocalizedOptions.crWeld} value={crZgrzew} onChange={setCrZgrzew} />
+                  <ToggleGroup {...toggleProps('crWeld', getLocalizedOptions.crWeld)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(crZgrzew)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
@@ -2437,31 +2354,31 @@ export default function Calculator() {
               <>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.protection}</span>
-                  <ToggleGroup options={HDG_PROTECTION_OPTIONS} value={hdgZabezp} selectedIdx={hdgZabezpIdx} onChangeIdx={(v, idx) => { setHdgZabezp(v); setHdgZabezpIdx(idx); }} />
+                  <ToggleGroup {...toggleProps('hdgProtection', HDG_PROTECTION_OPTIONS)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(hdgZabezp)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.packaging}</span>
-                  <ToggleGroup options={getLocalizedOptions.hdgPackaging} value={hdgOpak} selectedIdx={hdgOpakIdx} onChangeIdx={(v, idx) => { setHdgOpak(v); setHdgOpakIdx(idx); }} />
+                  <ToggleGroup {...toggleProps('hdgPackaging', getLocalizedOptions.hdgPackaging)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(hdgOpak)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.surface} (HDG)</span>
-                  <ToggleGroup options={getLocalizedOptions.hdgSurface} value={hdgPowierz} onChange={setHdgPowierz} />
+                  <ToggleGroup {...toggleProps('hdgSurface', getLocalizedOptions.hdgSurface)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(hdgPowierz)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.surfaceFinish}</span>
-                  <ToggleGroup options={getLocalizedOptions.hdgFinish} value={hdgWykon} onChange={setHdgWykon} />
+                  <ToggleGroup {...toggleProps('hdgFinish', getLocalizedOptions.hdgFinish)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(hdgWykon)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.weld}</span>
-                  <ToggleGroup options={getLocalizedOptions.hdgWeld} value={hdgZgrzew} onChange={setHdgZgrzew} />
+                  <ToggleGroup {...toggleProps('hdgWeld', getLocalizedOptions.hdgWeld)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(hdgZgrzew)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
@@ -2495,25 +2412,25 @@ export default function Calculator() {
               <>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.protection}</span>
-                  <ToggleGroup options={ZM_PROTECTION_OPTIONS} value={zmZabezp} selectedIdx={zmZabezpIdx} onChangeIdx={(v, idx) => { setZmZabezp(v); setZmZabezpIdx(idx); }} />
+                  <ToggleGroup {...toggleProps('zmProtection', ZM_PROTECTION_OPTIONS)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(zmZabezp)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.packaging}</span>
-                  <ToggleGroup options={getLocalizedOptions.zmPackaging} value={zmOpak} selectedIdx={zmOpakIdx} onChangeIdx={(v, idx) => { setZmOpak(v); setZmOpakIdx(idx); }} />
+                  <ToggleGroup {...toggleProps('zmPackaging', getLocalizedOptions.zmPackaging)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(zmOpak)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.surface} (ZM)</span>
-                  <ToggleGroup options={getLocalizedOptions.zmSurface} value={zmPowierz} onChange={setZmPowierz} />
+                  <ToggleGroup {...toggleProps('zmSurface', getLocalizedOptions.zmSurface)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(zmPowierz)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
                 <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                   <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.weld}</span>
-                  <ToggleGroup options={getLocalizedOptions.zmWeld} value={zmZgrzew} onChange={setZmZgrzew} />
+                  <ToggleGroup {...toggleProps('zmWeld', getLocalizedOptions.zmWeld)} />
                   <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(zmZgrzew)}</span>
                   <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
                 </div>
@@ -2550,7 +2467,7 @@ export default function Calculator() {
             {/* Length Tolerance */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.lengthTolerance}</span>
-              <ToggleGroup options={getLocalizedOptions.lengthTolerance} value={sscLenTol} onChange={setSscLenTol} />
+              <ToggleGroup {...toggleProps('sscLenTol', getLocalizedOptions.lengthTolerance)} />
               <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscLenTol)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -2558,7 +2475,7 @@ export default function Calculator() {
             {/* Flatness */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.flatness}</span>
-              <ToggleGroup options={getLocalizedOptions.flatness} value={sscFlatness} onChange={setSscFlatness} />
+              <ToggleGroup {...toggleProps('sscFlatness', getLocalizedOptions.flatness)} />
               <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscFlatness)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -2566,7 +2483,7 @@ export default function Calculator() {
             {/* Surface */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.surface}</span>
-              <ToggleGroup options={getLocalizedOptions.surface} value={sscSurface} onChange={setSscSurface} />
+              <ToggleGroup {...toggleProps('sscSurface', getLocalizedOptions.surface)} />
               <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscSurface)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -2574,7 +2491,7 @@ export default function Calculator() {
             {/* Max Weight */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.maxPackWeight}</span>
-              <ToggleGroup options={SSC_MAX_WEIGHT_OPTIONS} value={sscMaxWeight} onChange={setSscMaxWeight} />
+              <ToggleGroup {...toggleProps('sscMaxWeight', SSC_MAX_WEIGHT_OPTIONS)} />
               <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscMaxWeight)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -2582,7 +2499,7 @@ export default function Calculator() {
             {/* Marking */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.marking}</span>
-              <ToggleGroup options={getLocalizedOptions.marking} value={sscMarking} onChange={setSscMarking} />
+              <ToggleGroup {...toggleProps('sscMarking', getLocalizedOptions.marking)} />
               <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscMarking)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -2590,7 +2507,7 @@ export default function Calculator() {
             {/* Edging */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.edging}</span>
-              <ToggleGroup options={getLocalizedOptions.edging} value={sscEdging} onChange={setSscEdging} />
+              <ToggleGroup {...toggleProps('sscEdging', getLocalizedOptions.edging)} />
               <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscEdging)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -2599,7 +2516,7 @@ export default function Calculator() {
             {showYield && (
               <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
                 <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.yieldStrength}</span>
-                <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money(7)}</span>
+                <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money(yieldValue)}</span>
                 <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
               </div>
             )}
@@ -2607,7 +2524,7 @@ export default function Calculator() {
             {/* Packing */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.packaging}</span>
-              <ToggleGroup options={SSC_PACKING_OPTIONS.map((o, idx) => ({ ...o, title: [t.ssc.packagingDesc.S01, t.ssc.packagingDesc.S03, t.ssc.packagingDesc.S12, t.ssc.packagingDesc.S13, t.ssc.packagingDesc.SB2, t.ssc.packagingDesc.SB3][idx] }))} value={sscPacking} selectedIdx={sscPackingIdx} onChangeIdx={(v, idx) => { setSscPacking(v); setSscPackingIdx(idx); }} />
+              <ToggleGroup {...toggleProps('sscPacking', SSC_PACKING_OPTIONS.map((o, idx) => ({ ...o, title: [t.ssc.packagingDesc.S01, t.ssc.packagingDesc.S03, t.ssc.packagingDesc.S12, t.ssc.packagingDesc.S13, t.ssc.packagingDesc.SB2, t.ssc.packagingDesc.SB3][idx] })))} />
               <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscPacking)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -2615,7 +2532,7 @@ export default function Calculator() {
             {/* Labels */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.ssc.labels}</span>
-              <ToggleGroup options={getLocalizedOptions.labels} value={sscLabels} onChange={setSscLabels} />
+              <ToggleGroup {...toggleProps('sscLabels', getLocalizedOptions.labels)} />
               <span className="font-mono text-xs font-semibold text-[var(--text-value)] min-w-[28px] text-right ml-1">{money(sscLabels)}</span>
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
             </div>
@@ -2979,6 +2896,7 @@ export default function Calculator() {
                       currencyUnit={currencyUnit}
                       money2={money2}
                       moneyCeil={moneyCeil}
+                      priceBook={priceBook}
                       onEdit={editItem}
                       onDuplicate={dupItem}
                       onDelete={deleteItem}
