@@ -33,6 +33,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin/klienci', label: t.admin.navClients, icon: '🏢' },
     { href: '/admin/kontakty', label: t.admin.navContacts, icon: '📇' },
     { href: '/admin/oferty', label: t.admin.navOffers, icon: '📋' },
+    { href: '/admin/cennik', label: t.priceBook.navLabel, icon: '🧾' },
     { href: '/admin/ustawienia', label: t.admin.navSettings, icon: '⚙️' },
   ];
 

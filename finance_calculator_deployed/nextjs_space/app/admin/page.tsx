@@ -85,6 +85,18 @@ export default function AdminDashboardPage() {
             </Link>
           </div>
 
+          {/* Price book - per-type surcharges */}
+          <Link
+            href="/admin/cennik"
+            className="flex items-center justify-between gap-3 bg-[var(--bg-card)] border border-[var(--border)] rounded-md px-4 py-3 transition-colors hover:border-[var(--border-hi)]"
+          >
+            <span>
+              <span className="block text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">{t.priceBook.title}</span>
+              <span className="block text-[11px] text-[var(--text-secondary)] mt-0.5">{t.priceBook.linkHint}</span>
+            </span>
+            <span aria-hidden className="text-[var(--accent-cr)]">→</span>
+          </Link>
+
           {/* Oferty wg statusu */}
           <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
             <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)]">
