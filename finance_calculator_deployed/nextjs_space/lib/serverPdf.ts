@@ -110,6 +110,8 @@ export async function downloadServerPdf(input: ServerPdfInput): Promise<void> {
       validFrom,
       validTo,
       paymentTermDays: input.paymentTermDays,
+      // Saved offer: the server prints its creator as "prepared by", whoever downloads it.
+      offerId: input.offerId ?? null,
     }),
   });
 

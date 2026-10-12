@@ -39,7 +39,6 @@ export interface ApprovalRule {
   /** Target margin a deficit is measured from (margin_deficit_pp only). */
   referenceValue: number | null;
   unit: string;
-  priority: number;
   targetLevelId: number;
   isActive: boolean;
   sortOrder: number;
@@ -235,7 +234,7 @@ export interface Evaluation {
   requiredChainLevel: HierarchyLevel | null;
   /** Parallel levels (NPR) demanded by fired rules. */
   requiredParallelLevels: HierarchyLevel[];
-  /** Fired rule that set requiredChainLevel (highest priority among equal levels). */
+  /** Fired rule that set requiredChainLevel (the first by sort order among equal levels). */
   decisiveRule: ApprovalRule | null;
 }
 
@@ -281,11 +280,7 @@ export function evaluateRules(
     const rank = level.chainRank ?? 0;
     // N0 as a target means "no validation" - it never raises the requirement.
     if (rank <= 0) continue;
-    const currentRank = requiredChainLevel?.chainRank ?? 0;
-    const outranks = rank > currentRank;
-    const tieWithHigherPriority =
-      rank === currentRank && decisiveRule !== null && rule.priority > decisiveRule.priority;
-    if (outranks || tieWithHigherPriority) {
+    if (rank > (requiredChainLevel?.chainRank ?? 0)) {
       requiredChainLevel = level;
       decisiveRule = rule;
     }

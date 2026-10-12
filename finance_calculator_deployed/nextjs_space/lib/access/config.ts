@@ -36,6 +36,7 @@ export function levelFromRow(row: Row, prefix = ''): HierarchyLevel {
     name: String(row[`${prefix}name`]),
     kind: row[`${prefix}kind`] === 'parallel' ? 'parallel' : 'chain',
     chainRank: num(row[`${prefix}chain_rank`]),
+    coversChainRank: num(row[`${prefix}covers_chain_rank`]),
     sortOrder: Number(row[`${prefix}sort_order`] ?? 0),
   };
 }
@@ -69,7 +70,7 @@ export const FLOW_ROLE_SELECT = `
   fr.can_create_offer, fr.can_edit_own_before_submit, fr.can_submit_to_validation,
   fr.can_approve_reject, fr.can_change_pgl_base, fr.can_change_price_margin,
   l.id AS l_id, l.code AS l_code, l.name AS l_name, l.kind AS l_kind,
-  l.chain_rank AS l_chain_rank, l.sort_order AS l_sort_order`;
+  l.chain_rank AS l_chain_rank, l.covers_chain_rank AS l_covers_chain_rank, l.sort_order AS l_sort_order`;
 
 export const FLOW_ROLE_JOINS = `
   JOIN roles r ON r.id = fr.role_id
@@ -88,7 +89,7 @@ export function flowRoleFromRow(row: Row): FlowRole {
 
 export async function loadLevels(db: Db = pool): Promise<HierarchyLevel[]> {
   const result = await db.query(
-    `SELECT id, code, name, kind, chain_rank, sort_order FROM hierarchy_levels
+    `SELECT id, code, name, kind, chain_rank, covers_chain_rank, sort_order FROM hierarchy_levels
      ORDER BY sort_order, id`
   );
   return result.rows.map((row) => levelFromRow(row));
@@ -131,7 +132,6 @@ export function ruleFromRow(row: Row): ApprovalRule {
     threshold: num(row.threshold),
     referenceValue: num(row.reference_value),
     unit: String(row.unit ?? ''),
-    priority: Number(row.priority ?? 0),
     targetLevelId: Number(row.target_level_id),
     isActive: row.is_active === true,
     sortOrder: Number(row.sort_order ?? 0),
@@ -139,7 +139,7 @@ export function ruleFromRow(row: Row): ApprovalRule {
 }
 
 export const RULE_COLUMNS = `id, flow_id, criterion, applies_to_role_id, condition_text, operator,
-  threshold, reference_value, unit, priority, target_level_id, is_active, sort_order`;
+  threshold, reference_value, unit, target_level_id, is_active, sort_order`;
 
 /** Rules that apply to an offer in `flowId`: the flow's own plus the flow-less ("both") ones. */
 export async function loadRulesForFlow(flowId: number, db: Db = pool): Promise<ApprovalRule[]> {
@@ -160,17 +160,22 @@ export async function loadAllRules(db: Db = pool): Promise<ApprovalRule[]> {
 export interface Policies {
   conflictPolicy: ConflictPolicy;
   orgScopeFallback: OrgScopeFallback;
+  /** Hours an approval stays valid; after that the offer has to be re-validated. */
+  approvalValidityHours: number;
 }
+
+export const DEFAULT_APPROVAL_VALIDITY_HOURS = 48;
 
 export async function loadPolicies(db: Db = pool): Promise<Policies> {
   const result = await db.query(
-    `SELECT level_conflict_policy, org_scope_fallback FROM app_settings WHERE id = 1`
+    `SELECT level_conflict_policy, org_scope_fallback, approval_validity_hours FROM app_settings WHERE id = 1`
   );
   const row = result.rows[0] as Row | undefined;
   const policy = row?.level_conflict_policy;
   return {
     conflictPolicy: policy === 'block' || policy === 'escalate_top' ? policy : 'escalate_next',
     orgScopeFallback: row?.org_scope_fallback === 'flow' ? 'flow' : 'team',
+    approvalValidityHours: num(row?.approval_validity_hours) ?? DEFAULT_APPROVAL_VALIDITY_HOURS,
   };
 }
 

@@ -7,11 +7,13 @@ import { effectiveScope } from '@/lib/access/scope';
 import type { FlowRole, HierarchyLevel, Permissions } from '@/lib/access/types';
 
 const L = {
-  N0: { id: 1, code: 'N0', name: 'N0', kind: 'chain', chainRank: 0, sortOrder: 10 },
-  N1: { id: 2, code: 'N+1', name: 'N+1', kind: 'chain', chainRank: 1, sortOrder: 20 },
-  N2: { id: 3, code: 'N+2', name: 'N+2', kind: 'chain', chainRank: 2, sortOrder: 30 },
-  N3: { id: 4, code: 'N+3', name: 'N+3', kind: 'chain', chainRank: 3, sortOrder: 40 },
-  NPR: { id: 5, code: 'NPR', name: 'NPR', kind: 'parallel', chainRank: null, sortOrder: 50 },
+  N0: { id: 1, code: 'N0', name: 'N0', kind: 'chain', chainRank: 0, coversChainRank: null, sortOrder: 10 },
+  N1: { id: 2, code: 'N+1', name: 'N+1', kind: 'chain', chainRank: 1, coversChainRank: null, sortOrder: 20 },
+  N2: { id: 3, code: 'N+2', name: 'N+2', kind: 'chain', chainRank: 2, coversChainRank: null, sortOrder: 30 },
+  N3: { id: 4, code: 'N+3', name: 'N+3', kind: 'chain', chainRank: 3, coversChainRank: null, sortOrder: 40 },
+  // Head of Projects stands in for N+1 and N+2 (migration 030).
+  NPR: { id: 5, code: 'NPR', name: 'NPR', kind: 'parallel', chainRank: null, coversChainRank: 2, sortOrder: 50 },
+  N4: { id: 6, code: 'N+4', name: 'N+4', kind: 'chain', chainRank: 4, coversChainRank: null, sortOrder: 60 },
 } satisfies Record<string, HierarchyLevel>;
 const LEVELS = Object.values(L);
 
@@ -45,7 +47,7 @@ const FLOW2_ROLES: FlowRole[] = [
   role(FLOW2, 1, 'IFO', L.N0, true, false),
   role(FLOW2, 7, 'KAM', L.N0, true, false),
   role(FLOW2, 5, 'HOP', L.NPR, false, true),
-  role(FLOW2, 6, 'CEO', L.N2, false, true),
+  role(FLOW2, 6, 'CEO', L.N3, false, true),
 ];
 
 let nextId = 1;
@@ -54,16 +56,16 @@ function rule(flowId: number | null, criterion: ApprovalRule['criterion'], opera
   const id = nextId++;
   return {
     id, flowId, criterion, operator, threshold, appliesToRoleId: null, conditionText: '',
-    referenceValue: null, unit: '', priority: 10, targetLevelId: level.id, isActive: true, sortOrder: id,
+    referenceValue: null, unit: '', targetLevelId: level.id, isActive: true, sortOrder: id,
     ...extra,
   };
 }
 
-// Seed of migration 026.
+// Seed of migration 026 as updated by 030 (margin N+2 = "2.1 % or lower", variant b).
 const RULES: ApprovalRule[] = [
   rule(FLOW1, 'margin_below_target', '<', 4.5, L.N1),
-  rule(FLOW1, 'margin_deficit_pp', '>=', 2.1, L.N2, { referenceValue: 4.5, priority: 20 }),
-  rule(FLOW1, 'margin_deficit_pp', '>=', null, L.N3, { referenceValue: 4.5, priority: 30 }),
+  rule(FLOW1, 'margin_below_target', '<=', 2.1, L.N2),
+  rule(FLOW1, 'margin_below_target', '<=', null, L.N3),
   rule(FLOW2, 'margin_below_target', '<', 4.5, L.NPR),
   rule(null, 'base_price_change', '=', 1, L.NPR),
   rule(FLOW1, 'base_reduction_pct', '>=', null, L.N2),
@@ -71,7 +73,7 @@ const RULES: ApprovalRule[] = [
   rule(FLOW1, 'quote_validity_hours', '>', 48, L.N2),
   rule(FLOW2, 'quote_validity_hours', '>', 48, L.NPR),
   rule(FLOW1, 'price_validity_quarters', '=', 1, L.N1),
-  rule(FLOW1, 'price_validity_quarters', '>', 1, L.N2, { priority: 30 }),
+  rule(FLOW1, 'price_validity_quarters', '>', 1, L.N2),
   rule(FLOW1, 'price_validity_days', '>=', null, L.N3),
   rule(FLOW2, 'price_validity_quarters', '=', 1, L.NPR),
   rule(FLOW2, 'price_validity_quarters', '>=', 1, L.NPR),
@@ -142,31 +144,52 @@ describe('spec test cases (SYMULATOR)', () => {
     expect(stepCodes(plan)).toEqual(['N+2']);
   });
 
-  it('T5: Flow 2 rule set to N+3 escalates to the next existing level (CEO N+2)', () => {
-    const extra = [rule(FLOW2, 'offer_value_eur', '>', 50, L.N3)];
+  it('T5: a Flow 2 rule to N+2 (nobody on N+2) goes to Head of Projects, not a conflict', () => {
+    const extra = [rule(FLOW2, 'offer_value_eur', '>', 50, L.N2)];
     const { plan } = run(FLOW2, FLOW2_ROLES, IFO2, { value: 100 }, extra);
-    expect(stepCodes(plan)).toEqual(['N+2']);
-    expect(plan.steps[0].escalated).toBe(true);
-    expect(plan.conflicts[0].requiredLevel.code).toBe('N+3');
+    expect(stepCodes(plan)).toEqual(['NPR']);
+    expect(plan.steps[0].requiredLevel.code).toBe('N+2');
+    expect(plan.steps[0].escalated).toBe(false);
+    expect(plan.conflicts).toEqual([]);
   });
 
-  it('T5: with the block policy the conflict blocks submission', () => {
-    const extra = [rule(FLOW2, 'offer_value_eur', '>', 50, L.N3)];
-    const { plan } = run(FLOW2, FLOW2_ROLES, IFO2, { value: 100 }, extra, 'block');
-    expect(plan.blocked).toBe(true);
-    expect(plan.steps).toEqual([]);
+  it('T5: a Flow 2 rule to N+1 also goes to Head of Projects; N+3 goes to CEO', () => {
+    const n1 = [rule(FLOW2, 'offer_value_eur', '>', 50, L.N1)];
+    const n3 = [rule(FLOW2, 'offer_value_eur', '>', 50, L.N3)];
+    expect(stepCodes(run(FLOW2, FLOW2_ROLES, IFO2, { value: 100 }, n1).plan)).toEqual(['NPR']);
+    expect(stepCodes(run(FLOW2, FLOW2_ROLES, IFO2, { value: 100 }, n3).plan)).toEqual(['N+3']);
+  });
+
+  it('T5: a level nobody covers escalates to the next existing level, or blocks', () => {
+    const extra = [rule(FLOW1, 'offer_value_eur', '>', 50, L.N4)];
+    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { value: 100 }, extra);
+    expect(stepCodes(plan)).toEqual(['N+3']);
+    expect(plan.steps[0].escalated).toBe(true);
+    expect(plan.conflicts[0].requiredLevel.code).toBe('N+4');
+    const blocked = run(FLOW1, FLOW1_ROLES, IFO1, { value: 100 }, extra, 'block').plan;
+    expect(blocked.blocked).toBe(true);
+    expect(blocked.steps).toEqual([]);
   });
 });
 
 describe('confirmed routing decisions', () => {
-  it('margin deficit >= 2.1 pp below the 4.5 % target goes to N+2', () => {
-    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { margin: 2.4 }).plan)).toEqual(['N+2']);
-    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { margin: 2.5 }).plan)).toEqual(['N+1']);
+  // Worked example (variant b), target 4.5 %: 4.0 % -> N+1; 2.4 % -> still N+1 (the old
+  // deficit reading 4.5 - 2.4 = 2.1 pp made it N+2); 2.1 % -> N+2; 2.0 % -> N+2.
+  it('margin 2.1 % or lower goes to N+2, anything else below 4.5 % to N+1', () => {
+    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { margin: 4.0 }).plan)).toEqual(['N+1']);
+    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { margin: 2.4 }).plan)).toEqual(['N+1']);
+    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { margin: 2.1 }).plan)).toEqual(['N+2']);
+    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { margin: 2.0 }).plan)).toEqual(['N+2']);
   });
 
-  it('base price below base adds a parallel NPR step next to the chain step', () => {
-    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { pgl: 600, margin: 2.0 });
-    expect(stepCodes(plan)).toEqual(['N+2', 'NPR']);
+  it('a base cut with a margin N+1 / N+2 is one approval: Head of Projects alone', () => {
+    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { pgl: 600, margin: 4.0 }).plan)).toEqual(['NPR']);
+    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { pgl: 600, margin: 2.0 }).plan)).toEqual(['NPR']);
+  });
+
+  it('a base cut with an N+3 requirement still needs CEO next to Head of Projects', () => {
+    const extra = [rule(FLOW1, 'offer_value_eur', '>', 50, L.N3)];
+    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { pgl: 600, value: 100 }, extra).plan)).toEqual(['N+3', 'NPR']);
   });
 
   it('quotation validity over 48h (payment term > 2 days) goes to N+2 in Flow 1', () => {
@@ -198,10 +221,10 @@ describe('confirmed routing decisions', () => {
 });
 
 describe('stale approval steps (rules or data changed after submit)', () => {
-  // Worked example: submitted at margin 4.0 % (deficit 0.5 pp) -> N+1 step stored. The rules
-  // now see margin 2.4 % (deficit 2.1 pp) -> N+2. ASM (N+1) must not sign that off.
+  // Worked example: submitted at margin 4.0 % -> N+1 step stored. The offer now has 2.0 %
+  // -> N+2. ASM (N+1) must not sign that off.
   it('a stored N+1 step does not cover a fresh N+2 demand', () => {
-    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { margin: 2.4 });
+    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { margin: 2.0 });
     expect(uncoveredSteps(plan, [L.N1]).map((s) => s.level.code)).toEqual(['N+2']);
   });
 
@@ -215,9 +238,9 @@ describe('stale approval steps (rules or data changed after submit)', () => {
     expect(uncoveredSteps(plan, [L.N3]).map((s) => s.level.code)).toEqual(['NPR']);
   });
 
-  it('an already approved NPR step still counts for the round', () => {
-    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { pgl: 600, margin: 2.0 });
-    expect(uncoveredSteps(plan, [L.N1, L.NPR]).map((s) => s.level.code)).toEqual(['N+2']);
+  it('an approved NPR step covers a fresh N+2 demand (Head of Projects stands in)', () => {
+    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { margin: 2.0 });
+    expect(uncoveredSteps(plan, [L.NPR])).toEqual([]);
   });
 });
 
@@ -241,11 +264,11 @@ describe('fail-safe facts (review findings)', () => {
   });
 
   it('an escalated parallel step landing on the chain level is one approval', () => {
-    // Flow 2 without HoP: NPR escalates to the top chain level (CEO N+2).
+    // Flow 2 without HoP: N+2 and NPR both escalate to the top chain level (CEO N+3).
     const noHop = FLOW2_ROLES.filter((r) => r.roleCode !== 'HOP');
     const extra = [rule(FLOW2, 'offer_value_eur', '>', 50, L.N2)];
     const { plan } = run(FLOW2, noHop, IFO2, { margin: 4.0, value: 100 }, extra);
-    expect(stepCodes(plan)).toEqual(['N+2']);
+    expect(stepCodes(plan)).toEqual(['N+3']);
   });
 
   it('a rule scoped to another creator role does not apply', () => {

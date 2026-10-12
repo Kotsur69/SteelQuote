@@ -19,7 +19,9 @@ import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
 import ClientPaymentTermsPanel from '@/components/ClientPaymentTermsPanel';
 import SeniorStatusTiles, { type SeniorFilter } from '@/components/SeniorStatusTiles';
 import ValidationNotice, { type ValidationSnapshot } from '@/components/ValidationNotice';
+import ApprovalBadges from '@/components/ApprovalBadges';
 import { useAccess } from '@/lib/useAccess';
+import { useAccessT } from '@/lib/i18n/access';
 import type { ItemInputs } from '@/lib/calculatorData';
 import {
   formatOfferMoney,
@@ -77,6 +79,8 @@ interface Offer {
   // Validation queue (v2.0): true when a pending approval step sits at a level the caller
   // may approve in the offer's flow - computed on the server, see app/api/senior/offers.
   awaiting_me?: boolean;
+  /** false = waits at a lower level; the caller may decide it only as a stand-in. */
+  awaiting_own_level?: boolean;
   flow_name?: string | null;
   validation_snapshot?: ValidationSnapshot | null;
   pending_levels?: string[];
@@ -84,6 +88,7 @@ interface Offer {
 
 export default function SeniorPage() {
   const { t, language } = useLanguage();
+  const at = useAccessT();
   const { access } = useAccess();
   const router = useRouter();
   const [isDark, setIsDark] = useDarkMode();
@@ -217,24 +222,6 @@ export default function SeniorPage() {
 
   const handleEdit = (offerId: number) => {
     router.push(`/calculator?edit=${offerId}`);
-  };
-
-  const handleSend = async (offerId: number) => {
-    setActionLoading(offerId);
-    try {
-      const res = await fetch(`/api/offers/${offerId}/send`, { method: 'POST' });
-      if (res.ok) {
-        showMessage('success', t.workflow.sent);
-        fetchOffers(search);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showMessage('error', data.error || t.workflow.actionFailed);
-      }
-    } catch {
-      showMessage('error', t.workflow.actionFailed);
-    } finally {
-      setActionLoading(null);
-    }
   };
 
   const handleExportExcel = (offer: Offer) => {
@@ -709,6 +696,17 @@ export default function SeniorPage() {
                       )
                     )}
 
+                    {/* Stand-in hint: only a lower level's validation is required */}
+                    {offer.awaiting_me && offer.awaiting_own_level === false && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <ApprovalBadges
+                          approval={null}
+                          audience="reviewer"
+                          standInLevels={(offer.pending_levels ?? []).join(' + ')}
+                        />
+                      </div>
+                    )}
+
                     {/* Price guidelines (margin / base PGL): only relevant before the verdict */}
                     {offer.status === 'pending_review' && (
                       <ValidationNotice validation={offer.validation_snapshot} />
@@ -766,15 +764,9 @@ export default function SeniorPage() {
                       </button>
                     )}
 
-                    {/* Wyślij do klienta — dowolna oferta approved (własna lub zrecenzowana cudza) */}
-                    {offer.status === 'approved' && (
-                      <button
-                        onClick={() => handleSend(offer.id)}
-                        disabled={actionLoading === offer.id}
-                        className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-white bg-[var(--accent-cr)] hover:opacity-90 transition-opacity disabled:opacity-50"
-                      >
-                        📨 {t.workflow.sendToClient}
-                      </button>
+                    {/* No "send" here: only the creator sends, from their offer list. */}
+                    {offer.status === 'approved' && offer.user_id !== userId && (
+                      <span className="self-center text-[11px] text-[var(--text-secondary)]">{at.workflow.creatorSends}</span>
                     )}
                   </div>
                 </div>

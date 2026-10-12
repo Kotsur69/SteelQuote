@@ -5,14 +5,33 @@
 //
 // Rules:
 //   - superuser: everything
-//   - a user always sees offers they created and offers they decided as a reviewer (their own
-//     history), whatever the matrix says
+//   - a user always sees offers they created, whatever the matrix says, and offers they
+//     decided as a reviewer until the client accepts or rejects them
 //   - per membership: all flows / all in flow / team / awaiting my validation
 //   - branch and region have no org model yet: they resolve to the team ('team' fallback,
 //     default) or to the whole flow ('flow' fallback), see app_settings.org_scope_fallback
 // Visibility never implies edit or approval rights - those are checked separately.
 
-import type { AccessContext, EffectiveScope, VisibilityFlags } from './types';
+import { coverRank } from './routing';
+import type { AccessContext, EffectiveScope, Membership, VisibilityFlags } from './types';
+
+/**
+ * SQL condition: the step `stepAlias` is at a level the membership may decide - its own level,
+ * or a chain level it stands in for (routing.canDecideLevel, mirrored in SQL).
+ */
+function decidableLevelSql(m: Membership, params: unknown[], stepAlias: string): string {
+  params.push(m.level.id);
+  const own = `$${params.length}`;
+  params.push(coverRank(m.level));
+  const reach = `$${params.length}`;
+  return `${stepAlias}.level_id IN (SELECT dl.id FROM hierarchy_levels dl WHERE dl.id = ${own} ` +
+    `OR (dl.kind = 'chain' AND dl.chain_rank BETWEEN 1 AND ${reach}))`;
+}
+
+/** SQL: the offer is not closed yet - not sent, or sent and still without the client's answer. */
+export function openUntilClientDecisionSql(alias = 'o'): string {
+  return `(${alias}.status <> 'sent' OR ${alias}.client_decision IS NULL OR ${alias}.client_decision = 'pending')`;
+}
 
 /** The sheet's "Efektywny zakres" formula: the broadest scope the flags grant. */
 export function effectiveScope(v: VisibilityFlags): EffectiveScope {
@@ -37,14 +56,14 @@ export function offerVisibilitySql(ctx: AccessContext, params: unknown[], alias 
   params.push(ctx.userId);
   const me = `$${params.length}`;
   const clauses: string[] = [`${alias}.user_id = ${me}`];
-  // Offers the user decided as a reviewer stay visible - but only in flows where they still
-  // hold the approve permission, so a lost role does not keep a permanent window open.
+  // Offers the user decided as a reviewer stay visible until the client's decision - and only
+  // in flows where they still hold the approve permission.
   const approverFlows = ctx.memberships.filter((m) => m.permissions.canApproveReject).map((m) => m.flowId);
   if (approverFlows.length > 0) {
     params.push(approverFlows);
     clauses.push(
       `(${alias}.flow_id = ANY($${params.length}::int[]) AND EXISTS (SELECT 1 FROM offer_approval_steps hs ` +
-        `WHERE hs.offer_id = ${alias}.id AND hs.decided_by = ${me}))`
+        `WHERE hs.offer_id = ${alias}.id AND hs.decided_by = ${me}) AND ${openUntilClientDecisionSql(alias)})`
     );
   }
 
@@ -72,10 +91,9 @@ export function offerVisibilitySql(ctx: AccessContext, params: unknown[], alias 
 
     if (v.seeAwaitingMyReview && m.permissions.canApproveReject) {
       const flow = flowRef();
-      params.push(m.level.id);
       clauses.push(
         `(${alias}.flow_id = ${flow} AND EXISTS (SELECT 1 FROM offer_approval_steps qs ` +
-          `WHERE qs.offer_id = ${alias}.id AND qs.status = 'pending' AND qs.level_id = $${params.length}))`
+          `WHERE qs.offer_id = ${alias}.id AND qs.status = 'pending' AND ${decidableLevelSql(m, params, 'qs')}))`
       );
     }
   }
@@ -85,10 +103,11 @@ export function offerVisibilitySql(ctx: AccessContext, params: unknown[], alias 
 
 /**
  * Predicate for "offers awaiting MY validation": pending steps at a level I may approve in
- * the offer's flow, never my own offers. Independent of the visibility matrix - holding the
- * approve permission at that level is what puts an offer in my queue.
+ * the offer's flow (my own, or one I stand in for), never my own offers. Independent of the
+ * visibility matrix - holding the approve permission is what puts an offer in my queue.
+ * `ownLevelOnly` narrows it to steps at exactly my level - the rest I decide as a stand-in.
  */
-export function awaitingMyReviewSql(ctx: AccessContext, params: unknown[], alias = 'o'): string {
+export function awaitingMyReviewSql(ctx: AccessContext, params: unknown[], alias = 'o', ownLevelOnly = false): string {
   const clauses: string[] = [];
   if (ctx.isSuperuser) {
     clauses.push(
@@ -99,10 +118,16 @@ export function awaitingMyReviewSql(ctx: AccessContext, params: unknown[], alias
       if (!m.permissions.canApproveReject) continue;
       params.push(m.flowId);
       const flow = `$${params.length}`;
-      params.push(m.level.id);
+      let level: string;
+      if (ownLevelOnly) {
+        params.push(m.level.id);
+        level = `aq.level_id = $${params.length}`;
+      } else {
+        level = decidableLevelSql(m, params, 'aq');
+      }
       clauses.push(
         `(${alias}.flow_id = ${flow} AND EXISTS (SELECT 1 FROM offer_approval_steps aq ` +
-          `WHERE aq.offer_id = ${alias}.id AND aq.status = 'pending' AND aq.level_id = $${params.length}))`
+          `WHERE aq.offer_id = ${alias}.id AND aq.status = 'pending' AND ${level}))`
       );
     }
   }

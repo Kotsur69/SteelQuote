@@ -4,8 +4,11 @@
 //   - a parallel level (NPR) is an extra step, approved independently of the chain step
 //   - steps at or below the creator's own level are auto-satisfied
 //   - a creator who may approve but not submit (HoP, CEO) validates their own offers
-//   - a level the flow has no approver for is a configuration conflict (test T5), resolved by
-//     the admin-chosen policy
+//   - a parallel level stands in for chain levels up to its coversChainRank (Head of Projects
+//     = N+1 and N+2): a chain level the flow has no approver for goes there, and a chain step
+//     it covers is folded into its own step (one approval)
+//   - any other level the flow has no approver for is a configuration conflict (test T5),
+//     resolved by the admin-chosen policy
 // Every decision reads configuration (levels, flow roles, permissions) - no role names.
 
 import type { ConflictPolicy, FlowRole, HierarchyLevel } from './types';
@@ -47,6 +50,24 @@ export interface Creator {
   flowRole: FlowRole | null;
 }
 
+/**
+ * Highest chain rank an approval at `level` stands in for: a chain level its own rank, a
+ * parallel level its configured coverage (0 = none).
+ */
+export function coverRank(level: HierarchyLevel): number {
+  return level.kind === 'chain' ? level.chainRank ?? 0 : level.coversChainRank ?? 0;
+}
+
+/**
+ * Whether an approval at `holder` covers a step at `step`: the same level, or a chain step at
+ * or below the rank the holder stands in for (a higher level deciding for a lower one).
+ */
+export function canDecideLevel(holder: HierarchyLevel, step: HierarchyLevel): boolean {
+  if (holder.id === step.id) return true;
+  const rank = step.kind === 'chain' ? step.chainRank ?? 0 : 0;
+  return rank > 0 && rank <= coverRank(holder);
+}
+
 /** Chain levels (rank > 0) that have at least one role allowed to approve in the flow. */
 export function approverChainLevels(flowRoles: FlowRole[]): HierarchyLevel[] {
   const byId = new Map<number, HierarchyLevel>();
@@ -60,6 +81,18 @@ export function approverChainLevels(flowRoles: FlowRole[]): HierarchyLevel[] {
 
 function hasApproverAt(flowRoles: FlowRole[], level: HierarchyLevel): boolean {
   return flowRoles.some((fr) => fr.permissions.canApproveReject && fr.level.id === level.id);
+}
+
+/** The narrowest parallel level with an approver in the flow that stands in for `rank`. */
+function coveringParallel(flowRoles: FlowRole[], rank: number): HierarchyLevel | null {
+  let best: HierarchyLevel | null = null;
+  for (const fr of flowRoles) {
+    if (!fr.permissions.canApproveReject || fr.level.kind !== 'parallel') continue;
+    const cover = coverRank(fr.level);
+    if (cover < rank) continue;
+    if (best === null || cover < coverRank(best)) best = fr.level;
+  }
+  return best;
 }
 
 function escalate(
@@ -85,21 +118,16 @@ function resolveStep(
   if (hasApproverAt(flowRoles, required)) {
     return { track, level: required, requiredLevel: required, escalated: false };
   }
+  // A configured stand-in is not a conflict: Flow 2 has no N+1 / N+2, Head of Projects is both.
+  const standIn = required.kind === 'chain' ? coveringParallel(flowRoles, required.chainRank ?? 0) : null;
+  if (standIn) return { track: 'parallel', level: standIn, requiredLevel: required, escalated: false };
   const resolved = escalate(required, chain, policy);
   conflicts.push({ requiredLevel: required, resolvedLevel: resolved });
   return resolved ? { track, level: resolved, requiredLevel: required, escalated: true } : null;
 }
 
 function coveredByCreator(step: PlannedStep, creator: FlowRole | null): boolean {
-  if (!creator) return false;
-  if (step.level.kind === 'parallel') return creator.level.id === step.level.id;
-  return creator.level.kind === 'chain' && (creator.level.chainRank ?? 0) >= (step.level.chainRank ?? 0);
-}
-
-/** Whether an existing step at `held` covers a fresh demand at `wanted` (same level, or a higher chain level). */
-function levelCovers(held: HierarchyLevel, wanted: HierarchyLevel): boolean {
-  if (held.id === wanted.id) return true;
-  return held.kind === 'chain' && wanted.kind === 'chain' && (held.chainRank ?? 0) >= (wanted.chainRank ?? 0);
+  return creator !== null && canDecideLevel(creator.level, step.level);
 }
 
 /**
@@ -109,7 +137,7 @@ function levelCovers(held: HierarchyLevel, wanted: HierarchyLevel): boolean {
  * A plan that needs less than the stored steps is not a gap: the higher approver still decides.
  */
 export function uncoveredSteps(plan: ApprovalPlan, roundLevels: HierarchyLevel[]): PlannedStep[] {
-  return plan.steps.filter((s) => !roundLevels.some((held) => levelCovers(held, s.level)));
+  return plan.steps.filter((s) => !roundLevels.some((held) => canDecideLevel(held, s.level)));
 }
 
 export function planApproval(
@@ -120,7 +148,7 @@ export function planApproval(
 ): ApprovalPlan {
   const chain = approverChainLevels(flowRoles);
   const conflicts: LevelConflict[] = [];
-  const demanded: PlannedStep[] = [];
+  const resolved: PlannedStep[] = [];
   let unresolved = false;
 
   const wanted: { track: StepTrack; level: HierarchyLevel }[] = [
@@ -137,8 +165,14 @@ export function planApproval(
       continue;
     }
     // An escalated parallel step may land on the chain step's level - one approval covers both.
-    if (!demanded.some((d) => d.level.id === step.level.id)) demanded.push(step);
+    if (!resolved.some((d) => d.level.id === step.level.id)) resolved.push(step);
   }
+
+  // Highest required level wins: a chain step a demanded parallel step stands in for is folded
+  // into it (Flow 1: margin N+1 + base cut NPR -> Head of Projects alone).
+  const demanded = resolved.filter(
+    (s) => !resolved.some((p) => p !== s && p.level.kind === 'parallel' && canDecideLevel(p.level, s.level))
+  );
 
   if (demanded.length === 0 && !unresolved) {
     return { steps: [], autoSatisfied: [], conflicts, blocked: false, noValidationReason: 'no_rule_fired' };

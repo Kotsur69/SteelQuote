@@ -3,7 +3,7 @@
 // actions. Every /api/offers/[id]/* route goes through here so they all decide alike.
 
 import pool from '../db';
-import type { Db } from './config';
+import { loadPolicies, type Db } from './config';
 import { offerVisibilitySql } from './scope';
 import type { AccessContext } from './types';
 import {
@@ -81,7 +81,8 @@ export async function describeOffer(ctx: AccessContext, offer: OfferRow, db: Db 
       clientDecision: offer.client_decision,
     },
     steps,
-    assessment?.plan ?? null
+    assessment?.plan ?? null,
+    { validityHours: (await loadPolicies(db)).approvalValidityHours, now: new Date() }
   );
   return { offer, steps, assessment, actions };
 }

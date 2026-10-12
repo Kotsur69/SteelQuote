@@ -14,8 +14,9 @@ interface RouteParams {
 // offerActions().canSend, recomputed here on the server:
 //   - the owner, from draft/rejected, when the flow's rules require no validation for them
 //     (no rule fired, or their own level covers it, or they validate their own offers)
-//   - an 'approved' offer: its owner, the superuser, or a reviewer who approved it - the
-//     reviewer sends on the owner's behalf; offers.sent_by records who actually sent it
+//   - an 'approved' offer: only its owner, and only while the approval is valid (not expired,
+//     not outgrown by the current rules - ApprovalState.needsRevalidation). An approver never
+//     sends: the offer, its PDF and statistics stay the creator's. offers.sent_by = the sender.
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const auth = await requireAccess();

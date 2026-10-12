@@ -45,7 +45,6 @@ const ruleBody = z.object({
   threshold: z.number().finite().nullable(),
   referenceValue: z.number().finite().nullable(),
   unit: z.string().max(20),
-  priority: z.number().int().min(0).max(1000),
   targetLevelId: id,
   isActive: z.boolean(),
   sortOrder: z.number().int(),
@@ -56,6 +55,7 @@ const levelBody = z.object({
   name,
   kind: z.enum(['chain', 'parallel']),
   chainRank: z.number().int().min(0).nullable(),
+  coversChainRank: z.number().int().min(1).nullable().optional(),
   sortOrder: z.number().int(),
 });
 
@@ -119,6 +119,9 @@ function checkLevelShape(level: z.infer<typeof levelBody>): void {
   if ((level.kind === 'chain') !== (level.chainRank !== null)) {
     throw new MutationError(400, 'Pozycja w łańcuchu jest wymagana dokładnie dla poziomów typu chain');
   }
+  if (level.kind === 'chain' && (level.coversChainRank ?? null) !== null) {
+    throw new MutationError(400, 'Zastępstwo poziomów łańcucha ustawia się tylko dla poziomów równoległych');
+  }
 }
 
 async function assertRankFree(db: Db, rank: number | null, exceptId: number | null): Promise<void> {
@@ -137,8 +140,9 @@ const createLevel: Handler = async (body, _u, db) => {
   checkLevelShape(b);
   await assertRankFree(db, b.chainRank, null);
   return one(db,
-    `INSERT INTO hierarchy_levels (code, name, kind, chain_rank, sort_order) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [b.code, b.name, b.kind, b.chainRank, b.sortOrder], 'Poziom');
+    `INSERT INTO hierarchy_levels (code, name, kind, chain_rank, covers_chain_rank, sort_order)
+     VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [b.code, b.name, b.kind, b.chainRank, b.coversChainRank ?? null, b.sortOrder], 'Poziom');
 };
 
 const updateLevel: Handler = async (body, _u, db) => {
@@ -159,8 +163,9 @@ const updateLevel: Handler = async (body, _u, db) => {
   }
   await assertRankFree(db, b.chainRank, b.id);
   return one(db,
-    `UPDATE hierarchy_levels SET code=$2, name=$3, kind=$4, chain_rank=$5, sort_order=$6 WHERE id=$1 RETURNING *`,
-    [b.id, b.code, b.name, b.kind, b.chainRank, b.sortOrder], 'Poziom');
+    `UPDATE hierarchy_levels SET code=$2, name=$3, kind=$4, chain_rank=$5, covers_chain_rank=$6, sort_order=$7
+     WHERE id=$1 RETURNING *`,
+    [b.id, b.code, b.name, b.kind, b.chainRank, b.coversChainRank ?? null, b.sortOrder], 'Poziom');
 };
 
 // --- Roles ------------------------------------------------------------------------------
@@ -170,11 +175,26 @@ const createRole: Handler = (body, _u, db) => {
   return one(db, `INSERT INTO roles (code, name) VALUES ($1, $2) RETURNING *`, [b.code.toUpperCase(), b.name], 'Rola');
 };
 
-const updateRole: Handler = (body, _u, db) => {
-  const b = parse(z.object({ id, name: name.optional(), isActive: z.boolean().optional() }), body);
+const updateRole: Handler = async (body, _u, db) => {
+  const b = parse(z.object({
+    id, name: name.optional(), isActive: z.boolean().optional(), multiFlow: z.boolean().optional(),
+  }), body);
+  if (b.multiFlow === false) {
+    // Taking the flag away must not leave someone in two flows on a single-flow role.
+    const spread = await db.query(
+      `SELECT 1 FROM user_flow_roles m
+       WHERE m.role_id = $1 AND EXISTS (SELECT 1 FROM user_flow_roles o WHERE o.user_id = m.user_id AND o.flow_id <> m.flow_id)
+       LIMIT 1`,
+      [b.id]
+    );
+    if (spread.rows.length > 0) {
+      throw new MutationError(409, 'Ktoś z tą rolą pracuje w kilku flow - najpierw zostaw go w jednym');
+    }
+  }
   return one(db,
-    `UPDATE roles SET name = COALESCE($2, name), is_active = COALESCE($3, is_active) WHERE id = $1 RETURNING *`,
-    [b.id, b.name ?? null, b.isActive ?? null], 'Rola');
+    `UPDATE roles SET name = COALESCE($2, name), is_active = COALESCE($3, is_active),
+            multi_flow = COALESCE($4, multi_flow) WHERE id = $1 RETURNING *`,
+    [b.id, b.name ?? null, b.isActive ?? null, b.multiFlow ?? null], 'Rola');
 };
 
 /** A role is deleted only while nobody holds it; otherwise it has to be deactivated. */
@@ -238,26 +258,63 @@ const deleteFlowRole: Handler = async (body, _u, db) => {
 
 // --- Memberships ------------------------------------------------------------------------
 
+/**
+ * One person works in one flow. Several flows only when every role they would hold there is
+ * a multi-flow role (Head of Projects, CEO). `wanted` = the user's full set after the change.
+ */
+export async function assertSingleFlow(db: Db, wanted: { flowId: number; roleId: number }[]): Promise<void> {
+  if (new Set(wanted.map((m) => m.flowId)).size <= 1) return;
+  const roleIds = [...new Set(wanted.map((m) => m.roleId))];
+  const result = await db.query(`SELECT name FROM roles WHERE id = ANY($1::int[]) AND NOT multi_flow`, [roleIds]);
+  if (result.rows.length > 0) {
+    throw new MutationError(409,
+      `Rola ${result.rows.map((r) => r.name).join(', ')} pracuje tylko w jednym flow - najpierw usuń osobę z drugiego flow`);
+  }
+}
+
 /** roleId null removes the user from the flow; otherwise sets (or moves them to) that role. */
 const setMembership: Handler = async (body, _u, db) => {
   const b = parse(z.object({ userId: id, flowId: id, roleId: id.nullable() }), body);
-  if (b.roleId === null) {
+  const roleId = b.roleId;
+  if (roleId === null) {
     await db.query(`DELETE FROM user_flow_roles WHERE user_id = $1 AND flow_id = $2`, [b.userId, b.flowId]);
     return { userId: b.userId, flowId: b.flowId, roleId: null };
   }
-  // The composite FK to flow_roles rejects a role that does not exist in that flow.
-  return one(db,
-    `INSERT INTO user_flow_roles (user_id, flow_id, role_id) VALUES ($1, $2, $3)
-     ON CONFLICT (user_id, flow_id) DO UPDATE SET role_id = EXCLUDED.role_id
-     RETURNING user_id, flow_id, role_id`,
-    [b.userId, b.flowId, b.roleId], 'Przypisanie');
+  // Check and write in one transaction under a per-user lock: two parallel admin edits must not
+  // each add a different flow because neither sees the other's row yet.
+  const tx = await pool.connect();
+  try {
+    await tx.query('BEGIN');
+    await tx.query(`SELECT pg_advisory_xact_lock(hashtext('user_flow_roles'), $1)`, [b.userId]);
+    const current = await tx.query(
+      `SELECT flow_id, role_id FROM user_flow_roles WHERE user_id = $1 AND flow_id <> $2`,
+      [b.userId, b.flowId]
+    );
+    await assertSingleFlow(tx, [
+      ...current.rows.map((r) => ({ flowId: Number(r.flow_id), roleId: Number(r.role_id) })),
+      { flowId: b.flowId, roleId },
+    ]);
+    // The composite FK to flow_roles rejects a role that does not exist in that flow.
+    const row = await one(tx,
+      `INSERT INTO user_flow_roles (user_id, flow_id, role_id) VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, flow_id) DO UPDATE SET role_id = EXCLUDED.role_id
+       RETURNING user_id, flow_id, role_id`,
+      [b.userId, b.flowId, roleId], 'Przypisanie');
+    await tx.query('COMMIT');
+    return row;
+  } catch (error) {
+    await tx.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    tx.release();
+  }
 };
 
 // --- Rules ------------------------------------------------------------------------------
 
 function ruleValues(b: z.infer<typeof ruleBody>, userId: number): unknown[] {
   return [b.flowId, b.criterion, b.appliesToRoleId, b.conditionText, b.operator, b.threshold,
-    b.referenceValue, b.unit, b.priority, b.targetLevelId, b.isActive, b.sortOrder, userId];
+    b.referenceValue, b.unit, b.targetLevelId, b.isActive, b.sortOrder, userId];
 }
 
 const createRule: Handler = (body, userId, db) => {
@@ -265,8 +322,8 @@ const createRule: Handler = (body, userId, db) => {
   checkRuleShape(b);
   return one(db,
     `INSERT INTO approval_rules (flow_id, criterion, applies_to_role_id, condition_text, operator,
-       threshold, reference_value, unit, priority, target_level_id, is_active, sort_order, updated_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+       threshold, reference_value, unit, target_level_id, is_active, sort_order, updated_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
     ruleValues(b, userId), 'Reguła');
 };
 
@@ -275,8 +332,8 @@ const updateRule: Handler = (body, userId, db) => {
   checkRuleShape(b);
   return one(db,
     `UPDATE approval_rules SET flow_id=$2, criterion=$3, applies_to_role_id=$4, condition_text=$5,
-       operator=$6, threshold=$7, reference_value=$8, unit=$9, priority=$10, target_level_id=$11,
-       is_active=$12, sort_order=$13, updated_by=$14, updated_at=CURRENT_TIMESTAMP
+       operator=$6, threshold=$7, reference_value=$8, unit=$9, target_level_id=$10,
+       is_active=$11, sort_order=$12, updated_by=$13, updated_at=CURRENT_TIMESTAMP
      WHERE id = $1 RETURNING *`,
     [b.id, ...ruleValues(b, userId)], 'Reguła');
 };
@@ -311,11 +368,13 @@ const setPolicies: Handler = (body, _u, db) => {
   const b = parse(z.object({
     conflictPolicy: z.enum(['escalate_next', 'block', 'escalate_top']),
     orgScopeFallback: z.enum(['team', 'flow']),
+    approvalValidityHours: z.number().int().min(1).max(8760).optional(),
   }), body);
   return one(db,
-    `UPDATE app_settings SET level_conflict_policy = $1, org_scope_fallback = $2 WHERE id = 1
-     RETURNING level_conflict_policy, org_scope_fallback`,
-    [b.conflictPolicy, b.orgScopeFallback], 'Ustawienia');
+    `UPDATE app_settings SET level_conflict_policy = $1, org_scope_fallback = $2,
+            approval_validity_hours = COALESCE($3, approval_validity_hours) WHERE id = 1
+     RETURNING level_conflict_policy, org_scope_fallback, approval_validity_hours`,
+    [b.conflictPolicy, b.orgScopeFallback, b.approvalValidityHours ?? null], 'Ustawienia');
 };
 
 export type MutationMethod = 'POST' | 'PATCH' | 'PUT' | 'DELETE';

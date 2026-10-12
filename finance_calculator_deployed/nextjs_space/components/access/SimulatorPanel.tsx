@@ -16,7 +16,8 @@ const HOURS_PER_DAY = 24;
 const FLOW1_CODE = 'FLOW1';
 const FLOW2_CODE = 'FLOW2';
 const N0_CODE = 'N0';
-const T5_LEVEL_CODE = 'N+3';
+// T5: a Flow 2 rule demanding N+2, a level Flow 2 has nobody on - Head of Projects stands in.
+const T5_LEVEL_CODE = 'N+2';
 const T5_THRESHOLD = 50;
 // Id of the hypothetical T5 rule; never collides with a database id.
 const T5_RULE_ID = -1;
@@ -48,7 +49,7 @@ const PRESETS: Preset[] = [
   { id: 'T2', flowCode: FLOW1_CODE, values: { ...BASE, margin: '4.0' }, withExtraRule: false, expected: 'N+1' },
   { id: 'T3', flowCode: FLOW1_CODE, values: { ...BASE, validTo: '2026-12-31' }, withExtraRule: false, expected: 'N+1' },
   { id: 'T4', flowCode: FLOW1_CODE, values: { ...BASE, validTo: '2027-01-31', value: '1500000' }, withExtraRule: false, expected: 'N+2' },
-  { id: 'T5', flowCode: FLOW2_CODE, values: BASE, withExtraRule: true, expected: 'conflict' },
+  { id: 'T5', flowCode: FLOW2_CODE, values: BASE, withExtraRule: true, expected: 'NPR' },
 ];
 
 function firstN0Role(config: AdminAccessConfig, flowId: number | null): number | null {
@@ -62,7 +63,7 @@ function extraRule(config: AdminAccessConfig): ApprovalRule | null {
   if (!level) return null;
   return {
     id: T5_RULE_ID, flowId: null, criterion: 'offer_value_eur', appliesToRoleId: null, conditionText: '',
-    operator: '>', threshold: T5_THRESHOLD, referenceValue: null, unit: 'EUR', priority: 0,
+    operator: '>', threshold: T5_THRESHOLD, referenceValue: null, unit: 'EUR',
     targetLevelId: level.id, isActive: true, sortOrder: Number.MAX_SAFE_INTEGER,
   };
 }

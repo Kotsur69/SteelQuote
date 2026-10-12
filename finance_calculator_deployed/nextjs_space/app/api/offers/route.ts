@@ -7,7 +7,7 @@ import { can, requireAccess } from '@/lib/access/context';
 import { offerVisibilitySql } from '@/lib/access/scope';
 import { createAssessor, loadStepsForOffers, offerActions, type OfferStatus } from '@/lib/access/workflow';
 import { fieldViolation } from '@/lib/access/fieldGuards';
-import { loadBaseResolver, loadDefaultMarginPct } from '@/lib/access/config';
+import { loadBaseResolver, loadDefaultMarginPct, loadPolicies } from '@/lib/access/config';
 import { accessError } from '@/lib/access/errors';
 import { validateOfferItems } from '@/lib/offerItemValidation';
 
@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
 
     const stepsByOffer = await loadStepsForOffers(result.rows.map((r) => Number(r.id)));
     const assess = createAssessor();
+    const policy = { validityHours: (await loadPolicies()).approvalValidityHours, now: new Date() };
     const offers = await Promise.all(
       result.rows.map(async (row) => {
         const status = row.status as OfferStatus;
@@ -83,7 +84,8 @@ export async function GET(request: NextRequest) {
             clientDecision: row.client_decision,
           },
           steps,
-          plan
+          plan,
+          policy
         );
         return { ...row, actions, pending_levels: steps.filter((s) => s.status === 'pending').map((s) => s.levelCode) };
       })

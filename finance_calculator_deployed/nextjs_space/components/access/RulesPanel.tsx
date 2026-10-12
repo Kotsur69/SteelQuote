@@ -8,6 +8,7 @@ import { AlertTriangle, CheckCircle2, Plus, Save, Trash2, X } from 'lucide-react
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { AdminAccessConfig } from '@/lib/access/adminConfig';
 import { CRITERIA, OPERATORS, unconfiguredRules, type ApprovalRule, type Criterion, type Operator } from '@/lib/access/ruleEngine';
+import { coverRank } from '@/lib/access/routing';
 import type { ConflictPolicy, OrgScopeFallback } from '@/lib/access/types';
 import { useAccessT } from '@/lib/i18n/access';
 import {
@@ -43,7 +44,6 @@ interface RuleDraft {
   threshold: string;
   referenceValue: string;
   unit: string;
-  priority: string;
   targetLevelId: number;
   isActive: boolean;
   sortOrder: number;
@@ -63,7 +63,6 @@ function draftOf(r: ApprovalRule): RuleDraft {
     threshold: str(r.threshold),
     referenceValue: str(r.referenceValue),
     unit: r.unit,
-    priority: String(r.priority),
     targetLevelId: r.targetLevelId,
     isActive: r.isActive,
     sortOrder: r.sortOrder,
@@ -81,7 +80,6 @@ function bodyOf(d: RuleDraft) {
     threshold: numOrNull(d.threshold),
     referenceValue: d.criterion === 'margin_deficit_pp' ? numOrNull(d.referenceValue) : null,
     unit: d.unit,
-    priority: Math.trunc(numOrNull(d.priority) ?? 0),
     targetLevelId: d.targetLevelId,
     isActive: d.isActive,
     sortOrder: d.sortOrder,
@@ -174,10 +172,6 @@ function RuleRow({ initial, config, run, busy, onDiscard }: {
           value={d.unit} onChange={(e) => set({ unit: e.target.value })} />
       </td>
       <td className={tdCls}>
-        <input type="number" min={0} max={1000} step={1} className={`${cellInputCls} w-20`} aria-label={label(t.rulesPanel.priority)}
-          value={d.priority} onChange={(e) => set({ priority: e.target.value })} />
-      </td>
-      <td className={tdCls}>
         <select className={cellInputCls} aria-label={label(t.rulesPanel.targetLevel)} value={d.targetLevelId}
           onChange={(e) => set({ targetLevelId: Number(e.target.value) })}>
           {levels.map((l) => <option key={l.id} value={l.id}>{l.code}</option>)}
@@ -202,7 +196,7 @@ function RuleRow({ initial, config, run, busy, onDiscard }: {
   );
 }
 
-/** Missing chain approvers: a level some active rule targets that no role in the flow can approve. */
+/** Missing chain approvers: a level some active rule targets that no role in the flow can approve or stand in for. */
 function missingChainTops(config: AdminAccessConfig) {
   const out: { key: string; flow: string; level: string }[] = [];
   for (const flow of config.flows) {
@@ -211,9 +205,12 @@ function missingChainTops(config: AdminAccessConfig) {
       const targeted = config.rules.some(
         (r) => r.isActive && r.targetLevelId === level.id && (r.flowId === null || r.flowId === flow.id)
       );
-      const covered = config.flowRoles.some(
-        (fr) => fr.flowId === flow.id && fr.levelId === level.id && fr.permissions.canApproveReject
-      );
+      // An approver at the level itself, or a parallel level standing in for it (Head of Projects).
+      const covered = config.flowRoles.some((fr) => {
+        if (fr.flowId !== flow.id || !fr.permissions.canApproveReject) return false;
+        const held = config.levels.find((l) => l.id === fr.levelId);
+        return fr.levelId === level.id || (held?.kind === 'parallel' && coverRank(held) >= (level.chainRank ?? 0));
+      });
       if (targeted && !covered) out.push({ key: `${flow.id}-${level.id}`, flow: flow.name, level: level.code });
     }
   }
@@ -282,11 +279,16 @@ function RadioGroup<V extends string>({ name, legend, options, value, disabled, 
   );
 }
 
+const MAX_VALIDITY_HOURS = 8760;
+
 function Policies({ config, run, busy }: { config: AdminAccessConfig; run: Run; busy: boolean }) {
   const t = useAccessT();
-  const { conflictPolicy, orgScopeFallback } = config.policies;
-  const save = (patch: Partial<{ conflictPolicy: ConflictPolicy; orgScopeFallback: OrgScopeFallback }>) =>
-    void run('policies', 'PUT', { conflictPolicy, orgScopeFallback, ...patch });
+  const { conflictPolicy, orgScopeFallback, approvalValidityHours } = config.policies;
+  const [hours, setHours] = useState(String(approvalValidityHours));
+  const save = (patch: Partial<{ conflictPolicy: ConflictPolicy; orgScopeFallback: OrgScopeFallback; approvalValidityHours: number }>) =>
+    void run('policies', 'PUT', { conflictPolicy, orgScopeFallback, approvalValidityHours, ...patch });
+  const parsedHours = numOrNull(hours);
+  const hoursValid = parsedHours !== null && Number.isInteger(parsedHours) && parsedHours >= 1 && parsedHours <= MAX_VALIDITY_HOURS;
   const policies = (['escalate_next', 'block', 'escalate_top'] as const).map((v) => ({ value: v, label: t.rulesPanel.policies[v] }));
   const scopes = (['team', 'flow'] as const).map((v) => ({ value: v, label: t.rulesPanel.orgScopes[v] }));
   return (
@@ -295,6 +297,20 @@ function Policies({ config, run, busy }: { config: AdminAccessConfig; run: Run; 
         disabled={busy} onChange={(v) => save({ conflictPolicy: v })} />
       <RadioGroup name="org-scope" legend={t.rulesPanel.orgScopeTitle} options={scopes} value={orgScopeFallback}
         disabled={busy} onChange={(v) => save({ orgScopeFallback: v })} />
+      <div>
+        <label htmlFor="approval-validity-hours" className={labelCls}>{t.rulesPanel.approvalValidityTitle}</label>
+        <div className="flex items-center gap-2">
+          <input id="approval-validity-hours" type="number" min={1} max={MAX_VALIDITY_HOURS} step={1}
+            className={`${inputCls} w-28`} value={hours} aria-describedby="approval-validity-hint"
+            aria-invalid={!hoursValid} onChange={(e) => setHours(e.target.value)} />
+          <button type="button" disabled={busy || !hoursValid || parsedHours === approvalValidityHours}
+            onClick={() => parsedHours !== null && save({ approvalValidityHours: parsedHours })}
+            className={secondaryBtnCls}>
+            <Save className="h-3.5 w-3.5" aria-hidden /> {t.save}
+          </button>
+        </div>
+        <p id="approval-validity-hint" className="mt-1 text-[11px] text-[var(--text-secondary)]">{t.rulesPanel.approvalValidityHint}</p>
+      </div>
     </div>
   );
 }
@@ -317,7 +333,7 @@ export default function RulesPanel({ config, mutate, report }: PanelProps) {
     setDrafts([...drafts, {
       key: `draft-${seq}`, id: null, flowId: filter === 'all' ? null : filter, criterion: CRITERIA[0],
       appliesToRoleId: null, conditionText: '', operator: '<', threshold: '', referenceValue: '', unit: '',
-      priority: '0', targetLevelId: level.id, isActive: true, sortOrder: maxSort + SORT_STEP + drafts.length,
+      targetLevelId: level.id, isActive: true, sortOrder: maxSort + SORT_STEP + drafts.length,
     }]);
     setSeq(seq + 1);
   };
@@ -325,7 +341,7 @@ export default function RulesPanel({ config, mutate, report }: PanelProps) {
 
   const headers = [
     t.rulesPanel.criterion, t.flow, t.rulesPanel.appliesTo, t.rulesPanel.condition, t.rulesPanel.operator,
-    t.rulesPanel.threshold, t.rulesPanel.reference, t.rulesPanel.unit, t.rulesPanel.priority,
+    t.rulesPanel.threshold, t.rulesPanel.reference, t.rulesPanel.unit,
     t.rulesPanel.targetLevel, t.active, t.save,
   ];
 
@@ -333,7 +349,8 @@ export default function RulesPanel({ config, mutate, report }: PanelProps) {
     <>
       <Completeness config={config} />
       <Card title={t.rulesPanel.policyTitle}>
-        <Policies config={config} run={run} busy={busy} />
+        {/* Keyed by the saved hours so the input re-syncs after a save or another admin's edit. */}
+        <Policies key={config.policies.approvalValidityHours} config={config} run={run} busy={busy} />
       </Card>
       <Card title={t.rulesPanel.title} aside={<span className="text-[10px] text-[var(--text-secondary)] font-mono">{visible.length}</span>}>
         <div className="flex flex-wrap items-end gap-3 mb-4">

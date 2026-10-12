@@ -9,7 +9,8 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// POST - submit an own draft/rejected offer to validation. The flow's rules are evaluated for
+// POST - submit an own draft/rejected offer to validation, or send an approved one back to it
+// when its approval expired or the rules now need more (ApprovalState.needsRevalidation). The flow's rules are evaluated for
 // the owner (lib/access/ruleEngine + routing) and one approval step is written per level that
 // must approve; the offer goes to pending_review. When no step is needed (no rule fired, or
 // the owner's level covers it) the offer is approved straight away and can be sent. A level
@@ -30,12 +31,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         await db.query('ROLLBACK');
         return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
       }
-      if (offer.status !== 'draft' && offer.status !== 'rejected') {
+      const { assessment, actions } = await describeOffer(ctx, offer, db);
+      const revalidation = offer.status === 'approved' && actions.approval?.needsRevalidation === true;
+      if (offer.status !== 'draft' && offer.status !== 'rejected' && !revalidation) {
         await db.query('ROLLBACK');
         return accessError('wrong_status');
       }
 
-      const { assessment, actions } = await describeOffer(ctx, offer, db);
       if (!assessment) {
         await db.query('ROLLBACK');
         return accessError('wrong_status');
