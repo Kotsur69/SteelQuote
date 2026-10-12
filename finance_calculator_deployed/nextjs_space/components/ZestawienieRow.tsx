@@ -3,6 +3,7 @@
 import { Reorder, useDragControls } from 'framer-motion';
 import { GripVertical } from 'lucide-react';
 import { findGrade, type PriceBook } from '@/lib/priceBook';
+import { fixedGrouped } from '@/lib/numberFormat';
 import type { Translations, Language } from '@/lib/translations';
 import type { ZestawienieItem } from '@/components/Calculator';
 
@@ -121,7 +122,7 @@ export default function ZestawienieRow({
         {marginPct !== null && <span className="text-[var(--text-secondary)]"> / {marginPct}%</span>}
       </td>
       <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right whitespace-nowrap">{moneyCeil(item.finalPrice)} {symbol}</td>
-      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right whitespace-nowrap">{item.tons.toFixed(2)} {t.common.tons}</td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right whitespace-nowrap">{fixedGrouped(item.tons, 2)} {t.common.tons}</td>
       <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right whitespace-nowrap">{moneyCeil(item.totalValue)} {currencyUnit}</td>
       <td className="px-2 sm:px-3.5 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
         <button onClick={() => onEdit(item.id)} className="bg-transparent border border-[var(--border)] rounded px-1 sm:px-2 py-1 text-[13px] hover:border-[var(--accent-cr)] hover:text-[var(--accent-cr)] transition-colors ml-0.5 sm:ml-1" title={t.common.edit}>✏️</button>

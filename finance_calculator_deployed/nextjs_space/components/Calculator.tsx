@@ -39,6 +39,7 @@ import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
 import { useUnsavedGuard } from '@/lib/unsavedGuard';
 import { pglBaseForType, type AppSettings } from '@/lib/currency';
+import { fixedGrouped, groupThousands } from '@/lib/numberFormat';
 import { quarterOfDateString, quarterOf, thisMonthValidityRange, type Quarter } from '@/lib/quarterUtils';
 import { addDaysToDateString, todayDateString, daysBetweenDateStrings } from '@/lib/dateUtils';
 import * as pricingEngine from '@/lib/pricingEngine';
@@ -243,14 +244,14 @@ export default function Calculator() {
   // Kwota do wyświetlenia. W EUR zwracamy surową wartość, żeby widok był identyczny
   // jak dotąd (dopłaty są całkowite). W PLN pokazujemy grosze.
   const money = useCallback(
-    (eur: number) => (currency === 'EUR' ? String(eur) : toDisplay(eur).toFixed(2)),
+    (eur: number) => (currency === 'EUR' ? groupThousands(String(eur)) : fixedGrouped(toDisplay(eur), 2)),
     [currency, toDisplay]
   );
   // Kwoty, które i dziś mają dwa miejsca po przecinku (sumy, ceny).
-  const money2 = useCallback((eur: number) => toDisplay(eur).toFixed(2), [toDisplay]);
+  const money2 = useCallback((eur: number) => fixedGrouped(toDisplay(eur), 2), [toDisplay]);
   // Cena końcowa: zaokrąglenie W GÓRĘ do pełnej jednostki (decyzja biznesowa — nigdy nie
   // zaniżać ceny). Tylko dla ceny końcowej, reszta kwot zostaje na money/money2.
-  const moneyCeil = useCallback((eur: number) => String(Math.ceil(toDisplay(eur))), [toDisplay]);
+  const moneyCeil = useCallback((eur: number) => groupThousands(String(Math.ceil(toDisplay(eur)))), [toDisplay]);
   // Sama waluta, bez "/t" — dla wartości pozycji i sumy zestawienia, które są kwotą
   // całkowitą (cena × tony), a nie ceną jednostkową.
   const currencyUnit = currency === 'PLN' ? 'zł' : '€';
@@ -2173,7 +2174,7 @@ export default function Calculator() {
           </span>
           <span className="text-[10px] text-[var(--text-muted)]">t</span>
           <span className="text-[10px] text-[var(--text-muted)] ml-1">
-            ({((thickness * width * length * 7.85) / 1_000_000).toFixed(2)} kg)
+            ({fixedGrouped((thickness * width * length * 7.85) / 1_000_000, 2)} kg)
           </span>
         </div>
       )}
@@ -2790,7 +2791,7 @@ export default function Calculator() {
             <span className="w-2 h-2 rounded-full bg-[var(--accent-hrs)]" />
             <span className="text-xs font-semibold tracking-widest uppercase">{t.zestawienie.title}</span>
             <span className="text-[10px] font-mono text-[var(--text-secondary)] ml-1">
-              {zestawienie.length > 0 && `(${zestawienie.length} ${language === 'pl' ? (zestawienie.length === 1 ? 'pozycja' : zestawienie.length < 5 ? 'pozycje' : 'pozycji') : (zestawienie.length === 1 ? 'item' : 'items')} · ${zestTons.toFixed(2)} ${t.common.tons})`}
+              {zestawienie.length > 0 && `(${zestawienie.length} ${language === 'pl' ? (zestawienie.length === 1 ? 'pozycja' : zestawienie.length < 5 ? 'pozycje' : 'pozycji') : (zestawienie.length === 1 ? 'item' : 'items')} · ${fixedGrouped(zestTons, 2)} ${t.common.tons})`}
             </span>
             {zestawienie.length > 0 && (
               <span className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[rgba(245,71,90,0.12)] border border-[rgba(245,71,90,0.35)]">
@@ -2911,7 +2912,7 @@ export default function Calculator() {
                     {t.zestawienie.total}
                   </td>
                   <td className="px-3.5 py-3.5 font-mono text-sm font-bold text-[var(--text-value)] text-right whitespace-nowrap">
-                    {zestTons.toFixed(2)} {t.common.tons}
+                    {fixedGrouped(zestTons, 2)} {t.common.tons}
                   </td>
                   <td className="px-3.5 py-3.5 font-mono text-base font-bold text-[var(--accent-sum)] text-right whitespace-nowrap">
                     {moneyCeil(zestTotal)} {currencyUnit}

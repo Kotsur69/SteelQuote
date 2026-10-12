@@ -32,6 +32,7 @@ import {
   currencySymbol,
   type Currency,
 } from '@/lib/currency';
+import { fixedGrouped } from '@/lib/numberFormat';
 
 type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
 type FilterTab = SeniorFilter;
@@ -660,7 +661,7 @@ export default function SeniorPage() {
                                     } as Record<string, string>)[item.type]}>{item.type}</span>
                                   </td>
                                   <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{formatOfferMoneyCeil(item.finalPrice, offer.offer_data)} {currencySymbol(offerCurrency(offer.offer_data))}</td>
-                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{item.tons.toFixed(2)}</td>
+                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{fixedGrouped(item.tons, 2)}</td>
                                   <td className="px-2.5 py-1.5 text-right text-[var(--accent-hrs)] font-semibold">{formatOfferMoneyCeil(item.totalValue, offer.offer_data)} {offerTotalUnit(offer.offer_data)}</td>
                                 </tr>
                               ))}
