@@ -10,6 +10,7 @@ interface ReviewStrings {
   margin: (value: number, min: number) => string;
   marginUnknown: string;
   pgl: (value: number, base: number) => string;
+  awaitingDecision: string;
   approve: string;
   reject: string;
   saveFirst: string;
@@ -28,6 +29,7 @@ const STRINGS: Record<Lang, ReviewStrings> = {
     margin: (v, m) => `marża ${v}% < min ${m}%`,
     marginUnknown: 'brak danych o marży',
     pgl: (v, b) => `PGL ${v} < baza ${b}`,
+    awaitingDecision: 'Ta oferta czeka na Twoją decyzję',
     approve: 'Zatwierdź',
     reject: 'Odrzuć',
     saveFirst: 'Zapisz zmiany przed walidacją - decyzja dotyczy zapisanej wersji oferty.',
@@ -44,6 +46,7 @@ const STRINGS: Record<Lang, ReviewStrings> = {
     margin: (v, m) => `margin ${v}% < min ${m}%`,
     marginUnknown: 'margin unknown',
     pgl: (v, b) => `PGL ${v} < base ${b}`,
+    awaitingDecision: 'This offer is waiting for your decision',
     approve: 'Approve',
     reject: 'Reject',
     saveFirst: 'Save your changes before reviewing - the decision applies to the saved version.',
@@ -60,6 +63,7 @@ const STRINGS: Record<Lang, ReviewStrings> = {
     margin: (v, m) => `marže ${v}% < min ${m}%`,
     marginUnknown: 'marže neznámá',
     pgl: (v, b) => `PGL ${v} < základ ${b}`,
+    awaitingDecision: 'Tato nabídka čeká na vaše rozhodnutí',
     approve: 'Schválit',
     reject: 'Zamítnout',
     saveFirst: 'Před schválením uložte změny - rozhodnutí se týká uložené verze nabídky.',
@@ -76,6 +80,7 @@ const STRINGS: Record<Lang, ReviewStrings> = {
     margin: (v, m) => `Marge ${v}% < min ${m}%`,
     marginUnknown: 'Marge unbekannt',
     pgl: (v, b) => `PGL ${v} < Basis ${b}`,
+    awaitingDecision: 'Dieses Angebot wartet auf Ihre Entscheidung',
     approve: 'Genehmigen',
     reject: 'Ablehnen',
     saveFirst: 'Änderungen vor der Prüfung speichern - die Entscheidung gilt für die gespeicherte Version.',

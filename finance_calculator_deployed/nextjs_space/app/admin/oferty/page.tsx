@@ -215,7 +215,7 @@ function AdminOffersContent() {
   const offerGroups = groupOffersByVersion(sortedOffers);
 
   const handleEdit = (offerId: number) => {
-    router.push(`/calculator?edit=${offerId}`);
+    router.push(`/calculator?edit=${offerId}&from=admin`);
   };
 
   const handleApprove = async (offerId: number) => {

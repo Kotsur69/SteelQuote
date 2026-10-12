@@ -221,7 +221,7 @@ export default function SeniorPage() {
   };
 
   const handleEdit = (offerId: number) => {
-    router.push(`/calculator?edit=${offerId}`);
+    router.push(`/calculator?edit=${offerId}&from=senior`);
   };
 
   const handleExportExcel = (offer: Offer) => {
