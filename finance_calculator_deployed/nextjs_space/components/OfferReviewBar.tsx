@@ -16,6 +16,18 @@ interface Props {
   onDone: () => void;
 }
 
+// Lists that open an offer in the calculator tag the URL with ?from=<key>, so a decision
+// returns the reviewer to the list they came from instead of a fixed page.
+const REVIEW_RETURN_PATHS = new Map<string, string>([
+  ['offers', '/offers'],
+  ['senior', '/senior'],
+  ['admin', '/admin/oferty'],
+]);
+
+export function reviewReturnPath(from: string | null): string {
+  return (from !== null ? REVIEW_RETURN_PATHS.get(from) : undefined) ?? '/offers';
+}
+
 // Approve / reject controls shown in the calculator when an offer waits for the caller's level
 // (or one they stand in for), plus why it needs validation (the rule engine's snapshot) and
 // whether the rules changed since it was submitted. Sending stays with the offer's creator.
@@ -99,29 +111,41 @@ export default function OfferReviewBar({ offerId, isDirty, onDone }: Props) {
   };
 
   return (
-    <section className="mb-5 rounded-lg border border-[var(--accent-cr)] bg-[rgba(59,142,245,0.06)] px-4 py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => { closeReject(); post('approve'); }}
-          disabled={busy || isDirty}
-          className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-hdg)] text-[var(--accent-hdg)] bg-[rgba(46,204,113,0.08)] hover:bg-[rgba(46,204,113,0.15)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          ✔️ {s.approve}
-        </button>
-        <button
-          onClick={() => { setError(null); setShowReject(true); }}
-          disabled={busy || isDirty}
-          className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-sum)] text-[var(--accent-sum)] bg-[rgba(245,71,90,0.08)] hover:bg-[rgba(245,71,90,0.15)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          ✖️ {s.reject}
-        </button>
-        {isDirty && (
-          <span className="text-[11px] font-mono text-[var(--text-secondary)]">{s.saveFirst}</span>
-        )}
-        <ApprovalBadges approval={approval} audience="reviewer" standInLevels={standInLevels} />
+    <section
+      aria-labelledby="review-bar-title"
+      className="mb-6 rounded-lg border-2 border-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)] px-5 py-4"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0 space-y-2">
+          <h2 id="review-bar-title" className="text-base font-semibold text-[var(--text-primary)]">
+            {s.awaitingDecision}
+          </h2>
+          <ApprovalBadges approval={approval} audience="reviewer" standInLevels={standInLevels} />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => { closeReject(); post('approve'); }}
+            disabled={busy || isDirty}
+            className="min-h-[44px] px-6 text-sm font-semibold rounded-md border-2 border-[var(--accent-hdg)] text-[var(--accent-hdg)] bg-[rgba(46,204,113,0.12)] hover:bg-[rgba(46,204,113,0.22)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-hdg)] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            ✔️ {s.approve}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setError(null); setShowReject(true); }}
+            disabled={busy || isDirty}
+            className="min-h-[44px] px-6 text-sm font-semibold rounded-md border-2 border-[var(--accent-sum)] text-[var(--accent-sum)] bg-[rgba(245,71,90,0.12)] hover:bg-[rgba(245,71,90,0.22)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-sum)] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            ✖️ {s.reject}
+          </button>
+        </div>
       </div>
+      {isDirty && (
+        <p className="mt-3 text-xs font-mono text-[var(--text-secondary)]">{s.saveFirst}</p>
+      )}
       {error && !showReject && (
-        <p role="alert" className="mt-2 text-[11px] text-[var(--accent-sum)]">{error}</p>
+        <p role="alert" className="mt-3 text-xs text-[var(--accent-sum)]">{error}</p>
       )}
       <ValidationNotice validation={validation} />
 

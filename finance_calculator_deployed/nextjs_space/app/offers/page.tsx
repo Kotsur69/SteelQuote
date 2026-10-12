@@ -284,7 +284,7 @@ export default function OffersPage() {
   };
 
   const handleEdit = (offerId: number) => {
-    router.push(`/calculator?edit=${offerId}`);
+    router.push(`/calculator?edit=${offerId}&from=offers`);
   };
 
   const handleDuplicate = async (offerId: number) => {
