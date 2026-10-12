@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
 import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import { MIN_PASSWORD_LENGTH } from '@/lib/passwordPolicy';
+import { assertSingleFlow, MutationError } from '@/lib/access/adminMutations';
 
 // A single-level CASE that only casts JSONB text to numeric when it actually looks numeric
 // (a JSON number or numeric string). Anything else - "", null, "n/a" - becomes SQL NULL and
@@ -142,6 +143,12 @@ export async function POST(request: NextRequest) {
     const wanted = parseMemberships(memberships);
     if (wanted === null) {
       return NextResponse.json({ error: 'Nieprawidłowe przypisanie do flow' }, { status: 400 });
+    }
+    try {
+      await assertSingleFlow(pool, wanted);
+    } catch (error) {
+      if (error instanceof MutationError) return NextResponse.json({ error: error.message }, { status: error.status });
+      throw error;
     }
 
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);

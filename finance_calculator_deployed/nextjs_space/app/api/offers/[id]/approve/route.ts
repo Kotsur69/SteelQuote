@@ -11,8 +11,9 @@ interface RouteParams {
 
 const MAX_COMMENT_LENGTH = 1000;
 
-// POST - approve the pending step(s) the caller may decide: a role at exactly that step's
-// level with the approve permission in the offer's flow (the superuser: any). The offer becomes
+// POST - approve the pending step(s) the caller may decide: a role with the approve permission
+// in the offer's flow at that step's level or one standing in for it - a higher chain level, or
+// Head of Projects for N+1 / N+2 (workflow.decidableSteps; the superuser: any). The offer becomes
 // 'approved' once no step is pending - with an NPR step next to a chain step, both approvers
 // must approve, in any order. pending_review -> approved. When the current rules need a level
 // the stored steps do not cover, nothing is approved: the steps are re-planned (409 rerouted).

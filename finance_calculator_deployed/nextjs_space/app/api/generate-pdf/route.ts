@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
+import pool from '@/lib/db';
 import { requireAccess, requireSuperuser } from '@/lib/access/context';
+import { loadVisibleOffer } from '@/lib/access/offerAccess';
+import type { AccessContext } from '@/lib/access/types';
 import { isCurrency, sanitizeRate, DEFAULT_CURRENCY, type Currency } from '@/lib/currency';
 import { isLanguage, type Language } from '@/lib/translations';
 import { PDF_LABELS, PDF_DATE_LOCALE } from '@/lib/pdfLabels';
@@ -289,6 +292,16 @@ function buildHtml(
 </html>`;
 }
 
+/** Email of the offer's creator when the caller may see that offer, else null. */
+async function offerCreatorEmail(ctx: AccessContext, offerId: unknown): Promise<string | null> {
+  const id = typeof offerId === 'number' ? offerId : Number.NaN;
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const offer = await loadVisibleOffer(ctx, id);
+  if (!offer || offer.user_id === null) return null;
+  const owner = await pool.query(`SELECT email FROM users WHERE id = $1`, [offer.user_id]);
+  return typeof owner.rows[0]?.email === 'string' ? owner.rows[0].email : null;
+}
+
 export async function POST(request: Request) {
   try {
     const auth = await requireAccess();
@@ -297,13 +310,15 @@ export async function POST(request: Request) {
     }
     const session = auth.ctx;
 
-    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language, validFrom, validTo, paymentTermDays } = await request.json();
+    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language, validFrom, validTo, paymentTermDays, offerId } = await request.json();
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'No items provided' }, { status: 400 });
     }
 
     const client: ClientInfo = clientInfo || { firstName: '', lastName: '', company: '', address: '', nip: '', sapId: '', phone: '', email: '' };
-    const userName = session.email || '';
+    // A saved offer is always signed by its creator - an approver or admin downloading it must
+    // not appear as the author (the offer and its client contact belong to the salesperson).
+    const userName = (await offerCreatorEmail(session, offerId)) ?? session.email ?? '';
     // Brak/nieznany język (stare wywołanie) => polski, tak jak dotąd zachowywał się PDF.
     const pdfLanguage: Language = isLanguage(language) ? language : 'pl';
     const date = offerDate || new Date().toLocaleDateString(PDF_DATE_LOCALE[pdfLanguage]);

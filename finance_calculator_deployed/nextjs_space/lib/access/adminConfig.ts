@@ -22,6 +22,8 @@ export interface AdminRole {
   code: string;
   name: string;
   isActive: boolean;
+  /** Holders may work in several flows (otherwise one flow per person). */
+  multiFlow: boolean;
 }
 
 export interface AdminFlowRole {
@@ -64,7 +66,7 @@ export async function loadAdminConfig(db: Db = pool): Promise<AdminAccessConfig>
     loadPolicies(db),
   ]);
 
-  const rolesResult = await db.query(`SELECT id, code, name, is_active FROM roles ORDER BY name, id`);
+  const rolesResult = await db.query(`SELECT id, code, name, is_active, multi_flow FROM roles ORDER BY name, id`);
   const flowRolesResult = await db.query(
     `SELECT fr.*, v.flow_id IS NOT NULL AS has_visibility,
             v.see_own, v.see_team, v.see_branch, v.see_region, v.see_all_in_flow,
@@ -96,6 +98,7 @@ export async function loadAdminConfig(db: Db = pool): Promise<AdminAccessConfig>
       code: String(r.code),
       name: String(r.name),
       isActive: r.is_active === true,
+      multiFlow: r.multi_flow === true,
     })),
     flowRoles: flowRolesResult.rows.map((r) => ({
       flowId: Number(r.flow_id),

@@ -14,7 +14,7 @@ const membership: Membership = {
   roleId: 1,
   roleCode: 'IFO',
   roleName: 'IFO',
-  level: { id: 1, code: 'N0', name: 'N0', kind: 'chain', chainRank: 0, sortOrder: 10 },
+  level: { id: 1, code: 'N0', name: 'N0', kind: 'chain', chainRank: 0, coversChainRank: null, sortOrder: 10 },
   permissions: {
     canCreateOffer: true,
     canEditOwnBeforeSubmit: true,
@@ -42,6 +42,8 @@ function ctx(userId: number, isSuperuser = false): AccessContext {
   };
 }
 
+const POLICY = { validityHours: 48, now: new Date('2026-10-12T12:00:00Z') };
+
 function sent(clientDecision: OfferForActions['clientDecision'], isLatest = true): OfferForActions {
   return { userId: OWNER, flowId: FLOW, status: 'sent', isLatest, clientDecision };
 }
@@ -58,25 +60,25 @@ describe('isRenegotiable', () => {
 
 describe('offerActions on sent offers', () => {
   it('lets the owner edit a lost offer to renegotiate it', () => {
-    expect(offerActions(ctx(OWNER), sent('lost'), [], null).canEdit).toBe(true);
+    expect(offerActions(ctx(OWNER), sent('lost'), [], null, POLICY).canEdit).toBe(true);
   });
 
   it('lets the superuser renegotiate a lost offer', () => {
-    expect(offerActions(ctx(OTHER, true), sent('lost'), [], null).canEdit).toBe(true);
+    expect(offerActions(ctx(OTHER, true), sent('lost'), [], null, POLICY).canEdit).toBe(true);
   });
 
   it('keeps won, undecided and superseded lost offers read-only', () => {
-    expect(offerActions(ctx(OWNER), sent('won'), [], null).canEdit).toBe(false);
-    expect(offerActions(ctx(OWNER), sent('pending'), [], null).canEdit).toBe(false);
-    expect(offerActions(ctx(OWNER), sent('lost', false), [], null).canEdit).toBe(false);
+    expect(offerActions(ctx(OWNER), sent('won'), [], null, POLICY).canEdit).toBe(false);
+    expect(offerActions(ctx(OWNER), sent('pending'), [], null, POLICY).canEdit).toBe(false);
+    expect(offerActions(ctx(OWNER), sent('lost', false), [], null, POLICY).canEdit).toBe(false);
   });
 
   it("does not let someone else's lost offer be edited", () => {
-    expect(offerActions(ctx(OTHER), sent('lost'), [], null).canEdit).toBe(false);
+    expect(offerActions(ctx(OTHER), sent('lost'), [], null, POLICY).canEdit).toBe(false);
   });
 
   it('records the decision only on the newest version', () => {
-    expect(offerActions(ctx(OWNER), sent('lost'), [], null).canRecordDecision).toBe(true);
-    expect(offerActions(ctx(OWNER), sent('lost', false), [], null).canRecordDecision).toBe(false);
+    expect(offerActions(ctx(OWNER), sent('lost'), [], null, POLICY).canRecordDecision).toBe(true);
+    expect(offerActions(ctx(OWNER), sent('lost', false), [], null, POLICY).canRecordDecision).toBe(false);
   });
 });

@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { forbidden, isApproverAnywhere, requireAccess } from '@/lib/access/context';
-import { awaitingMyReviewSql } from '@/lib/access/scope';
+import { awaitingMyReviewSql, openUntilClientDecisionSql } from '@/lib/access/scope';
 import { escapeLikePattern } from '@/lib/search';
 
 export const dynamic = 'force-dynamic';
 
 const OFFER_COLUMNS = `o.id, o.offer_name, o.display_name, o.offer_data, o.status, o.user_id,
   o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at, o.rejection_reason, o.sent_at,
-  o.root_offer_id, o.version_number,
+  o.root_offer_id, o.version_number, o.flow_id,
   u.full_name AS owner_name, u.email AS owner_email,
   r.full_name AS reviewer_name, f.name AS flow_name, o.validation_snapshot,
   ARRAY(SELECT l.code FROM offer_approval_steps ps JOIN hierarchy_levels l ON l.id = ps.level_id
@@ -26,8 +26,9 @@ const SEARCH_CLAUSE = `(
 // GET - the validation queue (review panel). Approvers only (anyone who may approve in some
 // flow, or the superuser):
 //   - offers with a pending approval step at a level the user holds in that offer's flow
-//     (lib/access/scope.ts awaitingMyReviewSql) - flagged awaiting_me
-//   - offers the user already decided (their review history)
+//     or one they stand in for (lib/access/scope.ts awaitingMyReviewSql) - flagged awaiting_me;
+//     awaiting_own_level = false marks a stand-in (the lower level could still decide it)
+//   - offers the user already decided (their review history), until the client's decision
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAccess();
@@ -40,13 +41,14 @@ export async function GET(request: NextRequest) {
     const q = (request.nextUrl.searchParams.get('q') || '').trim();
     const params: unknown[] = [session.userId, q ? escapeLikePattern(q) : null];
     const awaiting = awaitingMyReviewSql(session, params, 'o');
-    const history = `(o.reviewed_by = $1 OR EXISTS (SELECT 1 FROM offer_approval_steps hs WHERE hs.offer_id = o.id AND hs.decided_by = $1))`;
+    const ownLevel = awaitingMyReviewSql(session, params, 'o', true);
+    const history = `((o.reviewed_by = $1 OR EXISTS (SELECT 1 FROM offer_approval_steps hs WHERE hs.offer_id = o.id AND hs.decided_by = $1)) AND ${openUntilClientDecisionSql('o')})`;
     const visibility = `(${awaiting} OR ${history})`;
     // $2 is always bound (NULL without a phrase) so the queue placeholders never shift.
     const where = `${visibility} AND ($2::text IS NULL OR ${SEARCH_CLAUSE})`;
 
     const result = await pool.query(
-      `SELECT ${OFFER_COLUMNS}, ${awaiting} AS awaiting_me
+      `SELECT ${OFFER_COLUMNS}, ${awaiting} AS awaiting_me, ${ownLevel} AS awaiting_own_level
        FROM offers o
        LEFT JOIN users u ON u.id = o.user_id
        LEFT JOIN users r ON r.id = o.reviewed_by

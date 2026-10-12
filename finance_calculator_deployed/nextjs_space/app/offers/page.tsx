@@ -15,6 +15,7 @@ import { useHighContrast } from '@/lib/useHighContrast';
 import { getThemeVars } from '@/lib/themeVars';
 import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
+import ApprovalBadges from '@/components/ApprovalBadges';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
 import type { OfferActions } from '@/lib/access/workflow';
 import type { ClientDecision } from '@/lib/analytics';
@@ -751,6 +752,13 @@ export default function OffersPage() {
                           {needsReview(offer) ? t.offers.needsReviewBadge : t.offers.readyToSendBadge}
                         </span>
                       )}
+                      {/* Approval vs current rules / 48h clock, and a stand-in hint for an approver
+                          above the required level - compact, next to the status. */}
+                      <ApprovalBadges
+                        approval={offer.actions?.approval}
+                        audience={p.isOwner ? 'owner' : 'reviewer'}
+                        standInLevels={offer.actions?.reviewAsStandIn ? (offer.pending_levels ?? []).join(' + ') : null}
+                      />
                       {/* Brak danych firmy klienta - oferta nie wyjdzie do klienta, dopóki ich
                           nie uzupełni. Pokazywane właścicielowi na ofercie niewysłanej. */}
                       {offer.status !== 'sent' && p.isOwner && !hasClientDetails(offer) && (

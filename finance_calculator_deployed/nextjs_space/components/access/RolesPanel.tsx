@@ -170,6 +170,10 @@ function RoleRow({ role, run, busy }: { role: AdminRole; run: Run; busy: boolean
         <Toggle pressed={role.isActive} disabled={busy} showLabel label={role.isActive ? t.active : t.inactive}
           onChange={(isActive) => void run('roles', 'PATCH', { id: role.id, isActive })} />
       </td>
+      <td className={tdCls}>
+        <Toggle pressed={role.multiFlow} disabled={busy} label={`${t.rolesPanel.multiFlow}: ${role.name}`}
+          onChange={(multiFlow) => void run('roles', 'PATCH', { id: role.id, multiFlow })} />
+      </td>
       <td className={`${tdCls} text-right`}>
         <button type="button" className={dangerBtnCls} disabled={busy} aria-label={`${t.delete}: ${role.name}`}
           onClick={() => void run('roles', 'DELETE', { id: role.id })}>
@@ -196,6 +200,7 @@ function RoleCatalogue({ config, run, busy }: { config: PanelProps['config']; ru
               <th className={thCls}>{t.code}</th>
               <th className={thCls}>{t.name}</th>
               <th className={thCls}>{t.active}</th>
+              <th className={thCls}>{t.rolesPanel.multiFlow}</th>
               <th className={`${thCls} text-right`}>{t.delete}</th>
             </tr>
           </thead>
@@ -233,6 +238,7 @@ interface LevelDraft {
   name: string;
   kind: LevelKind;
   chainRank: string;
+  coversChainRank: string;
   sortOrder: string;
 }
 
@@ -242,6 +248,7 @@ function draftOf(l: HierarchyLevel | null): LevelDraft {
     name: l?.name ?? '',
     kind: l?.kind ?? 'chain',
     chainRank: l?.chainRank === null || l?.chainRank === undefined ? '' : String(l.chainRank),
+    coversChainRank: l?.coversChainRank === null || l?.coversChainRank === undefined ? '' : String(l.coversChainRank),
     sortOrder: l ? String(l.sortOrder) : '',
   };
 }
@@ -252,6 +259,7 @@ function bodyOf(d: LevelDraft) {
     name: d.name.trim(),
     kind: d.kind,
     chainRank: d.kind === 'chain' ? numOrNull(d.chainRank) ?? 0 : null,
+    coversChainRank: d.kind === 'parallel' ? numOrNull(d.coversChainRank) : null,
     sortOrder: Math.trunc(numOrNull(d.sortOrder) ?? 0),
   };
 }
@@ -279,6 +287,15 @@ function LevelFields({ draft, setDraft, idPrefix }: { draft: LevelDraft; setDraf
         {draft.kind === 'chain' ? (
           <input type="number" min={0} step={1} className={`${cellInputCls} w-20`} aria-label={`${t.rolesPanel.rank} ${idPrefix}`}
             value={draft.chainRank} onChange={(e) => setDraft({ ...draft, chainRank: e.target.value })} />
+        ) : (
+          <span className="text-[var(--text-muted)]">{t.none}</span>
+        )}
+      </td>
+      <td className={tdCls}>
+        {draft.kind === 'parallel' ? (
+          <input type="number" min={1} step={1} className={`${cellInputCls} w-20`}
+            aria-label={`${t.rolesPanel.coversChainRank} ${idPrefix}`} placeholder={t.none}
+            value={draft.coversChainRank} onChange={(e) => setDraft({ ...draft, coversChainRank: e.target.value })} />
         ) : (
           <span className="text-[var(--text-muted)]">{t.none}</span>
         )}
@@ -323,6 +340,7 @@ function LevelCatalogue({ config, run, busy }: { config: PanelProps['config']; r
               <th className={thCls}>{t.name}</th>
               <th className={thCls}>{t.rolesPanel.kind}</th>
               <th className={thCls}>{t.rolesPanel.rank}</th>
+              <th className={thCls}>{t.rolesPanel.coversChainRank} N+</th>
               <th className={thCls}>{t.rolesPanel.sortOrder}</th>
               <th className={`${thCls} text-right`}>{t.save}</th>
             </tr>

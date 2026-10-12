@@ -10,6 +10,7 @@ import {
   FLOW_ROLE_JOINS,
   FLOW_ROLE_SELECT,
   flowRoleFromRow,
+  levelFromRow,
   loadBaseResolver,
   loadFlowRoles,
   loadLevels,
@@ -18,7 +19,7 @@ import {
   type Db,
 } from './config';
 import { computeOfferFacts, evaluateRules, type Evaluation, type OfferDataInput } from './ruleEngine';
-import { planApproval, uncoveredSteps, type ApprovalPlan } from './routing';
+import { canDecideLevel, planApproval, uncoveredSteps, type ApprovalPlan } from './routing';
 import type { AccessContext, FlowRole, HierarchyLevel } from './types';
 
 export interface OfferAssessment {
@@ -161,6 +162,8 @@ export interface StepRow {
   track: 'chain' | 'parallel';
   levelId: number;
   levelCode: string;
+  /** The level that must approve - decides who may stand in for it. */
+  level: HierarchyLevel;
   requiredLevelId: number;
   requiredLevelCode: string;
   status: 'pending' | 'approved' | 'rejected' | 'superseded';
@@ -180,6 +183,9 @@ export async function loadStepsForOffers(offerIds: number[], db: Db = pool): Pro
   if (offerIds.length === 0) return byOffer;
   const result = await db.query(
     `SELECT s.id, s.offer_id, s.track, s.level_id, l.code AS level_code,
+            l.id AS l_id, l.code AS l_code, l.name AS l_name, l.kind AS l_kind,
+            l.chain_rank AS l_chain_rank, l.covers_chain_rank AS l_covers_chain_rank,
+            l.sort_order AS l_sort_order,
             s.required_level_id, rl.code AS required_level_code, s.status,
             s.decided_by, COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) AS decided_by_name,
             s.decided_at, s.comment
@@ -197,6 +203,7 @@ export async function loadStepsForOffers(offerIds: number[], db: Db = pool): Pro
     track: row.track,
     levelId: Number(row.level_id),
     levelCode: String(row.level_code),
+    level: levelFromRow(row, 'l_'),
     requiredLevelId: Number(row.required_level_id),
     requiredLevelCode: String(row.required_level_code),
     status: row.status,
@@ -214,9 +221,10 @@ export async function loadStepsForOffers(offerIds: number[], db: Db = pool): Pro
 }
 
 /**
- * Pending steps this user may decide on an offer of `flowId` owned by `ownerId`: a role at
- * exactly the step's level with the approve permission in that flow. The superuser may decide
- * any pending step. Nobody decides their own offer.
+ * Pending steps this user may decide on an offer of `flowId` owned by `ownerId`: a role with
+ * the approve permission in that flow at the step's level, or at a level that stands in for it
+ * (a higher chain level, or Head of Projects for N+1 / N+2 - routing.canDecideLevel). The
+ * superuser may decide any pending step. Nobody decides their own offer.
  */
 export function decidableSteps(
   ctx: AccessContext,
@@ -230,7 +238,23 @@ export function decidableSteps(
   if (ctx.isSuperuser) return pending;
   const m = ctx.memberships.find((x) => x.flowId === flowId);
   if (!m || !m.permissions.canApproveReject) return [];
-  return pending.filter((s) => s.levelId === m.level.id);
+  return pending.filter((s) => canDecideLevel(m.level, s.level));
+}
+
+/**
+ * True when the user may decide the offer only as a stand-in: none of the steps they may
+ * decide is at their own level, so the required (lower) level could still do it.
+ */
+export function decidesAsStandIn(
+  ctx: AccessContext,
+  steps: StepRow[],
+  flowId: number,
+  ownerId: number | null
+): boolean {
+  if (ctx.isSuperuser) return false;
+  const own = ctx.memberships.find((x) => x.flowId === flowId)?.level.id;
+  const mine = decidableSteps(ctx, steps, flowId, ownerId);
+  return mine.length > 0 && !mine.some((s) => s.levelId === own);
 }
 
 export type RerouteOutcome =
@@ -279,11 +303,6 @@ export function isCurrentReviewer(
   return decidableSteps(ctx, steps, flowId, ownerId).length > 0;
 }
 
-/** Whether this user approved a step of the offer - lets them send it on the owner's behalf. */
-export function approvedByUser(ctx: AccessContext, steps: StepRow[]): boolean {
-  return steps.some((s) => s.status === 'approved' && s.decidedBy === ctx.userId);
-}
-
 /** Whether this user decided (approved or rejected) a step of the offer. */
 export function decidedByUser(ctx: AccessContext, steps: StepRow[]): boolean {
   return steps.some((s) => (s.status === 'approved' || s.status === 'rejected') && s.decidedBy === ctx.userId);
@@ -293,19 +312,80 @@ export function decidedByUser(ctx: AccessContext, steps: StepRow[]): boolean {
 
 export type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
 
+export interface ApprovalPolicy {
+  /** Hours an approval stays valid (app_settings.approval_validity_hours). */
+  validityHours: number;
+  now: Date;
+}
+
+/**
+ * How the offer's approvals compare with the CURRENT rules and the clock. Only for offers in
+ * review or approved; computed on every read, nothing is stored, so a rule, PGL or setting
+ * change shows up immediately.
+ */
+export interface ApprovalState {
+  /** Last approval of the current round; null while none was given. */
+  approvedAt: string | null;
+  /** approvedAt + validity; null without an approval. */
+  expiresAt: string | null;
+  expired: boolean;
+  /** The rules now need a level the steps of this round do not cover. */
+  rulesStricter: boolean;
+  /** The rules no longer need some level of this round; its approval stays valid. */
+  rulesRelaxed: boolean;
+  /** Approved, but it has to go back to validation before it may be sent. */
+  needsRevalidation: boolean;
+}
+
+const MS_PER_HOUR = 60 * 60 * 1000;
+
+export function approvalState(
+  status: OfferStatus,
+  steps: StepRow[],
+  plan: ApprovalPlan | null,
+  policy: ApprovalPolicy
+): ApprovalState | null {
+  if (!plan || (status !== 'approved' && status !== 'pending_review')) return null;
+  const round = steps.filter((s) => s.status === 'approved' || (status === 'pending_review' && s.status === 'pending'));
+  const approved = steps.filter((s) => s.status === 'approved');
+
+  const lastMs = approved.reduce((max, s) => Math.max(max, s.decidedAt ? Date.parse(s.decidedAt) : 0), 0);
+  const expiresMs = lastMs > 0 ? lastMs + policy.validityHours * MS_PER_HOUR : null;
+  // Only a fully approved offer runs out; in review the clock has not started yet.
+  const expired = status === 'approved' && expiresMs !== null && policy.now.getTime() > expiresMs;
+
+  const rulesStricter = plan.blocked || uncoveredSteps(plan, round.map((s) => s.level)).length > 0;
+  const rulesRelaxed =
+    !rulesStricter && round.some((held) => !plan.steps.some((fresh) => fresh.level.id === held.levelId));
+  const needsRevalidation = status === 'approved' && needsValidation(plan) && (rulesStricter || expired);
+
+  return {
+    approvedAt: lastMs > 0 ? new Date(lastMs).toISOString() : null,
+    expiresAt: expiresMs !== null ? new Date(expiresMs).toISOString() : null,
+    expired,
+    rulesStricter,
+    rulesRelaxed,
+    needsRevalidation,
+  };
+}
+
 export interface OfferActions {
   canEdit: boolean;
   canSubmit: boolean;
   /** Send to the client now (directly from draft, or an approved offer). */
   canSend: boolean;
-  /** Approve / reject: holds a pending step's level in the offer's flow. */
+  /** Approve / reject: holds a pending step's level (or one standing in for it) in the offer's flow. */
   canReview: boolean;
+  /** canReview only as a stand-in for a lower level that could decide it itself. */
+  reviewAsStandIn: boolean;
   canDelete: boolean;
   canDuplicate: boolean;
   /** Record the client's decision on a sent offer. */
   canRecordDecision: boolean;
   /** The offer goes to the client without validation (rules + creator level). */
   needsValidation: boolean;
+  /** Approvals vs current rules and the validity clock (review / approved offers only). */
+  approval: ApprovalState | null;
 }
 
 export interface OfferForActions {
@@ -337,7 +417,8 @@ export function offerActions(
   ctx: AccessContext,
   offer: OfferForActions,
   steps: StepRow[],
-  plan: ApprovalPlan | null
+  plan: ApprovalPlan | null,
+  policy: ApprovalPolicy
 ): OfferActions {
   const isOwner = offer.userId === ctx.userId;
   const perms = ctx.memberships.find((m) => m.flowId === offer.flowId)?.permissions;
@@ -350,10 +431,11 @@ export function offerActions(
   const validation = plan ? needsValidation(plan) : false;
   const open = offer.status === 'draft' || offer.status === 'rejected';
   const ownerSends = live && isOwner && open && !validation && ownerMayCreate;
-  // An approver may send on the owner's behalf only while they still hold the approve
-  // permission in that flow.
-  const approverSends = approvedByUser(ctx, steps) && (su || perms?.canApproveReject === true);
-  const approvedSends = live && offer.status === 'approved' && ((isOwner && ownerMayCreate) || su || approverSends);
+  const approval = approvalState(offer.status, steps, plan, policy);
+  const revalidate = approval?.needsRevalidation === true;
+  // Only the creator sends - an approver decides, the offer (PDF, statistics) stays the
+  // creator's. An expired or outgrown approval sends it back to validation instead.
+  const approvedSends = live && isOwner && ownerMayCreate && offer.status === 'approved' && !revalidate;
 
   const renegotiable = isRenegotiable(offer);
 
@@ -362,9 +444,10 @@ export function offerActions(
       (live && offer.status !== 'sent' &&
         (su || reviewer || (isOwner && editableByOwner && perms?.canEditOwnBeforeSubmit === true))) ||
       (renegotiable && (su || (isOwner && ownerMayCreate))),
-    canSubmit: live && isOwner && open && validation && (su || perms?.canSubmitToValidation === true),
+    canSubmit: live && isOwner && (open || revalidate) && validation && (su || perms?.canSubmitToValidation === true),
     canSend: ownerSends || approvedSends,
     canReview: reviewer,
+    reviewAsStandIn: reviewer && decidesAsStandIn(ctx, steps, offer.flowId, offer.userId),
     // Once in review (or past it) the approval trail must stay - only open offers are deletable.
     canDelete: live && isOwner && open,
     canDuplicate: isOwner,
@@ -372,5 +455,6 @@ export function offerActions(
     // renegotiated, the decision belongs to the new round, not the superseded one.
     canRecordDecision: live && offer.status === 'sent' && (isOwner || su || decidedByUser(ctx, steps)),
     needsValidation: validation,
+    approval,
   };
 }

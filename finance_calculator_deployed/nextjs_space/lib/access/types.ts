@@ -10,6 +10,8 @@ export interface HierarchyLevel {
   kind: LevelKind;
   /** Order inside the N-chain (N0 = 0). null for parallel levels (NPR). */
   chainRank: number | null;
+  /** Parallel levels only: highest chain rank this level's approval stands in for (HoP = N+2). */
+  coversChainRank: number | null;
   sortOrder: number;
 }
 

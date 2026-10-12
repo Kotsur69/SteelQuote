@@ -67,6 +67,8 @@ export interface AccessTexts {
     kindChain: string;
     kindParallel: string;
     rank: string;
+    coversChainRank: string;
+    multiFlow: string;
     sortOrder: string;
     permissions: Record<PermissionKey, string>;
     memberCount: string;
@@ -81,7 +83,6 @@ export interface AccessTexts {
     threshold: string;
     reference: string;
     unit: string;
-    priority: string;
     targetLevel: string;
     appliesTo: string;
     criteria: Record<Criterion, string>;
@@ -91,6 +92,8 @@ export interface AccessTexts {
     noChainTop: (flow: string, level: string) => string;
     policyTitle: string;
     policies: { escalate_next: string; block: string; escalate_top: string };
+    approvalValidityTitle: string;
+    approvalValidityHint: string;
     orgScopeTitle: string;
     orgScopes: { team: string; flow: string };
     confirmDelete: string;
@@ -139,13 +142,24 @@ export interface AccessTexts {
     empty: string;
     membershipsTitle: string;
     addToFlow: string;
+    hint: string;
+    reportsTo: string;
+    teamSize: (n: number) => string;
+    noLeader: string;
+    clearSelection: string;
+    legend: string;
   };
 
   workflow: {
     awaitingLevels: (levels: string) => string;
     escalated: (required: string, resolved: string) => string;
-    approveAndSend: string;
-    sentOnBehalf: string;
+    standIn: (levels: string) => string;
+    approvalValidUntil: (when: string) => string;
+    approvalExpired: string;
+    rulesStricter: string;
+    rulesStricterReview: string;
+    rulesRelaxed: string;
+    creatorSends: string;
     noValidationNeeded: string;
     fieldLocked: string;
   };
