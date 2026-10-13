@@ -2,6 +2,7 @@
 
 import type { Translations } from '@/lib/translations';
 import type { TransportBreakdown } from '@/lib/transportTariff';
+import { fixedGrouped } from '@/lib/numberFormat';
 
 // Rozwijany panel transportu w karcie Podsumowania.
 //
@@ -264,14 +265,14 @@ export default function TransportPanel({
             <div className="rounded border border-[rgba(59,142,245,0.25)] bg-[rgba(59,142,245,0.08)] px-2.5 py-2 space-y-1">
               <p className="text-[10px] text-[var(--text-secondary)]">
                 {s.transportRecalcNotice
-                  .replace('{tons}', offerTons.toFixed(2))
+                  .replace('{tons}', fixedGrouped(offerTons, 2))
                   .replace('{trucks}', String(breakdown.trucks))}
               </p>
               <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
                 <span>{s.transportPerTruck}</span>
                 <span>
-                  {breakdown.pricePerTruckPln.toFixed(2)}
-                  {breakdown.oversizePerTruckPln > 0 && ` + ${breakdown.oversizePerTruckPln.toFixed(2)}`} zł
+                  {fixedGrouped(breakdown.pricePerTruckPln, 2)}
+                  {breakdown.oversizePerTruckPln > 0 && ` + ${fixedGrouped(breakdown.oversizePerTruckPln, 2)}`} zł
                 </span>
               </div>
               <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
@@ -280,7 +281,7 @@ export default function TransportPanel({
               </div>
               <div className="flex justify-between text-[11px] font-mono text-[var(--text-value)] font-semibold">
                 <span>{s.transportTotalCost}</span>
-                <span>{breakdown.totalPln.toFixed(2)} zł</span>
+                <span>{fixedGrouped(breakdown.totalPln, 2)} zł</span>
               </div>
               <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
                 <span>= {formatEur(breakdown.eurPerTon)}</span>

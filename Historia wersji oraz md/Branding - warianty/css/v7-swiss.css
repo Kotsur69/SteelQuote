@@ -1,0 +1,22 @@
+/* V7 Swiss Mono: pure white, black type, greyscale UI; brand colour only in logo, CTA and the active-tab rule */
+:root,.dark,[style*="--bg: #0f1117"],[style*="--bg: #eef0f6"]{--logo:url(assets/logo-color.svg) !important;
+  --bg:#ffffff !important;--bg-panel:#f4f4f4 !important;--bg-card:#ffffff !important;--bg-input:#ffffff !important;--border:#e3e3e3 !important;--border-hi:#9c9c9c !important;
+  --accent-cr:var(--accent) !important;--accent:#141414 !important;--accent-light:#414141 !important;--accent-tint:rgba(0,0,0,.04) !important;--accent-tint-strong:rgba(0,0,0,.08) !important;
+  --accent-sum:#E74341 !important;--text-primary:#141414 !important;--text-secondary:#414141 !important;--text-muted:#8a8a8a !important;--text-value:#000 !important}
+[class*="rounded-"]:not(.rounded-full){border-radius:0 !important}
+.bg-card{box-shadow:none !important}
+header.flex.mb-7{border-bottom:1px solid #141414 !important;padding-bottom:14px !important}
+header.flex.mb-7 h1{font-size:22px !important;letter-spacing:-.01em}
+nav a{border-width:0 0 2px 0 !important;border-radius:0 !important;background:transparent !important}
+nav a[class*="border-[#3b8ef5]"]{border-image:var(--am-gradient) 1 !important;border-bottom-width:3px !important;color:#141414 !important;font-weight:600}
+[style*="59,142,245"],[style*="59, 142, 245"]{background-color:#141414 !important;border-color:#141414 !important;color:#fff !important}
+.toggle-btn.active-toggle,.type-btn.active-cr{background:#141414 !important;color:#fff !important}
+/* Login */
+.min-h-screen[class*="bg-[#0f1117]"]{background:#fff !important}
+.min-h-screen[class*="bg-[#0f1117]"]::before{content:"";position:fixed;left:0;top:0;bottom:0;width:10px;background:linear-gradient(180deg,#7F1878,#C12974,#E74341,#F58847)}
+[class*="bg-[#1e2333]"]{background:#fff !important;border:1px solid #141414 !important;border-radius:0 !important;box-shadow:none !important}
+[class*="text-[#e8ecf5]"]{color:#141414 !important}
+[class*="text-[#7b88aa]"]{color:#555 !important}
+[class*="text-[#4a536b]"]{color:#8a8a8a !important}
+[class*="bg-[#141720]"]{background:#fff !important;border-color:#cfcfcf !important;color:#141414 !important;border-radius:0 !important}
+[class*="from-[#e8a020]"][class*="to-[#f0c040]"]{border-radius:0 !important}

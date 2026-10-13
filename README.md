@@ -6,16 +6,51 @@ costs, margin, transport) for **HRS, CR, HDG, PICKLED** (pickled HRS),
 an offer, run it through an approval workflow, and export it to PDF or Excel for
 a client.
 
-Current release: **1.9** (rolling out to production now). Next version in
-development: **2.0**.
+Current release: **2.0** (live in production since 13 October 2026). Next
+version in development: **2.1**.
 
 ![HRS pricing defaults](screenshot_hrs_defaults.png)
 ![CR pricing defaults](screenshot_cr_defaults.png)
 ![HDG pricing defaults](screenshot_hdg_defaults.png)
 
 Live at [steelpricinghub.abacusai.app](https://steelpricinghub.abacusai.app)
-(production runs 1.8 until the 1.9 deploy is confirmed; after that this repo
-moves on to 2.0). On Android the login screen offers to install it as an app.
+(production runs 2.0; this repo is on 2.1). On Android the login screen offers to install it as an app.
+
+### What's new in 2.0: configurable flows, roles and approval rules
+
+The fixed junior / senior / admin roles are replaced by configuration the admin
+edits in the new **Uprawnienia** panel (`/admin/dostep`), seeded from the business
+spec *Formularz uprawnień i walidacji ofert* (see
+`finance_calculator_deployed/nextjs_space/docs/flows-v2-plan.md`):
+
+- **Flows** (Flow 1 – DYSTR, Flow 2 – PROJEKTY, or any new one such as "Flow
+  Polska"), **hierarchy levels** (N0, N+1, N+2, N+3, NPR) and **roles** with six
+  functional permissions per flow. A user can hold one role in each of several
+  flows and switches the active flow in the top bar
+- **Validation rules** (margin, base price, quotation / price validity, offer
+  value). The required level is the highest one any triggered rule demands; NPR
+  is a parallel approval. A completeness control flags thresholds still to be
+  filled in, and a simulator runs the spec's test cases T1–T5
+- **Visibility matrix** per role per flow, enforced on the server for offer
+  lists, the validation queue and analytics
+- The review panel lists offers waiting for *your* level; a reviewer may edit an
+  offer (the rules re-run and may raise the level), reject it with instructions,
+  or approve and send it to the client on the seller's behalf
+- The salespeople panel adds per-flow memberships and a pyramid / org-chart view
+  showing who reports to whom
+- Only the offer's creator sends it to the client; a sent offer opens read-only,
+  and a lost offer can be renegotiated as a new version
+- **Surcharge price book** (`/admin/cennik`): mill and processing surcharges per
+  steel type are edited in the app, every change is logged, and saved offers keep
+  the prices they were quoted with
+- **Lost reasons** (`/admin/powody-przegranej`): marking an offer lost requires a
+  reason from an admin-managed list; "Inne" (other) also requires a note
+- Thousands separators (`1 000 000`) in every displayed amount and tonnage,
+  including the PDF
+- Review decision bar on top of an offer under review, approvable straight from
+  the calculator; offer items are validated server-side on save
+- Deploy hardening: the CSRF origin check honours the proxy's `x-forwarded-host`,
+  and `@types/react` is pinned so a fresh yarn install builds
 
 ### What's new in 1.9
 
@@ -92,16 +127,16 @@ still prices without an API key.
 
 ### Offers and approval workflow
 
-- Three roles — junior / senior / admin — with a draft → pending review →
-  approved/rejected → sent workflow
-- A junior can send an offer straight from draft, skipping approval, when every
-  line item's margin and base PGL are at or above the admin-configured minimums.
-  The offers list badges drafts "ready to send" or "needs approval", and the
-  calculator warns inline on any line item below threshold. Otherwise the offer
-  takes the full approval path
-- Admin and senior can approve, reject or edit offers awaiting review from their
-  panels and send approved offers on, with quick-filter tabs (awaiting review /
-  awaiting send / reviewed by me / all)
+- Roles, hierarchy levels and permissions are configured per flow (since 2.0,
+  see above) — no logic reads a role name. Workflow: draft → pending review →
+  approved/rejected → sent
+- On submit the flow's validation rules decide which level must approve; when no
+  rule fires (or the creator's own level covers it) the offer goes straight to the
+  client. The offers list badges drafts "ready to send" or "needs approval" from
+  the same server-side evaluation
+- Approvers see the offers waiting for their level in the review panel and can
+  approve, reject with instructions, edit, or approve and send on the seller's
+  behalf, with quick-filter tabs (awaiting me / awaiting send / reviewed by me / all)
 - Editing a saved offer never overwrites it in place: if anything actually
   changed, saving creates a new version (`offer_<id>.1`, `offer_<id>.2`, …) and
   earlier versions stay reachable under a collapsed list on the same card. An
@@ -118,7 +153,8 @@ still prices without an API key.
 - Client decision on a sent offer — won / lost with an optional reason, or back
   to undecided. This is a separate axis from the internal `status` workflow:
   `approved` means a senior signed the offer off, never that the client bought
-  it. Owners record their own; senior and admin may record on anyone's
+  it. Owners record their own; the reviewers of that offer and the administrator
+  may record it too
 
 ### Clients
 
@@ -144,14 +180,15 @@ still prices without an API key.
 - Settings: EUR/PLN rate, base PGL per steel type plus the quarterly schedule,
   minimum margin %, base transport, carrier tariff bands, dispatch address,
   truck capacity and the oversize surcharge
-- A senior can build a team out of juniors; the "Analiza" panel's scope follows
-  that team
+- An approver can build a team from people in their flows; the visibility
+  matrix's "team" column (and, until an org model exists, branch / region) uses it
 
 ### Analytics
 
-- `/analytics` for every role, PowerBI-style. Junior and senior see their own
-  book of business, admin the whole company plus a per-salesperson filter and
-  breakdown; scope is decided server-side, not in the browser
+- `/analytics` for every role, PowerBI-style. Each user sees the offers the
+  visibility matrix grants them (own, team, flow or all flows), plus a
+  per-salesperson filter and breakdown when that covers more than themselves;
+  scope is decided server-side, not in the browser
 - KPI tiles (tons offered / won / lost / undecided, win rate, offers, clients,
   value, average margin) each carry the change against the comparison period —
   calendar-aligned, so July compares against June and not against a 31-day
@@ -193,7 +230,7 @@ cd finance_calculator_deployed/nextjs_space
 npm install --legacy-peer-deps   # legacy flag: eslint 9 vs @typescript-eslint/parser@7, lint-only conflict
 cp .env.example .env.local       # fill in DATABASE_URL and JWT_SECRET for your local Postgres
 
-# Migrations are idempotent and must run in order (001 → 023).
+# Migrations are idempotent and must run in order (001 → 032).
 for f in migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
 
 npm run dev
@@ -207,14 +244,20 @@ node -e "console.log(require('bcryptjs').hashSync('yourpassword', 10))"
 ```
 
 ```sql
-INSERT INTO users (email, password, role, full_name, is_active)
-VALUES ('you@example.com', '<hash from above>', 'admin', 'Your Name', true);
+INSERT INTO users (email, password, full_name, is_superuser, is_active)
+VALUES ('you@example.com', '<hash from above>', 'Your Name', true, true);
 ```
+
+Then assign people to flows and roles in **Handlowcy** or **Uprawnienia**.
 
 On Windows there's a one-shot alternative: `steelquote-start.ps1` at the repo
 root starts a portable Postgres, creates the database, runs every migration,
 installs dependencies if needed, seeds test accounts into the **local** database
-only, and launches the dev server. `steelquote-stop.ps1` shuts it back down.
+only (one account per role in both flows, password `1234` — e.g.
+`ifo.f1@steelquote.test`, `asm.f1@`, `hoc.f1@`, `ifo.f2@`, `kam.f2@`, `hop@`,
+`ceo@steelquote.test`, admin `example@gmail.com`), and launches the dev server.
+`steelquote-stop.ps1` shuts it back down. `npm test` runs the rule-engine unit
+tests (vitest).
 
 ### Environment variables
 

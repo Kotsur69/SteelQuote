@@ -26,7 +26,7 @@ import {
   type ClientDecision,
 } from './analytics';
 import type { AnalyticsOfferRow } from './analyticsQuery';
-import { DEFAULT_LOST_REASON, LOST_REASONS, isLostReason, type LostReason } from './lostReasons';
+import { OTHER_REASON, sortLostReasons, type LostReasonDef } from './lostReasons';
 
 /** One offer reduced to the figures every aggregation needs. */
 export interface NormalizedOffer {
@@ -34,8 +34,8 @@ export interface NormalizedOffer {
   label: string;
   status: AnalyticsRow['status'];
   decision: ClientDecision;
-  /** Why the client rejected it; null unless decision is 'lost'. Unknown/missing -> 'other'. */
-  lostReason: LostReason | null;
+  /** Reason code why the client rejected it; null unless decision is 'lost'. Missing -> 'other'. */
+  lostReason: string | null;
   userId: number | null;
   ownerName: string | null;
   clientId: number | null;
@@ -166,12 +166,7 @@ export function normalizeOffer(
     label: row.display_name,
     status: row.status,
     decision: CLIENT_DECISIONS.includes(row.client_decision) ? row.client_decision : 'pending',
-    lostReason:
-      row.client_decision !== 'lost'
-        ? null
-        : isLostReason(row.client_decision_reason)
-          ? row.client_decision_reason
-          : DEFAULT_LOST_REASON,
+    lostReason: row.client_decision !== 'lost' ? null : row.client_decision_reason || OTHER_REASON,
     userId: row.user_id,
     ownerName: row.owner_name ?? row.owner_email ?? null,
     clientId: row.client_id,
@@ -320,13 +315,17 @@ export function computeKpi(offers: NormalizedOffer[]): AnalyticsKpi {
 // --- lost reasons ---------------------------------------------------------------------
 
 /**
- * Lost offers grouped by the reason the client gave, in the fixed LOST_REASONS order, with
- * reasons nobody picked left out. `sharePct` is the share of lost OFFERS, so the column sums
- * to 100 whatever the tonnage looks like. Offers lost before reasons existed arrive as 'other'
- * (the migration backfills them), so nothing falls outside the list.
+ * Lost offers grouped by the reason the client gave, in the admin's list order (archived
+ * reasons included - they still explain past losses), with reasons nobody picked left out.
+ * `sharePct` is the share of lost OFFERS, so the column sums to 100 whatever the tonnage looks
+ * like. A code missing from `reasons` (the list failed to load) still counts, labelled by its
+ * code, so the shares never silently drop an offer.
  */
-export function computeLostReasons(offers: NormalizedOffer[]): LostReasonStat[] {
-  const totals = new Map<LostReason, { offers: number; tons: number; eur: number; pln: number }>();
+export function computeLostReasons(
+  offers: NormalizedOffer[],
+  reasons: readonly LostReasonDef[]
+): LostReasonStat[] {
+  const totals = new Map<string, { offers: number; tons: number; eur: number; pln: number }>();
   let lostOffers = 0;
 
   for (const o of offers) {
@@ -340,10 +339,27 @@ export function computeLostReasons(offers: NormalizedOffer[]): LostReasonStat[] 
     totals.set(o.lostReason, t);
   }
 
-  return LOST_REASONS.filter((reason) => totals.has(reason)).map((reason) => {
-    const t = totals.get(reason)!;
+  const known = sortLostReasons(reasons);
+  const knownCodes = new Set(known.map((r) => r.code));
+  const ordered: LostReasonDef[] = [
+    ...known,
+    ...[...totals.keys()]
+      .filter((code) => !knownCodes.has(code))
+      .map((code) => ({
+        code,
+        labels: { pl: code, en: code, cs: code, de: code },
+        sortOrder: Number.MAX_SAFE_INTEGER,
+        archived: false,
+        isSystem: false,
+      })),
+  ];
+
+  return ordered.filter((def) => totals.has(def.code)).map((def) => {
+    const t = totals.get(def.code)!;
     return {
-      reason,
+      reason: def.code,
+      labels: def.labels,
+      archived: def.archived,
       offers: t.offers,
       tonsLost: round(t.tons),
       valueLostEur: round(t.eur, 2),

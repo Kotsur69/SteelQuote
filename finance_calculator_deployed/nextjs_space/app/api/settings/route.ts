@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import { DEFAULT_SETTINGS, settingsRowToAppSettings, type AppSettings } from '@/lib/currency';
 import type { TariffBand } from '@/lib/transportTariff';
 import { applyQuarterlyPglOverride, type Quarter } from '@/lib/pglQuarterly';
@@ -74,7 +74,7 @@ function parseQuarterlyTarget(searchParams: URLSearchParams): { year: number; qu
 // Opcjonalne ?year=&quarter= (patrz parseQuarterlyTarget) — kalkulator używa ich, żeby dostać
 // PGL zaplanowane na kwartał wybranego "okresu ważności oferty" zamiast na bieżący.
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['junior', 'senior', 'admin']);
+  const auth = await requireAccess();
   if ('error' in auth) return auth.error;
 
   const quarterlyTarget = parseQuarterlyTarget(new URL(request.url).searchParams);
@@ -158,9 +158,9 @@ type SteelType = 'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | 'ZM';
 // Walidacja jest tu krytyczna: literówka w kursie (43 zamiast 4,3) zawyżyłaby KAŻDĄ
 // nową wycenę w PLN dziesięciokrotnie. Baza ma te same CHECK-i jako druga linia obrony.
 export async function PATCH(request: NextRequest) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
-  const { session } = auth;
+  const session = auth.ctx;
 
   try {
     const body = await request.json();

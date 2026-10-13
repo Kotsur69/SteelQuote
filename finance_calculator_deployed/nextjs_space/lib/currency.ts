@@ -11,6 +11,7 @@ import {
   DEFAULT_TRUCK_CAPACITY_T,
   type TariffBand,
 } from './transportTariff';
+import { fixedGrouped, groupThousands } from './numberFormat';
 
 export type Currency = 'EUR' | 'PLN';
 
@@ -178,9 +179,9 @@ export function currencySymbol(currency: Currency): string {
   return currency === 'PLN' ? 'zł/t' : '€/t';
 }
 
-// Formatowanie kwoty do wyświetlenia.
+// Formatowanie kwoty do wyświetlenia (z odstępami tysięcy — tylko do wyświetlania).
 export function formatMoney(eur: number, rate: number, currency: Currency, decimals = 2): string {
-  return toDisplay(eur, rate, currency).toFixed(decimals);
+  return fixedGrouped(toDisplay(eur, rate, currency), decimals);
 }
 
 // Cena końcowa jest zawsze zaokrąglana W GÓRĘ do pełnej jednostki waluty wyświetlania
@@ -191,7 +192,7 @@ export function ceilToUnit(eur: number, rate: number, currency: Currency): numbe
 }
 
 export function formatMoneyCeil(eur: number, rate: number, currency: Currency): string {
-  return String(ceilToUnit(eur, rate, currency));
+  return groupThousands(String(ceilToUnit(eur, rate, currency)));
 }
 
 // --- Waluta ZAPISANA W OFERCIE -------------------------------------------------
@@ -226,7 +227,7 @@ export function formatOfferMoney(
   data: OfferCurrencyMeta | null | undefined,
   decimals = 2
 ): string {
-  return toDisplay(eur, offerRate(data), offerCurrency(data)).toFixed(decimals);
+  return fixedGrouped(toDisplay(eur, offerRate(data), offerCurrency(data)), decimals);
 }
 
 // Wariant formatOfferMoney dla ceny końcowej — zaokrąglenie w górę do pełnej jednostki,
@@ -235,5 +236,5 @@ export function formatOfferMoneyCeil(
   eur: number,
   data: OfferCurrencyMeta | null | undefined
 ): string {
-  return String(ceilToUnit(eur, offerRate(data), offerCurrency(data)));
+  return groupThousands(String(ceilToUnit(eur, offerRate(data), offerCurrency(data))));
 }

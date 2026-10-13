@@ -14,13 +14,15 @@ import {
   ItemInputs,
   SteelType,
 } from './calculatorData';
+import { OPTION_GROUP_SPECS, resolveOptionIdx, type OptionGroup } from './priceBook';
 
-function byValue<T extends { label: string; value: number }>(options: T[], value: number): T | undefined {
-  return options.find(o => o.value === value);
-}
-
-function byIdx<T>(options: T[], idx: number): T | undefined {
-  return options[idx];
+// Labels only - prices never appear in the notes. The option is picked by its stored index;
+// items saved before the price book are matched by value against the CODE DEFAULTS, never the
+// live price book, so a later price change cannot alter the PDF text of a saved offer.
+function pick<T>(type: SteelType, inputs: ItemInputs, group: OptionGroup, options: T[]): T | undefined {
+  const spec = OPTION_GROUP_SPECS[group];
+  const idx = resolveOptionIdx(type, group, inputs[spec.idxField], inputs[spec.valueField]);
+  return idx === null ? undefined : options[idx];
 }
 
 export function buildItemNotes(
@@ -37,47 +39,49 @@ export function buildItemNotes(
     if (opt) lines.push(`${label}: ${opt.label}`);
   };
 
+  const p = <T,>(group: OptionGroup, options: T[]) => pick(type, inputs, group, options);
+
   // Huta (mill) — wspólne dla wszystkich typów
-  push(t.huta.thicknessTolerance, byIdx(TOL_THICK_OPTIONS[type], inputs.tolThickIdx));
-  push(t.huta.certificate, byValue(CERT_OPTIONS, inputs.cert));
+  push(t.huta.thicknessTolerance, p('tolerance', TOL_THICK_OPTIONS[type]));
+  push(t.huta.certificate, p('cert', CERT_OPTIONS));
 
   if ((type === 'HDG' || type === 'ZM') && inputs.selectedCoating) {
     lines.push(`${t.huta.coating}: ${inputs.selectedCoating}`);
   }
 
   if (type === 'CR') {
-    push(t.huta.protection, byValue(CR_PROTECTION_OPTIONS, inputs.crZabezp));
-    push(t.huta.packaging, byIdx(opts.crPackaging, inputs.crOpakIdx));
-    push(t.huta.surface, byValue(opts.crSurface, inputs.crPowierz));
-    push(t.huta.surfaceFinish, byIdx(opts.crFinish, inputs.crWykonIdx));
-    push(t.huta.weld, byValue(opts.crWeld, inputs.crZgrzew));
+    push(t.huta.protection, p('crProtection', CR_PROTECTION_OPTIONS));
+    push(t.huta.packaging, p('crPackaging', opts.crPackaging));
+    push(t.huta.surface, p('crSurface', opts.crSurface));
+    push(t.huta.surfaceFinish, p('crFinish', opts.crFinish));
+    push(t.huta.weld, p('crWeld', opts.crWeld));
   }
 
   if (type === 'HDG') {
-    push(t.huta.protection, byIdx(HDG_PROTECTION_OPTIONS, inputs.hdgZabezpIdx));
-    push(t.huta.packaging, byIdx(opts.hdgPackaging, inputs.hdgOpakIdx));
-    push(t.huta.surface, byValue(opts.hdgSurface, inputs.hdgPowierz));
-    push(t.huta.surfaceFinish, byValue(opts.hdgFinish, inputs.hdgWykon));
-    push(t.huta.weld, byValue(opts.hdgWeld, inputs.hdgZgrzew));
+    push(t.huta.protection, p('hdgProtection', HDG_PROTECTION_OPTIONS));
+    push(t.huta.packaging, p('hdgPackaging', opts.hdgPackaging));
+    push(t.huta.surface, p('hdgSurface', opts.hdgSurface));
+    push(t.huta.surfaceFinish, p('hdgFinish', opts.hdgFinish));
+    push(t.huta.weld, p('hdgWeld', opts.hdgWeld));
   }
 
   // ZM: bez osobnego "wykonania" (finish) — tylko 4 grupy dopłat, jak w Calculator.tsx
   if (type === 'ZM') {
-    push(t.huta.protection, byIdx(ZM_PROTECTION_OPTIONS, inputs.zmZabezpIdx));
-    push(t.huta.packaging, byIdx(opts.zmPackaging, inputs.zmOpakIdx));
-    push(t.huta.surface, byValue(opts.zmSurface, inputs.zmPowierz));
-    push(t.huta.weld, byValue(opts.zmWeld, inputs.zmZgrzew));
+    push(t.huta.protection, p('zmProtection', ZM_PROTECTION_OPTIONS));
+    push(t.huta.packaging, p('zmPackaging', opts.zmPackaging));
+    push(t.huta.surface, p('zmSurface', opts.zmSurface));
+    push(t.huta.weld, p('zmWeld', opts.zmWeld));
   }
 
   // SSC (processing) — wspólne dla wszystkich typów
-  push(t.ssc.lengthTolerance, byValue(opts.lengthTolerance, inputs.sscLenTol));
-  push(t.ssc.flatness, byValue(opts.flatness, inputs.sscFlatness));
-  push(t.ssc.surface, byValue(opts.surface, inputs.sscSurface));
-  push(t.ssc.maxPackWeight, byValue(SSC_MAX_WEIGHT_OPTIONS, inputs.sscMaxWeight));
-  push(t.ssc.marking, byValue(opts.marking, inputs.sscMarking));
-  push(t.ssc.edging, byValue(opts.edging, inputs.sscEdging));
-  push(t.ssc.packaging, byIdx(SSC_PACKING_OPTIONS, inputs.sscPackingIdx));
-  push(t.ssc.labels, byValue(opts.labels, inputs.sscLabels));
+  push(t.ssc.lengthTolerance, p('sscLenTol', opts.lengthTolerance));
+  push(t.ssc.flatness, p('sscFlatness', opts.flatness));
+  push(t.ssc.surface, p('sscSurface', opts.surface));
+  push(t.ssc.maxPackWeight, p('sscMaxWeight', SSC_MAX_WEIGHT_OPTIONS));
+  push(t.ssc.marking, p('sscMarking', opts.marking));
+  push(t.ssc.edging, p('sscEdging', opts.edging));
+  push(t.ssc.packaging, p('sscPacking', SSC_PACKING_OPTIONS));
+  push(t.ssc.labels, p('sscLabels', opts.labels));
 
   // Komentarz do dopłaty dodatkowej — tylko gdy handlowiec jawnie zaznaczył, że ma
   // trafić do PDF (opt-in), i tylko gdy dopłata faktycznie jest niezerowa.

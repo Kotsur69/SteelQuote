@@ -3,34 +3,48 @@ import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
 import { JWT_SECRET_BYTES as secret } from './lib/jwtSecret';
 
+// Methods that change state. Cookies are SameSite=Lax; on top of that a state-changing API
+// call must come from this origin (CSRF defence in depth).
+const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+// Behind a reverse proxy (Abacus) `host` is the internal address; the public one the browser
+// used arrives in `x-forwarded-host` (may be a comma-separated chain - first entry is the client's).
+function allowedHosts(request: NextRequest): string[] {
+  const forwarded = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const host = request.headers.get('host');
+  return [forwarded, host].filter((h): h is string => Boolean(h));
+}
+
+function crossOrigin(request: NextRequest): boolean {
+  const origin = request.headers.get('origin');
+  if (!origin) return false; // same-origin fetches from older browsers / server-to-server
+  try {
+    return !allowedHosts(request).includes(new URL(origin).host);
+  } catch {
+    return true;
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get('auth-token')?.value;
   const { pathname } = request.nextUrl;
 
-  // Panel seniora — tylko rola 'senior'.
-  if (pathname.startsWith('/senior')) {
-    if (!token) {
-      return NextResponse.redirect(new URL('/', request.url));
+  if (pathname.startsWith('/api/')) {
+    if (MUTATING.has(request.method) && crossOrigin(request)) {
+      return NextResponse.json({ error: 'Cross-origin request rejected' }, { status: 403 });
     }
-    try {
-      const { payload } = await jwtVerify(token, secret);
-      if (payload.role !== 'senior') {
-        return NextResponse.redirect(new URL('/calculator', request.url));
-      }
-      return NextResponse.next();
-    } catch {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
+    return NextResponse.next();
   }
 
-  // Panel admina — tylko rola 'admin'.
+  // Admin panel - superuser only. The edge runtime has no database, so this reads the `su`
+  // hint from the token; every /api/admin route re-checks users.is_superuser fresh.
   if (pathname.startsWith('/admin')) {
     if (!token) {
       return NextResponse.redirect(new URL('/', request.url));
     }
     try {
       const { payload } = await jwtVerify(token, secret);
-      if (payload.role !== 'admin') {
+      if (payload.su !== true) {
         return NextResponse.redirect(new URL('/calculator', request.url));
       }
       return NextResponse.next();
@@ -39,10 +53,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protected routes. /analytics is here rather than with the role-gated panels above: it is
-  // open to every logged-in role, and WHICH offers it reports on is decided server-side in
-  // lib/analyticsQuery.ts, not by the URL.
+  // Protected routes - any signed-in user. WHAT they see is decided server-side from their
+  // flow memberships (lib/access): the review panel (/senior) lists only offers awaiting the
+  // user's own level, analytics and offer lists apply the visibility matrix.
   if (
+    pathname.startsWith('/senior') ||
     pathname.startsWith('/calculator') ||
     pathname.startsWith('/offers') ||
     pathname.startsWith('/analytics')
@@ -80,5 +95,6 @@ export const config = {
     '/analytics/:path*',
     '/senior/:path*',
     '/admin/:path*',
+    '/api/:path*',
   ],
 };

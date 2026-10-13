@@ -18,6 +18,7 @@
 # Node / Next.js build artifacts
 node_modules/
 .next/
+.next-verify/
 *.tsbuildinfo
 
 # MS Office temp/lock files (Word/Excel open-document markers)

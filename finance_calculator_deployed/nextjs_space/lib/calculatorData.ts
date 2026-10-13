@@ -1044,14 +1044,16 @@ export const TEARDROP_SURCHARGE_BY_WIDTH = [
   { widthMin: 1501, widthMax: 2050, value: 45 },
 ];
 
-// Zwraca dopłatę Łezka dla podanej szerokości (mm). Szerokości powyżej 2050 mm nie
-// są w tabeli klienta — stosujemy stawkę górnego progu.
-export function getTeardropSurcharge(width: number): number {
-  for (const row of TEARDROP_SURCHARGE_BY_WIDTH) {
-    if (width >= row.widthMin && width <= row.widthMax) return row.value;
-  }
-  return width > 2050 ? 45 : 30;
-}
+// Widths above the last band are not in the client's table; they take this rate (editable
+// per type in the price book, see the 'scalar' table in lib/priceBook.ts).
+export const TEARDROP_OVER_MAX_WIDTH_SURCHARGE = 45;
+
+// SSC base surcharge used when the dimensions fall outside the base length/width table
+// (editable per type in the price book).
+export const BASE_SURCHARGE_FALLBACK = 29;
+
+// Yield-strength surcharge for grades flagged with it (editable per type in the price book).
+export const YIELD_SURCHARGE_AMOUNT = 7;
 
 // Tolerance options
 export const TOL_THICK_OPTIONS = {
@@ -1150,6 +1152,26 @@ export interface ItemInputs {
   extraComment?: string;
   extraCommentInPdf?: boolean;
   transport: number;
+  // Selected option index per surcharge group. Option prices live in the editable price book
+  // (lib/priceBook.ts), so matching a stored value back to its option breaks once a price
+  // changes; the index does not. Optional: items saved before the price book lack them and
+  // are resolved by value against the code defaults (see resolveOptionIdx).
+  certIdx?: number;
+  crZabezpIdx?: number;
+  crPowierzIdx?: number;
+  crZgrzewIdx?: number;
+  hdgPowierzIdx?: number;
+  hdgWykonIdx?: number;
+  hdgZgrzewIdx?: number;
+  zmPowierzIdx?: number;
+  zmZgrzewIdx?: number;
+  sscLenTolIdx?: number;
+  sscFlatnessIdx?: number;
+  sscSurfaceIdx?: number;
+  sscMaxWeightIdx?: number;
+  sscMarkingIdx?: number;
+  sscEdgingIdx?: number;
+  sscLabelsIdx?: number;
 }
 
 // Opcje dopłat, których etykiety NIE zależą od języka UI (kody/skróty branżowe).
@@ -1200,94 +1222,61 @@ export const SSC_PACKING_OPTIONS = [
   { label: 'SB3', value: 29 },
 ];
 
+// Default prices of the localized option groups below, by option index. Labels depend on the
+// UI language, prices do not - and prices are overridable per steel type in the price book
+// (lib/priceBook.ts), which is seeded from these values.
+export const HUTA_SSC_DEFAULT_VALUES = {
+  lengthTolerance: [0, 8],
+  flatness: [0, 13, 8],
+  surface: [0, 10],
+  marking: [0, 5, 3],
+  edging: [0, 18],
+  labels: [0, 0.5],
+  crPackaging: [0, 5, 5],
+  crSurface: [0, 40],
+  crFinish: [0, 10, 25, 10],
+  crWeld: [-3, 5, 0],
+  hdgPackaging: [0, 5, 5, 0],
+  hdgSurface: [0, 35, 20],
+  hdgFinish: [0, 15],
+  hdgWeld: [-3, 5, 0],
+  zmPackaging: [0, 5, 5, 0],
+  zmSurface: [0, 20],
+  zmWeld: [-3, 5, 0],
+} as const;
+
+export type HutaSscOptionKey = keyof typeof HUTA_SSC_DEFAULT_VALUES;
+
+function withDefaultValues(key: HutaSscOptionKey, labels: string[]): { label: string; value: number }[] {
+  const values = HUTA_SSC_DEFAULT_VALUES[key];
+  return labels.map((label, idx) => ({ label, value: values[idx] }));
+}
+
 // Opcje dopłat lokalizowane wg języka UI — współdzielone przez Calculator.tsx (renderowanie
 // przełączników) i lib/itemNotes.ts (odtworzenie wybranych opcji do PDF), żeby etykiety
-// nigdy nie rozjechały się między widokiem a eksportem.
+// nigdy nie rozjechały się między widokiem a eksportem. Values are the code defaults; the
+// calculator swaps them for the live price book by index.
 export function getHutaSscToggleOptions(t: Translations, language: string) {
   return {
-    lengthTolerance: [
-      { label: t.toggles.normal, value: 0 },
-      { label: t.toggles.lessThan5mm, value: 8 },
-    ],
-    flatness: [
-      { label: t.toggles.enStandard, value: 0 },
-      { label: t.toggles.laser13, value: 13 },
-      { label: t.toggles.customerSpec, value: 8 },
-    ],
-    surface: [
-      { label: t.toggles.normal, value: 0 },
-      { label: t.toggles.improved, value: 10 },
-    ],
-    marking: [
-      { label: t.toggles.none, value: 0 },
-      { label: t.toggles.engraved, value: 5 },
-      { label: t.toggles.marker, value: 3 },
-    ],
-    edging: [
-      { label: t.common.no, value: 0 },
-      { label: t.common.yes, value: 18 },
-    ],
-    labels: [
-      { label: t.toggles.none, value: 0 },
-      { label: language === 'pl' ? 'Koperta plast.' : 'Plastic env.', value: 0.5 },
-    ],
-    crPackaging: [
-      { label: t.toggles.noPaper, value: 0 },
-      { label: t.toggles.paperPlastic, value: 5 },
-      { label: t.toggles.seaTransport, value: 5 },
-    ],
-    crSurface: [
-      { label: t.toggles.surfaceA, value: 0 },
-      { label: t.toggles.surfaceB, value: 40 },
-    ],
-    crFinish: [
-      { label: t.toggles.normalFinish, value: 0 },
-      { label: t.toggles.rough, value: 10 },
-      { label: t.toggles.glossy, value: 25 },
-      { label: t.toggles.semiGlossy, value: 10 },
-    ],
-    crWeld: [
-      { label: t.toggles.allowed, value: -3 },
-      { label: t.toggles.notAllowed, value: 5 },
-      { label: t.toggles.other, value: 0 },
-    ],
-    hdgPackaging: [
-      { label: t.toggles.noPaper, value: 0 },
-      { label: t.toggles.paperPlastic, value: 5 },
-      { label: t.toggles.seaTransport, value: 5 },
-      { label: t.toggles.paperPlasticCE, value: 0 },
-    ],
-    hdgSurface: [
-      { label: t.toggles.surfaceMA, value: 0 },
-      { label: t.toggles.surfaceMB, value: 35 },
-      { label: t.toggles.surfaceMC, value: 20 },
-    ],
-    hdgFinish: [
-      { label: t.toggles.standard, value: 0 },
-      { label: t.toggles.bright, value: 15 },
-    ],
-    hdgWeld: [
-      { label: t.toggles.allowed, value: -3 },
-      { label: t.toggles.notAllowed, value: 5 },
-      { label: t.toggles.other, value: 0 },
-    ],
-    // ZM: te same opcje/etykiety co hdgPackaging i crWeld/hdgWeld (wartości klienta się
-    // pokrywają) — bez nowych kluczy tłumaczeń. Brak osobnego "wykonania/finish" dla ZM
-    // (tabela klienta ma 4 grupy dopłat, nie 5) — decyzja usera 2026-08-12.
-    zmPackaging: [
-      { label: t.toggles.noPaper, value: 0 },
-      { label: t.toggles.paperPlastic, value: 5 },
-      { label: t.toggles.seaTransport, value: 5 },
-      { label: t.toggles.paperPlasticCE, value: 0 },
-    ],
-    zmSurface: [
-      { label: t.toggles.surfaceA, value: 0 },
-      { label: t.toggles.surfaceB, value: 20 },
-    ],
-    zmWeld: [
-      { label: t.toggles.allowed, value: -3 },
-      { label: t.toggles.notAllowed, value: 5 },
-      { label: t.toggles.other, value: 0 },
-    ],
+    lengthTolerance: withDefaultValues('lengthTolerance', [t.toggles.normal, t.toggles.lessThan5mm]),
+    flatness: withDefaultValues('flatness', [t.toggles.enStandard, t.toggles.laser13, t.toggles.customerSpec]),
+    surface: withDefaultValues('surface', [t.toggles.normal, t.toggles.improved]),
+    marking: withDefaultValues('marking', [t.toggles.none, t.toggles.engraved, t.toggles.marker]),
+    edging: withDefaultValues('edging', [t.common.no, t.common.yes]),
+    labels: withDefaultValues('labels', [t.toggles.none, language === 'pl' ? 'Koperta plast.' : 'Plastic env.']),
+    crPackaging: withDefaultValues('crPackaging', [t.toggles.noPaper, t.toggles.paperPlastic, t.toggles.seaTransport]),
+    crSurface: withDefaultValues('crSurface', [t.toggles.surfaceA, t.toggles.surfaceB]),
+    crFinish: withDefaultValues('crFinish', [t.toggles.normalFinish, t.toggles.rough, t.toggles.glossy, t.toggles.semiGlossy]),
+    crWeld: withDefaultValues('crWeld', [t.toggles.allowed, t.toggles.notAllowed, t.toggles.other]),
+    hdgPackaging: withDefaultValues('hdgPackaging', [t.toggles.noPaper, t.toggles.paperPlastic, t.toggles.seaTransport, t.toggles.paperPlasticCE]),
+    hdgSurface: withDefaultValues('hdgSurface', [t.toggles.surfaceMA, t.toggles.surfaceMB, t.toggles.surfaceMC]),
+    hdgFinish: withDefaultValues('hdgFinish', [t.toggles.standard, t.toggles.bright]),
+    hdgWeld: withDefaultValues('hdgWeld', [t.toggles.allowed, t.toggles.notAllowed, t.toggles.other]),
+    // ZM: te same opcje/etykiety co hdgPackaging i crWeld/hdgWeld — bez nowych kluczy
+    // tłumaczeń. Brak osobnego "wykonania/finish" dla ZM (tabela klienta ma 4 grupy dopłat,
+    // nie 5) — decyzja usera 2026-08-12.
+    zmPackaging: withDefaultValues('zmPackaging', [t.toggles.noPaper, t.toggles.paperPlastic, t.toggles.seaTransport, t.toggles.paperPlasticCE]),
+    zmSurface: withDefaultValues('zmSurface', [t.toggles.surfaceA, t.toggles.surfaceB]),
+    zmWeld: withDefaultValues('zmWeld', [t.toggles.allowed, t.toggles.notAllowed, t.toggles.other]),
   };
 }

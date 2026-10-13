@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
+import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import Navigation from '@/components/Navigation';
 import TeamEditor from '@/components/TeamEditor';
 import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
@@ -16,9 +17,11 @@ import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
 import ClientPaymentTermsPanel from '@/components/ClientPaymentTermsPanel';
-import ReviewIssuesNotice from '@/components/ReviewIssuesNotice';
-import { useCurrency } from '@/contexts/CurrencyContext';
-import type { ReviewableItem } from '@/lib/offerReview';
+import SeniorStatusTiles, { type SeniorFilter } from '@/components/SeniorStatusTiles';
+import ValidationNotice, { type ValidationSnapshot } from '@/components/ValidationNotice';
+import ApprovalBadges from '@/components/ApprovalBadges';
+import { useAccess } from '@/lib/useAccess';
+import { useAccessT } from '@/lib/i18n/access';
 import type { ItemInputs } from '@/lib/calculatorData';
 import {
   formatOfferMoney,
@@ -29,9 +32,10 @@ import {
   currencySymbol,
   type Currency,
 } from '@/lib/currency';
+import { fixedGrouped } from '@/lib/numberFormat';
 
 type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
-type FilterTab = 'pending' | 'awaitingSend' | 'reviewed' | 'all' | 'clients';
+type FilterTab = SeniorFilter;
 
 interface Offer {
   id: number;
@@ -73,11 +77,20 @@ interface Offer {
   updated_at: string;
   root_offer_id: number | null;
   version_number: number;
+  // Validation queue (v2.0): true when a pending approval step sits at a level the caller
+  // may approve in the offer's flow - computed on the server, see app/api/senior/offers.
+  awaiting_me?: boolean;
+  /** false = waits at a lower level; the caller may decide it only as a stand-in. */
+  awaiting_own_level?: boolean;
+  flow_name?: string | null;
+  validation_snapshot?: ValidationSnapshot | null;
+  pending_levels?: string[];
 }
 
 export default function SeniorPage() {
   const { t, language } = useLanguage();
-  const { settings } = useCurrency();
+  const at = useAccessT();
+  const { access } = useAccess();
   const router = useRouter();
   const [isDark, setIsDark] = useDarkMode();
   const [highContrast, setHighContrast] = useHighContrast();
@@ -86,7 +99,6 @@ export default function SeniorPage() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState<FilterTab>('pending');
-  const [role, setRole] = useState<string | null>(null);
   // Own user id, from /api/senior/offers - the team editor needs it to scope /api/teams.
   const [userId, setUserId] = useState<number | null>(null);
   // Której rodziny ofert (klucz z groupOffersByVersion) ma rozwiniętą historię wersji.
@@ -103,6 +115,8 @@ export default function SeniorPage() {
   const [rejectComment, setRejectComment] = useState('');
   const [rejectError, setRejectError] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Offer list container - the dashboard tiles scroll it into view after filtering.
+  const listRef = useRef<HTMLDivElement>(null);
 
   // Szukanie po nazwie własnej, nazwie zastępczej ("offer_30") albo numerze oferty.
   // Filtruje baza (?q=) — ta sama fraza działa tak samo jak w /offers i /admin/oferty.
@@ -129,7 +143,6 @@ export default function SeniorPage() {
         const data = await res.json();
         if (!isCurrent()) return;
         setOffers(data.offers);
-        setRole(data.role);
         setUserId(typeof data.userId === 'number' ? data.userId : null);
       } else if (res.status === 403) {
         router.replace('/calculator');
@@ -157,6 +170,8 @@ export default function SeniorPage() {
       } else {
         const data = await res.json().catch(() => ({}));
         showMessage('error', data.error || t.workflow.actionFailed);
+        // Re-routed to a higher level: the offer left this queue.
+        if (data.code === 'rerouted') fetchOffers(search);
       }
     } catch {
       showMessage('error', t.workflow.actionFailed);
@@ -207,25 +222,7 @@ export default function SeniorPage() {
   };
 
   const handleEdit = (offerId: number) => {
-    router.push(`/calculator?edit=${offerId}`);
-  };
-
-  const handleSend = async (offerId: number) => {
-    setActionLoading(offerId);
-    try {
-      const res = await fetch(`/api/offers/${offerId}/send`, { method: 'POST' });
-      if (res.ok) {
-        showMessage('success', t.workflow.sent);
-        fetchOffers(search);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showMessage('error', data.error || t.workflow.actionFailed);
-      }
-    } catch {
-      showMessage('error', t.workflow.actionFailed);
-    } finally {
-      setActionLoading(null);
-    }
+    router.push(`/calculator?edit=${offerId}&from=senior`);
   };
 
   const handleExportExcel = (offer: Offer) => {
@@ -286,9 +283,12 @@ export default function SeniorPage() {
 
   // Filter offers by tab
   const filteredOffers = offers.filter((o) => {
-    if (activeTab === 'pending') return o.status === 'pending_review';
+    if (activeTab === 'pending') return o.awaiting_me === true;
     if (activeTab === 'awaitingSend') return o.status === 'approved';
     if (activeTab === 'reviewed') return o.status === 'approved' || o.status === 'rejected';
+    if (activeTab === 'pending_review' || activeTab === 'rejected' || activeTab === 'sent') {
+      return o.status === activeTab;
+    }
     return true;
   });
 
@@ -330,7 +330,7 @@ export default function SeniorPage() {
           // ten podział nie zależy od kierunku sortowania, inaczej przełącznik asc/desc
           // chowałby oferty czekające na recenzję pod zrecenzowanymi. Kierunek dotyczy
           // tylko daty aktualizacji w obrębie każdej z tych dwóch grup.
-          const rank = (o: Offer) => (o.status === 'pending_review' ? 0 : 1);
+          const rank = (o: Offer) => (o.awaiting_me ? 0 : 1);
           const rankCmp = rank(a) - rank(b);
           if (rankCmp !== 0) return rankCmp;
           return (new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()) * dir;
@@ -343,8 +343,16 @@ export default function SeniorPage() {
   // oryginał) pod rozwijanym "poprzednie wersje" - patrz lib/offerVersions.ts.
   const offerGroups = groupOffersByVersion(sortedOffers);
 
-  const pendingCount = offers.filter((o) => o.status === 'pending_review').length;
+  const pendingCount = offers.filter((o) => o.awaiting_me).length;
   const awaitingSendCount = offers.filter((o) => o.status === 'approved').length;
+  const statusCounts: Record<OfferStatus, number> = { draft: 0, pending_review: 0, approved: 0, rejected: 0, sent: 0 };
+  for (const o of offers) statusCounts[o.status]++;
+
+  // Tile click: filter the list, then bring it into view so the per-offer actions are right there.
+  const handleTileSelect = (filter: FilterTab) => {
+    setActiveTab(filter);
+    requestAnimationFrame(() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
 
   const cssVars = getThemeVars(isDark, highContrast);
 
@@ -368,6 +376,7 @@ export default function SeniorPage() {
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <LanguageSelector />
+          <AdminSettingsShortcut />
           <button
             onClick={() => setIsDark(!isDark)}
             className="bg-[var(--bg-card)] border border-[var(--border)] rounded-[20px] px-3.5 py-1.5 text-[11px] font-mono text-[var(--text-secondary)] flex items-center gap-1.5 hover:border-[var(--border-hi)] hover:text-[var(--text-primary)] transition-colors"
@@ -402,6 +411,15 @@ export default function SeniorPage() {
       {/* Navigation */}
       <Navigation isDark={isDark} highContrast={highContrast} />
 
+      {/* Dashboard tiles - each one filters the offer list below */}
+      <SeniorStatusTiles
+        pendingCount={pendingCount}
+        awaitingSendCount={awaitingSendCount}
+        statusCounts={statusCounts}
+        activeFilter={activeTab}
+        onSelect={handleTileSelect}
+      />
+
       {/* Message Toast */}
       {message && (
         <div
@@ -416,7 +434,8 @@ export default function SeniorPage() {
       )}
 
       {/* My team - drives what this senior can see in the Analytics panel */}
-      {role === 'senior' && userId !== null && (
+      {/* Teams are led by approvers (the /api/teams rule); the superuser manages them in Handlowcy. */}
+      {access !== null && access.isApprover && !access.isSuperuser && userId !== null && (
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md p-4 mb-5">
           <div className="flex items-center gap-2.5 mb-3">
             <span className="w-2 h-2 rounded-full bg-[var(--accent-cr)]" />
@@ -429,7 +448,7 @@ export default function SeniorPage() {
       )}
 
       {/* Filter Tabs */}
-      <div className="flex flex-wrap gap-2 mb-5">
+      <div ref={listRef} className="flex flex-wrap gap-2 mb-5 scroll-mt-4">
         {(['pending', 'awaitingSend', 'reviewed', 'all'] as FilterTab[]).map((tab) => {
           const label =
             tab === 'pending'
@@ -475,7 +494,11 @@ export default function SeniorPage() {
         <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[var(--border)] flex-wrap">
           <span className="w-2 h-2 rounded-full bg-[var(--accent-hrs)]" />
           <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">
-            {t.senior.pendingOffers}
+            {activeTab === 'pending_review' || activeTab === 'rejected' || activeTab === 'sent'
+              ? t.offerStatus[activeTab]
+              : activeTab === 'awaitingSend'
+                ? t.senior.awaitingSend
+                : t.senior.pendingOffers}
           </h2>
           <OfferSearchInput
             value={search}
@@ -526,7 +549,9 @@ export default function SeniorPage() {
           </div>
         ) : filteredOffers.length === 0 ? (
           <div className="p-8 text-center">
-            <p className="text-[var(--text-secondary)] text-sm">{t.senior.noOffersPending}</p>
+            <p className="text-[var(--text-secondary)] text-sm">
+              {activeTab === 'pending' ? t.senior.noOffersPending : t.senior.noOffersForFilter}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-[var(--border)]">
@@ -636,7 +661,7 @@ export default function SeniorPage() {
                                     } as Record<string, string>)[item.type]}>{item.type}</span>
                                   </td>
                                   <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{formatOfferMoneyCeil(item.finalPrice, offer.offer_data)} {currencySymbol(offerCurrency(offer.offer_data))}</td>
-                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{item.tons.toFixed(2)}</td>
+                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{fixedGrouped(item.tons, 2)}</td>
                                   <td className="px-2.5 py-1.5 text-right text-[var(--accent-hrs)] font-semibold">{formatOfferMoneyCeil(item.totalValue, offer.offer_data)} {offerTotalUnit(offer.offer_data)}</td>
                                 </tr>
                               ))}
@@ -672,13 +697,20 @@ export default function SeniorPage() {
                       )
                     )}
 
+                    {/* Stand-in hint: only a lower level's validation is required */}
+                    {offer.awaiting_me && offer.awaiting_own_level === false && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <ApprovalBadges
+                          approval={null}
+                          audience="reviewer"
+                          standInLevels={(offer.pending_levels ?? []).join(' + ')}
+                        />
+                      </div>
+                    )}
+
                     {/* Price guidelines (margin / base PGL): only relevant before the verdict */}
                     {offer.status === 'pending_review' && (
-                      <ReviewIssuesNotice
-                        items={offer.offer_data.zestawienie as ReviewableItem[] | undefined}
-                        settings={settings}
-                        language={language}
-                      />
+                      <ValidationNotice validation={offer.validation_snapshot} />
                     )}
                   </div>
 
@@ -701,8 +733,8 @@ export default function SeniorPage() {
                       📄 PDF
                     </button>
 
-                    {/* Edit in calculator — only for pending_review */}
-                    {offer.status === 'pending_review' && (
+                    {/* Edit in calculator - only while it waits for MY level */}
+                    {offer.awaiting_me && (
                       <button
                         onClick={() => handleEdit(offer.id)}
                         className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)] hover:bg-[rgba(59,142,245,0.15)] transition-colors"
@@ -712,7 +744,7 @@ export default function SeniorPage() {
                     )}
 
                     {/* Approve */}
-                    {offer.status === 'pending_review' && (
+                    {offer.awaiting_me && (
                       <button
                         onClick={() => handleApprove(offer.id)}
                         disabled={actionLoading === offer.id}
@@ -723,7 +755,7 @@ export default function SeniorPage() {
                     )}
 
                     {/* Reject */}
-                    {offer.status === 'pending_review' && (
+                    {offer.awaiting_me && (
                       <button
                         onClick={() => openRejectModal(offer.id)}
                         disabled={actionLoading === offer.id}
@@ -733,15 +765,9 @@ export default function SeniorPage() {
                       </button>
                     )}
 
-                    {/* Wyślij do klienta — dowolna oferta approved (własna lub zrecenzowana cudza) */}
-                    {offer.status === 'approved' && (
-                      <button
-                        onClick={() => handleSend(offer.id)}
-                        disabled={actionLoading === offer.id}
-                        className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-white bg-[var(--accent-cr)] hover:opacity-90 transition-opacity disabled:opacity-50"
-                      >
-                        📨 {t.workflow.sendToClient}
-                      </button>
+                    {/* No "send" here: only the creator sends, from their offer list. */}
+                    {offer.status === 'approved' && offer.user_id !== userId && (
+                      <span className="self-center text-[11px] text-[var(--text-secondary)]">{at.workflow.creatorSends}</span>
                     )}
                   </div>
                 </div>

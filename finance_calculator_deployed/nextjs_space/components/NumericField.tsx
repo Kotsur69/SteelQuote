@@ -9,6 +9,9 @@ interface NumericFieldProps {
   step?: string;
   min?: string;
   className?: string;
+  /** Read-only for the current role (e.g. no permission to change the PGL base). */
+  disabled?: boolean;
+  title?: string;
 }
 
 // Kontrolowany <input type="number"> w Reakcie, który przy pustym polu od razu
@@ -23,6 +26,8 @@ export default function NumericField({
   step,
   min,
   className,
+  disabled,
+  title,
 }: NumericFieldProps) {
   const [text, setText] = useState(String(value));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,7 +45,10 @@ export default function NumericField({
       value={text}
       step={step}
       min={min}
-      className={className}
+      disabled={disabled}
+      title={title}
+      aria-disabled={disabled || undefined}
+      className={`${className ?? ''}${disabled ? ' opacity-60 cursor-not-allowed' : ''}`}
       onChange={e => {
         const raw = e.target.value;
         setText(raw);
