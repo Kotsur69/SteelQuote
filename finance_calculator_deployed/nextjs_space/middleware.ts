@@ -7,11 +7,19 @@ import { JWT_SECRET_BYTES as secret } from './lib/jwtSecret';
 // call must come from this origin (CSRF defence in depth).
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+// Behind a reverse proxy (Abacus) `host` is the internal address; the public one the browser
+// used arrives in `x-forwarded-host` (may be a comma-separated chain - first entry is the client's).
+function allowedHosts(request: NextRequest): string[] {
+  const forwarded = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const host = request.headers.get('host');
+  return [forwarded, host].filter((h): h is string => Boolean(h));
+}
+
 function crossOrigin(request: NextRequest): boolean {
   const origin = request.headers.get('origin');
   if (!origin) return false; // same-origin fetches from older browsers / server-to-server
   try {
-    return new URL(origin).host !== request.headers.get('host');
+    return !allowedHosts(request).includes(new URL(origin).host);
   } catch {
     return true;
   }
