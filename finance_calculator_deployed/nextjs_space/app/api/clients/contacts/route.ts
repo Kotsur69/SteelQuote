@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import { escapeLikePattern } from '@/lib/search';
 import { findClientId, upsertClientFromOffer } from '@/lib/clientDirectory';
 import { normalizeClientInfo, hasRequiredCompanyDetails } from '@/lib/pdfGenerator';
@@ -21,7 +21,7 @@ import { normalizeClientInfo, hasRequiredCompanyDetails } from '@/lib/pdfGenerat
 const SUGGESTION_LIMIT = 8;
 
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['junior', 'senior', 'admin']);
+  const auth = await requireAccess();
   if ('error' in auth) return auth.error;
 
   try {
@@ -99,9 +99,9 @@ export async function GET(request: NextRequest) {
 // firmę w katalogu, jeśli jeszcze jej nie ma, i dopisuje/uzupełnia osobę. Ta sama
 // transakcja gwarantuje, że nie zostanie firma bez kontaktu ani odwrotnie.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['junior', 'senior', 'admin']);
+  const auth = await requireAccess();
   if ('error' in auth) return auth.error;
-  const { session } = auth;
+  const session = auth.ctx;
 
   try {
     const body = await request.json();

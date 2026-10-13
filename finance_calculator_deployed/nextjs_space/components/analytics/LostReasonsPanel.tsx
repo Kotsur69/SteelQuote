@@ -8,7 +8,7 @@
 import type { LostReasonStat } from '@/lib/analytics';
 import type { Currency } from '@/lib/currency';
 import type { Language } from '@/lib/translations';
-import { lostReasonLabel } from '@/lib/lostReasons';
+import { pickReasonLang } from '@/lib/lostReasons';
 import { BAR_FILL_OPACITY, DECISION_COLOR, DECISION_ICON } from '@/lib/chartColors';
 import { CURRENCY_UNIT, formatMoney, formatPct, formatTons } from '@/lib/analyticsFormat';
 
@@ -17,6 +17,8 @@ interface LostReasonsPanelProps {
   currency: Currency;
   language: Language;
   offersCountLabel: string;
+  /** Marks a reason the admin archived (still shown: it explains past losses). */
+  archivedLabel: string;
 }
 
 export default function LostReasonsPanel({
@@ -24,15 +26,17 @@ export default function LostReasonsPanel({
   currency,
   language,
   offersCountLabel,
+  archivedLabel,
 }: LostReasonsPanelProps) {
-  // Biggest reason first. The server sends the fixed LOST_REASONS order; a ranking is what
-  // answers "what should we fix first", so it is sorted here, ties keeping the fixed order.
+  // Biggest reason first. The server sends the admin's list order; a ranking is what answers
+  // "what should we fix first", so it is sorted here, ties keeping the list order.
   const ranked = [...stats].sort((a, b) => b.offers - a.offers);
 
   return (
     <ul className="space-y-3 list-none">
       {ranked.map((stat) => {
         const value = currency === 'EUR' ? stat.valueLostEur : stat.valueLostPln;
+        const label = stat.labels[pickReasonLang(language)];
         return (
           <li key={stat.reason}>
             <div className="flex items-baseline gap-2">
@@ -40,7 +44,8 @@ export default function LostReasonsPanel({
                 {DECISION_ICON.lost}
               </span>
               <span className="text-[11px] font-mono text-[var(--text-primary)]">
-                {lostReasonLabel(stat.reason, language)}
+                {label}
+                {stat.archived && <span className="ml-1.5 text-[var(--text-muted)]">({archivedLabel})</span>}
               </span>
               <span className="ml-auto text-[11px] font-mono text-[var(--text-primary)] tabular-nums">
                 {formatPct(stat.sharePct, language)}
@@ -49,7 +54,7 @@ export default function LostReasonsPanel({
             <div
               className="mt-1 h-2 rounded-sm bg-[var(--bg-input)] overflow-hidden"
               role="img"
-              aria-label={`${lostReasonLabel(stat.reason, language)}: ${formatPct(stat.sharePct, language)}`}
+              aria-label={`${label}: ${formatPct(stat.sharePct, language)}`}
             >
               <div
                 className="h-full rounded-sm"

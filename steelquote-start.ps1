@@ -84,10 +84,15 @@ Remove-Item Env:\DATABASE_URL
 
 Write-Host ""
 Write-Host "Konta testowe (haslo w nawiasie):"
-Write-Host "  admin  -> example@gmail.com (1234)"
-Write-Host "  senior -> starszy@email.com (1234)"
-Write-Host "  junior -> mlodszy@email.com (1234)"
-Write-Host "  junior -> john@doe.com (johndoe123)"
+Write-Host "  Administrator (superuser) -> example@gmail.com (1234)"
+Write-Host "  Flow 1 IFO -> ifo.f1@steelquote.test, mlodszy@email.com (1234), john@doe.com (johndoe123)"
+Write-Host "  Flow 1 EFO -> efo.f1@steelquote.test (1234)"
+Write-Host "  Flow 1 ASM -> asm.f1@steelquote.test, starszy@email.com (1234)"
+Write-Host "  Flow 1 HoC -> hoc.f1@steelquote.test (1234)"
+Write-Host "  Flow 2 IFO -> ifo.f2@steelquote.test (1234)"
+Write-Host "  Flow 2 KAM -> kam.f2@steelquote.test (1234)"
+Write-Host "  HoP (Flow 1 + 2) -> hop@steelquote.test (1234)"
+Write-Host "  CEO (Flow 1 + 2) -> ceo@steelquote.test (1234)"
 Write-Host ""
 
 # --- 6. Next.js dev ---

@@ -6,6 +6,7 @@
 
 import type { Language } from './translations';
 import type { Currency } from './currency';
+import { groupThousands } from './numberFormat';
 
 const LOCALE: Record<Language, string> = {
   pl: 'pl-PL',
@@ -14,16 +15,26 @@ const LOCALE: Record<Language, string> = {
   de: 'de-DE',
 };
 
+/**
+ * Locale decimals, but thousands always grouped with the app-wide slight space - the locale's
+ * own grouping varies (en uses commas, pl skips 4-digit numbers), the app wants one look.
+ */
+function localeNumber(value: number, language: Language, options: Intl.NumberFormatOptions): string {
+  return groupThousands(
+    new Intl.NumberFormat(LOCALE[language], { ...options, useGrouping: false }).format(value)
+  );
+}
+
 export function formatInt(value: number, language: Language): string {
-  return new Intl.NumberFormat(LOCALE[language], { maximumFractionDigits: 0 }).format(value);
+  return localeNumber(value, language, { maximumFractionDigits: 0 });
 }
 
 /** Tonnage. One decimal is enough to be honest without turning an axis into noise. */
 export function formatTons(value: number, language: Language): string {
-  return new Intl.NumberFormat(LOCALE[language], {
+  return localeNumber(value, language, {
     minimumFractionDigits: value === 0 ? 0 : 1,
     maximumFractionDigits: 1,
-  }).format(value);
+  });
 }
 
 /**
@@ -31,16 +42,14 @@ export function formatTons(value: number, language: Language): string {
  * noise; the per-offer figures on an offer itself stay at two decimals as they always were.
  */
 export function formatMoney(value: number, language: Language): string {
-  return new Intl.NumberFormat(LOCALE[language], {
-    maximumFractionDigits: 0,
-  }).format(value);
+  return localeNumber(value, language, { maximumFractionDigits: 0 });
 }
 
 /** Compact money for axis ticks: 1.2M, 340k. Full precision stays in the tooltip. */
 export function formatMoneyShort(value: number, language: Language): string {
   const abs = Math.abs(value);
   const nf = (v: number, digits: number) =>
-    new Intl.NumberFormat(LOCALE[language], { maximumFractionDigits: digits }).format(v);
+    localeNumber(v, language, { maximumFractionDigits: digits });
   if (abs >= 1_000_000) return `${nf(value / 1_000_000, 1)}M`;
   if (abs >= 1_000) return `${nf(value / 1_000, 0)}k`;
   return nf(value, 0);

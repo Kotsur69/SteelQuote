@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import { escapeLikePattern } from '@/lib/search';
 
 // Podpowiedzi klientów pod pola "Firma" i "NIP" w kalkulatorze.
 //
-// Osobna trasa od /api/admin/clients, bo tamta jest requireRole(['admin']) i zwraca
+// Osobna trasa od /api/admin/clients, bo tamta jest requireSuperuser() i zwraca
 // CAŁY katalog z agregatem liczby ofert. Ofertę wystawia junior i senior, a do
 // podpowiedzi potrzeba kilku wierszy, nie całej tabeli.
 //
@@ -20,7 +20,7 @@ const SUGGESTION_LIMIT = 8;
 const MIN_QUERY_LENGTH = 2;
 
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['junior', 'senior', 'admin']);
+  const auth = await requireAccess();
   if ('error' in auth) return auth.error;
 
   try {

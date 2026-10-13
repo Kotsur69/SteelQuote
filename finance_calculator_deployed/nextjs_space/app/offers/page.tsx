@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
+import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import Navigation from '@/components/Navigation';
 import Modal from '@/components/Modal';
 import { ClientInfo, normalizeClientInfo, hasRequiredCompanyDetails } from '@/lib/pdfGenerator';
@@ -14,18 +15,19 @@ import { useHighContrast } from '@/lib/useHighContrast';
 import { getThemeVars } from '@/lib/themeVars';
 import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
+import ApprovalBadges from '@/components/ApprovalBadges';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
-import { offerNeedsReview } from '@/lib/offerReview';
+import type { OfferActions } from '@/lib/access/workflow';
 import type { ClientDecision } from '@/lib/analytics';
 import {
-  LOST_REASONS,
-  isLostReason,
+  OTHER_REASON,
+  activeLostReasons,
   lostReasonLabel,
   lostReasonUi,
-  type LostReason,
+  validateLostChoice,
 } from '@/lib/lostReasons';
+import { useLostReasons } from '@/lib/useLostReasons';
 import { DECISION_COLOR, DECISION_ICON } from '@/lib/chartColors';
-import { useCurrency } from '@/contexts/CurrencyContext';
 import type { ItemInputs } from '@/lib/calculatorData';
 import {
   formatOfferMoney,
@@ -36,6 +38,7 @@ import {
   currencySymbol,
   type Currency,
 } from '@/lib/currency';
+import { fixedGrouped } from '@/lib/numberFormat';
 
 interface OfferData {
   currentType: string;
@@ -107,6 +110,13 @@ interface Offer {
   offer_data: OfferData;
   status: OfferStatus;
   user_id: number | null;
+  // Flow the offer belongs to and the actions the CALLER may take on it - computed on the
+  // server from the flow/role configuration (lib/access/workflow.ts offerActions).
+  flow_id?: number;
+  flow_name?: string | null;
+  actions?: OfferActions;
+  /** Level codes of the approval steps still pending (e.g. ["N+1", "NPR"]). */
+  pending_levels?: string[];
   owner_name?: string | null;
   owner_email?: string | null;
   reviewed_at?: string | null;
@@ -126,7 +136,6 @@ interface Offer {
 
 export default function OffersPage() {
   const { t, language } = useLanguage();
-  const { settings } = useCurrency();
   const router = useRouter();
   const [isDark, setIsDark] = useDarkMode();
   const [highContrast, setHighContrast] = useHighContrast();
@@ -134,13 +143,22 @@ export default function OffersPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [role, setRole] = useState<'junior' | 'senior' | 'admin' | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   // Która oferta ma rozwinięty podgląd pozycji (z cenami). null = wszystkie zwinięte.
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  // Open while the salesperson picks why the client rejected an offer. An empty reason means
-  // "nothing picked" and is stored server-side as 'other'; the note is the custom text.
-  const [lostDialog, setLostDialog] = useState<{ offerId: number; reason: LostReason | ''; note: string } | null>(null);
+  // Open while the salesperson picks why the client rejected an offer. The reason is required
+  // (admin-managed list, /admin/powody-przegranej); 'other' also requires the note.
+  const [lostDialog, setLostDialog] = useState<{
+    offerId: number;
+    reason: string;
+    note: string;
+    error: string | null;
+    errorField?: 'reason' | 'note';
+  } | null>(null);
+  const lostReasonSelect = useRef<HTMLSelectElement | null>(null);
+  const lostNoteInput = useRef<HTMLTextAreaElement | null>(null);
+  const { reasons: lostReasons } = useLostReasons();
+  const pickableReasons = useMemo(() => activeLostReasons(lostReasons), [lostReasons]);
   // Której oferty (root id) ma rozwiniętą listę poprzednich wersji. null = wszystkie zwinięte.
   const [expandedVersionsId, setExpandedVersionsId] = useState<number | null>(null);
   // Której oferty linia firma+SAP ID jest rozwinięta (odkrywa to, co truncate ucina
@@ -168,7 +186,6 @@ export default function OffersPage() {
         const data = await res.json();
         if (!isCurrent()) return;
         setOffers(data.offers);
-        setRole(data.role ?? null);
         setCurrentUserId(data.userId ?? null);
       }
     } catch (error) {
@@ -198,6 +215,8 @@ export default function OffersPage() {
       } else {
         const data = await res.json().catch(() => ({}));
         setMessage({ type: 'error', text: data.error || t.workflow.actionFailed });
+        // Re-routed to a higher level: refresh so the new pending level shows.
+        if (data.code === 'rerouted') fetchOffers(search);
       }
     } catch (error) {
       console.error(`Error on ${action}:`, error);
@@ -225,7 +244,7 @@ export default function OffersPage() {
   // A loss opens the reason dialog first (see lostDialog below); won/pending go straight through.
   const handleDecision = (offerId: number, decision: ClientDecision) => {
     if (decision === 'lost') {
-      setLostDialog({ offerId, reason: '', note: '' });
+      setLostDialog({ offerId, reason: '', note: '', error: null });
       return;
     }
     submitDecision(offerId, decision);
@@ -234,7 +253,7 @@ export default function OffersPage() {
   const submitDecision = async (
     offerId: number,
     decision: ClientDecision,
-    reason?: LostReason,
+    reason?: string,
     note?: string
   ) => {
     setActionLoading(offerId);
@@ -277,7 +296,7 @@ export default function OffersPage() {
   };
 
   const handleEdit = (offerId: number) => {
-    router.push(`/calculator?edit=${offerId}`);
+    router.push(`/calculator?edit=${offerId}&from=offers`);
   };
 
   const handleDuplicate = async (offerId: number) => {
@@ -449,7 +468,8 @@ export default function OffersPage() {
   // Czy oferta wymaga zatwierdzenia seniora/admina zamiast bezpośredniej wysyłki przez
   // juniora — patrz lib/offerReview.ts. Liczone na bieżących Ustawieniach (mogą się
   // różnić od tych z chwili dodania pozycji), tak samo jak serwer w /api/offers/[id]/send.
-  const needsReview = (offer: Offer) => offerNeedsReview(offer.offer_data.zestawienie, settings);
+  // Whether the flow's rules require validation before this offer may go to the client.
+  const needsReview = (offer: Offer) => offer.actions?.needsValidation === true;
 
   // Company name + NIP must be filled before an offer can go to the client. Mirrors the
   // server guard in /api/offers/[id]/send - the offer can still be saved and edited without
@@ -471,31 +491,20 @@ export default function OffersPage() {
     return info.sapId ? `${info.company} — SAP: ${info.sapId}` : info.company;
   };
 
-  // Uprawnienia do akcji na jednej ofercie, zależne od roli i statusu.
+  // Actions on one offer. The server computes them from the flow/role configuration and
+  // re-checks every one on the matching route, so these flags only drive the buttons.
   const perms = (offer: Offer) => {
     const isOwner = currentUserId !== null && offer.user_id === currentUserId;
-    const s = offer.status;
-    // Admin robi na WŁASNYCH ofertach dokładnie to, co senior — wcześniej wypadał z tej
-    // listy i po zapisaniu własnej oferty nie widział ani jednego przycisku.
-    // Oferta 'sent' zostaje read-only dla wszystkich (historia wysłana do klienta).
-    const canManageOwn = role === 'junior' || role === 'senior' || role === 'admin';
-    const isReviewer = role === 'senior' || role === 'admin';
+    const a = offer.actions;
     return {
       isOwner,
-      canEdit: isOwner && canManageOwn && s !== 'sent',
-      canDelete: isOwner && canManageOwn && s !== 'sent',
-      canDuplicate: isOwner && canManageOwn,
-      canSubmit: isOwner && role === 'junior' && (s === 'draft' || s === 'rejected'),
-      canSend:
-        isOwner &&
-        ((isReviewer && (s === 'draft' || s === 'approved')) ||
-          (role === 'junior' && (s === 'approved' || (s === 'draft' && !needsReview(offer))))),
-      // Senior i admin recenzują cudze oferty oczekujące na weryfikację.
-      canReview: isReviewer && !isOwner && s === 'pending_review',
-      // The client's answer can only be recorded once the offer is actually with the client.
-      // The owner records their own; senior and admin may record on anyone's, exactly as they
-      // already review and send other people's offers (server-side check in the same shape).
-      canDecide: s === 'sent' && (isOwner || isReviewer),
+      canEdit: a?.canEdit === true,
+      canDelete: a?.canDelete === true,
+      canDuplicate: a?.canDuplicate === true,
+      canSubmit: a?.canSubmit === true,
+      canSend: a?.canSend === true,
+      canReview: a?.canReview === true,
+      canDecide: a?.canRecordDecision === true,
     };
   };
 
@@ -528,6 +537,7 @@ export default function OffersPage() {
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <LanguageSelector />
+          <AdminSettingsShortcut />
 
           <button
             onClick={() => setIsDark(!isDark)}
@@ -574,9 +584,9 @@ export default function OffersPage() {
         </div>
       )}
 
-      {/* Why did the client reject the offer? Reason is optional: nothing picked = 'other'.
-          The custom text field shows for 'other' (or when nothing is picked) so a reason that
-          matches no list entry can still be written down. */}
+      {/* Why did the client reject the offer? A reason is required; the comment is optional
+          except for 'other', where it is the reason. Validated here with the same rule as the
+          API (validateLostChoice), so the dialog stays open on a mistake. */}
       {lostDialog && (
         <Modal titleId="lost-dialog-title" onClose={() => setLostDialog(null)}>
           <>
@@ -585,29 +595,35 @@ export default function OffersPage() {
             </h3>
             <select
               value={lostDialog.reason}
-              onChange={(e) => setLostDialog({
-                ...lostDialog,
-                reason: isLostReason(e.target.value) ? e.target.value : '',
-              })}
+              onChange={(e) => setLostDialog({ ...lostDialog, reason: e.target.value, error: null, errorField: undefined })}
               className="w-full rounded border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-cr)]"
               aria-label={lostReasonUi(language).title}
+              aria-required="true"
+              aria-invalid={lostDialog.errorField === 'reason' || undefined}
+              aria-describedby={lostDialog.error ? 'lost-dialog-error' : undefined}
+              ref={lostReasonSelect}
               autoFocus
             >
-              <option value="">{lostReasonUi(language).selectPlaceholder}</option>
-              {LOST_REASONS.map((code) => (
-                <option key={code} value={code}>{lostReasonLabel(code, language)}</option>
+              <option value="" disabled>{lostReasonUi(language).selectPlaceholder}</option>
+              {pickableReasons.map((r) => (
+                <option key={r.code} value={r.code}>{lostReasonLabel(r.code, lostReasons, language)}</option>
               ))}
             </select>
-            {(lostDialog.reason === '' || lostDialog.reason === 'other') && (
-              <input
-                type="text"
-                value={lostDialog.note}
-                maxLength={500}
-                onChange={(e) => setLostDialog({ ...lostDialog, note: e.target.value })}
-                aria-label={lostReasonUi(language).customPlaceholder}
-                placeholder={lostReasonUi(language).customPlaceholder}
-                className="mt-3 w-full rounded border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-cr)]"
-              />
+            <textarea
+              value={lostDialog.note}
+              maxLength={500}
+              rows={2}
+              onChange={(e) => setLostDialog({ ...lostDialog, note: e.target.value, error: null, errorField: undefined })}
+              aria-label={lostDialog.reason === OTHER_REASON ? lostReasonUi(language).noteRequiredPlaceholder : lostReasonUi(language).notePlaceholder}
+              aria-required={lostDialog.reason === OTHER_REASON}
+              aria-invalid={lostDialog.errorField === 'note' || undefined}
+              aria-describedby={lostDialog.error ? 'lost-dialog-error' : undefined}
+              ref={lostNoteInput}
+              placeholder={lostDialog.reason === OTHER_REASON ? lostReasonUi(language).noteRequiredPlaceholder : lostReasonUi(language).notePlaceholder}
+              className="mt-3 w-full resize-y rounded border border-[var(--border)] bg-[var(--bg-input)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent-cr)]"
+            />
+            {lostDialog.error && (
+              <p id="lost-dialog-error" role="alert" className="mt-2 text-xs text-[var(--accent-sum)]">{lostDialog.error}</p>
             )}
             <div className="mt-5 flex justify-end gap-3">
               <button
@@ -619,13 +635,15 @@ export default function OffersPage() {
               <button
                 onClick={() => {
                   const { offerId, reason, note } = lostDialog;
+                  const choice = validateLostChoice(reason, note, new Set(pickableReasons.map((r) => r.code)));
+                  if (!choice.ok) {
+                    const errorField = choice.error === 'note_required' ? 'note' : 'reason';
+                    setLostDialog({ ...lostDialog, error: lostReasonUi(language).errors[choice.error], errorField });
+                    (errorField === 'note' ? lostNoteInput.current : lostReasonSelect.current)?.focus();
+                    return;
+                  }
                   setLostDialog(null);
-                  submitDecision(
-                    offerId,
-                    'lost',
-                    reason === '' ? undefined : reason,
-                    reason === '' || reason === 'other' ? note.trim() : ''
-                  );
+                  submitDecision(offerId, 'lost', choice.reason, choice.note ?? '');
                 }}
                 className="px-4 py-2 text-sm rounded bg-[var(--accent-sum)] text-white font-medium"
               >
@@ -716,8 +734,9 @@ export default function OffersPage() {
               return (
               <div
                 key={offer.id}
-                onClick={() => { if (p.canEdit) handleEdit(offer.id); }}
-                className={`p-4 transition-colors ${p.canEdit ? 'cursor-pointer' : ''} hover:bg-[rgba(255,255,255,0.02)] ${
+                // Every visible offer opens - the calculator shows a sent one read-only.
+                onClick={() => handleEdit(offer.id)}
+                className={`p-4 transition-colors cursor-pointer hover:bg-[rgba(255,255,255,0.02)] ${
                   !isDark ? 'hover:bg-[rgba(0,0,0,0.02)]' : ''
                 }`}
               >
@@ -753,6 +772,13 @@ export default function OffersPage() {
                           {needsReview(offer) ? t.offers.needsReviewBadge : t.offers.readyToSendBadge}
                         </span>
                       )}
+                      {/* Approval vs current rules / 48h clock, and a stand-in hint for an approver
+                          above the required level - compact, next to the status. */}
+                      <ApprovalBadges
+                        approval={offer.actions?.approval}
+                        audience={p.isOwner ? 'owner' : 'reviewer'}
+                        standInLevels={offer.actions?.reviewAsStandIn ? (offer.pending_levels ?? []).join(' + ') : null}
+                      />
                       {/* Brak danych firmy klienta - oferta nie wyjdzie do klienta, dopóki ich
                           nie uzupełni. Pokazywane właścicielowi na ofercie niewysłanej. */}
                       {offer.status !== 'sent' && p.isOwner && !hasClientDetails(offer) && (
@@ -777,11 +803,11 @@ export default function OffersPage() {
                           {offer.client_decision === 'won'
                             ? t.analytics.decisionWon
                             : t.analytics.decisionLost}
-                          {offer.client_decision === 'lost' && isLostReason(offer.client_decision_reason)
-                            ? `: ${lostReasonLabel(offer.client_decision_reason, language)}`
+                          {offer.client_decision === 'lost' && offer.client_decision_reason
+                            ? `: ${lostReasonLabel(offer.client_decision_reason, lostReasons, language)}`
                             : ''}
                           {offer.client_decision_note
-                            ? `${offer.client_decision === 'lost' && isLostReason(offer.client_decision_reason) ? ' - ' : ': '}${truncateNote(offer.client_decision_note)}`
+                            ? `${offer.client_decision === 'lost' && offer.client_decision_reason ? ' - ' : ': '}${truncateNote(offer.client_decision_note)}`
                             : ''}
                         </span>
                       )}
@@ -874,7 +900,7 @@ export default function OffersPage() {
                                     }[item.type]}>{item.type}</span>
                                   </td>
                                   <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{formatOfferMoneyCeil(item.finalPrice, offer.offer_data)} {currencySymbol(offerCurrency(offer.offer_data))}</td>
-                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{item.tons.toFixed(2)}</td>
+                                  <td className="px-2.5 py-1.5 text-right text-[var(--text-value)]">{fixedGrouped(item.tons, 2)}</td>
                                   <td className="px-2.5 py-1.5 text-right text-[var(--accent-hrs)] font-semibold">{formatOfferMoneyCeil(item.totalValue, offer.offer_data)} {offerTotalUnit(offer.offer_data)}</td>
                                 </tr>
                               ))}
@@ -1070,8 +1096,8 @@ export default function OffersPage() {
                           return (
                             <div
                               key={v.id}
-                              onClick={() => { if (vp.canEdit) handleEdit(v.id); }}
-                              className={`flex items-center justify-between gap-3 flex-wrap text-xs bg-[var(--bg-panel)] rounded px-2.5 py-1.5 ${vp.canEdit ? 'cursor-pointer hover:bg-[rgba(255,255,255,0.03)]' : ''}`}
+                              onClick={() => handleEdit(v.id)}
+                              className="flex items-center justify-between gap-3 flex-wrap text-xs bg-[var(--bg-panel)] rounded px-2.5 py-1.5 cursor-pointer hover:bg-[rgba(255,255,255,0.03)]"
                             >
                               <div className="flex items-center gap-2 flex-wrap min-w-0">
                                 <span className="font-mono text-[var(--text-secondary)]">{offerNumberLabel(v)}</span>

@@ -1,0 +1,40 @@
+/* Shared brand layer: Gilroy, AM gradient tokens, logo swap, hardcoded-blue remap */
+@font-face{font-family:'Gilroy';src:url(assets/GilroyW05-Regular.woff2) format('woff2');font-weight:400;font-style:normal}
+@font-face{font-family:'Gilroy';src:url(assets/GilroyW05-RegularItalic.woff2) format('woff2');font-weight:400;font-style:italic}
+@font-face{font-family:'Gilroy';src:url(assets/GilroyW05-SemiBold.woff2) format('woff2');font-weight:500 700;font-style:normal}
+@font-face{font-family:'Gilroy';src:url(assets/GilroyW05-SemiBoldItalic.woff2) format('woff2');font-weight:500 700;font-style:italic}
+:root{
+  --am-purple:#7F1878;--am-magenta:#C12974;--am-red:#E74341;--am-orange:#F58847;
+  --am-gradient:linear-gradient(110deg,#7F1878 0%,#C12974 35%,#E74341 68%,#F58847 100%);
+}
+*,body,input,select,button,textarea{font-family:'Gilroy',-apple-system,'Segoe UI',sans-serif !important}
+.font-mono,[class*="font-mono"],input[type=number],td,th{font-variant-numeric:tabular-nums lining-nums}
+/* Logo swap: the "SSC" gradient tile becomes the ArcelorMittal logo */
+[class*="from-[#3b8ef5]"][class*="to-[#e8a020]"]{
+  background:var(--logo) left center/contain no-repeat !important;
+  width:132px !important;height:40px !important;color:transparent !important;font-size:0 !important;
+  border-radius:0 !important;flex-shrink:0}
+[class*="from-[#3b8ef5]"][class*="to-[#e8a020]"] *{display:none}
+/* Variant-wide radius overrides must never clip the logo artwork */
+[class*="from-[#3b8ef5]"][class*="to-[#e8a020]"][class*="rounded-"]{border-radius:0 !important}
+/* Hardcoded blue -> brand accent */
+[class*="text-[#3b8ef5]"]{color:var(--accent) !important}
+[class*="border-[#3b8ef5]"]{border-color:var(--accent) !important}
+[class*="bg-[rgba(59,142,245,0.08)]"],[class*="bg-[rgba(59,142,245,0.1)]"]{background-color:var(--accent-tint) !important}
+[class*="bg-[rgba(59,142,245,0.12)]"],[class*="bg-[rgba(59,142,245,0.15)]"]{background-color:var(--accent-tint-strong) !important}
+[class*="focus:border-[#3b8ef5]"]:focus{border-color:var(--accent) !important}
+/* Primary (formerly amber) CTA -> AM gradient */
+[class*="from-[#e8a020]"][class*="to-[#f0c040]"]{background:var(--am-gradient) !important;color:#fff !important;letter-spacing:.06em}
+/* Login header: stack logo above the title so the wider logo never squeezes it */
+[class*="bg-[#1e2333]"] > div:first-child > div:first-child{flex-direction:column;align-items:flex-start;gap:14px}
+[class*="bg-[#1e2333]"] [class*="from-[#3b8ef5]"]{width:150px !important;height:46px !important}
+/* Inline-style and class blues inside the calculator -> brand accent */
+[style*="59,142,245"],[style*="59, 142, 245"]{background-color:var(--accent-tint-strong) !important;border-color:var(--accent) !important;color:var(--accent) !important}
+.toggle-btn.active-toggle,.type-btn.active-cr,.grade-option:hover{background:var(--accent-tint-strong) !important}
+[class*="from-[#3b8ef5]"][class*="to-[#5fa8ff]"]{background:var(--am-gradient) !important}
+[class*="shadow-[0_0_12px_rgba(59,142,245"]{box-shadow:0 0 12px var(--accent-tint-strong) !important}
+[class*="border-[#9aa4c4]"]{border-color:var(--border-hi) !important}
+[class*="text-[#7db4f8]"]{color:var(--accent) !important;opacity:.75}
+/* Login: language flags pinned top-right so the title gets the full card width */
+[class*="bg-[#1e2333]"]{position:relative}
+[class*="bg-[#1e2333]"] > div:first-child > div:last-child{position:absolute;top:32px;right:32px}

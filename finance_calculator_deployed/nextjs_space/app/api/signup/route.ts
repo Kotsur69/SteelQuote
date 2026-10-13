@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import bcrypt from 'bcryptjs';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import { MIN_PASSWORD_LENGTH } from '@/lib/passwordPolicy';
 
 export async function POST(req: Request) {
@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     // BEZPIECZENSTWO: rejestracja NIE jest publiczna. Konta zakladaja wylacznie
     // administratorzy (przez panel admina albo ten endpoint). Bez tego kazdy moglby
     // samodzielnie utworzyc konto na publicznym adresie aplikacji.
-    const auth = await requireRole(['admin']);
+    const auth = await requireSuperuser();
     if ('error' in auth) return auth.error;
 
     const body = await req?.json?.();
@@ -28,8 +28,10 @@ export async function POST(req: Request) {
     const hashed = await bcrypt.hash(password, 10);
     const fullName = name ?? email?.split?.('@')?.[0] ?? 'User';
     const result = await pool.query(
-      `INSERT INTO users (email, password, full_name, role, is_active)
-       VALUES ($1, $2, $3, 'junior', true)
+      // No flow membership: the account can sign in but sees nothing until the admin assigns a
+      // flow and role (users.role keeps its legacy default and is not read by any logic).
+      `INSERT INTO users (email, password, full_name, is_active)
+       VALUES ($1, $2, $3, true)
        RETURNING id, email, full_name`,
       [email, hashed, fullName]
     );

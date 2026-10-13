@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import { escapeLikePattern } from '@/lib/search';
 
 const VALID_STATUSES = ['draft', 'pending_review', 'approved', 'rejected', 'sent'];
@@ -8,9 +8,9 @@ const VALID_STATUSES = ['draft', 'pending_review', 'approved', 'rejected', 'sent
 // GET - Wszystkie oferty wszystkich handlowców z filtrami (tylko admin).
 // Query params: status, user_id, date_from (YYYY-MM-DD), date_to (YYYY-MM-DD).
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
-  const { session } = auth;
+  const session = auth.ctx;
 
   try {
     const sp = request.nextUrl.searchParams;
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     const result = await pool.query(
       `SELECT o.id, o.offer_name, o.display_name, o.offer_data, o.status, o.user_id,
               o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at,
-              o.rejection_reason, o.sent_at, o.root_offer_id, o.version_number,
+              o.rejection_reason, o.sent_at, o.root_offer_id, o.version_number, o.client_decision,
               u.full_name AS owner_name, u.email AS owner_email,
               r.full_name AS reviewer_name, r.email AS reviewer_email
        FROM offers o

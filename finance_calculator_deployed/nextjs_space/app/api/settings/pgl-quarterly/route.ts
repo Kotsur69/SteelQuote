@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { requireRole } from '@/lib/rbac';
+import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import {
   currentQuarter,
   readCurrentQuarterPrices,
@@ -30,7 +30,7 @@ function parseYear(raw: string | null): number {
 // admin ogląda — panel pokazuje w kolumnie "bieżący miesiąc", skąd bierze się cena działająca
 // w tej chwili, i musi to wiedzieć nawet gdy przewinie siatkę na przyszły rok.
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
 
   try {
@@ -134,9 +134,9 @@ const BASE_COLUMN_BY_STEEL_TYPE: Record<SteelType, string> = {
 //
 // Body: { year: number, entries: [{ quarter, steelType, price: number|null }, ...] }
 export async function PUT(request: NextRequest) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireSuperuser();
   if ('error' in auth) return auth.error;
-  const { session } = auth;
+  const session = auth.ctx;
 
   try {
     const body = await request.json();

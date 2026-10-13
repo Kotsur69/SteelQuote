@@ -68,6 +68,11 @@ export interface Translations {
     pendingOnly: string;
     reviewedByMe: string;
     awaitingSend: string;
+    // Dashboard tiles on /senior - the action each big tile leads to, and the empty state
+    // for a status filter picked from the tiles.
+    tileReviewHint: string;
+    tileSendHint: string;
+    noOffersForFilter: string;
     // Zakładka "Klienci" (migracja 023) — senior ustawia tam własny termin płatności
     // klienta. Panel dzieli etykiety pól z client.paymentTermDays/-Hint/-Placeholder.
     clientsTabLabel: string;
@@ -104,6 +109,8 @@ export interface Translations {
     saveFailed: string;
     editOffer: string;
     currentlyEditingBanner: string;
+    readOnlyBanner: string;
+    renegotiateBanner: string;
     stalePglBannerTitle: string;
     stalePglBannerBody: string;
     stalePglBannerLegacy: string;
@@ -662,6 +669,73 @@ export interface Translations {
   };
 
   // Analytics panel (app/analytics)
+  priceBook: {
+    navLabel: string;
+    title: string;
+    subtitle: string;
+    linkHint: string;
+    retiredMark: string;
+    notMigrated: string;
+    loadFailed: string;
+    sectionGrades: string;
+    sectionHuta: string;
+    sectionSsc: string;
+    sectionMatrices: string;
+    sectionFallbacks: string;
+    sectionLog: string;
+    gradeSearch: string;
+    gradeName: string;
+    gradeSurcharge: string;
+    gradeYield: string;
+    gradeAdd: string;
+    gradeRetire: string;
+    gradeRestore: string;
+    gradeNew: string;
+    gradeRemoveNew: string;
+    gradeRetiredCount: string;
+    showRetired: string;
+    gradeNameRequired: string;
+    gradeDuplicate: string;
+    matrixDimension: string;
+    matrixCoating: string;
+    matrixBaseLength: string;
+    matrixBaseWidth: string;
+    matrixPickling: string;
+    matrixTeardrop: string;
+    thicknessMm: string;
+    widthMm: string;
+    lengthMm: string;
+    value: string;
+    emptyCell: string;
+    fallbackBase: string;
+    fallbackTeardrop: string;
+    yieldAmount: string;
+    defaultValue: string;
+    changedCount: string;
+    save: string;
+    saving: string;
+    discard: string;
+    saved: string;
+    saveFailed: string;
+    invalidValue: string;
+    unsaved: string;
+    logEmpty: string;
+    logWhen: string;
+    logWho: string;
+    logType: string;
+    logWhat: string;
+    logChange: string;
+    logAllTypes: string;
+    actionSet: string;
+    actionReset: string;
+    actionGradeAdd: string;
+    actionGradeSurcharge: string;
+    actionGradeYield: string;
+    actionGradeRetire: string;
+    actionGradeRestore: string;
+    forbiddenTitle: string;
+    forbiddenText: string;
+  };
   analytics: {
     title: string;
     subtitle: string;
@@ -827,6 +901,9 @@ export const pl: Translations = {
     pendingOnly: 'Oczekujące na weryfikację',
     reviewedByMe: 'Zweryfikowane przeze mnie',
     awaitingSend: 'Oczekujące na wysłanie',
+    tileReviewHint: 'Zatwierdź lub odrzuć →',
+    tileSendHint: 'Wyślij do klienta →',
+    noOffersForFilter: 'Brak ofert w tym widoku.',
     clientsTabLabel: 'Klienci',
   },
 
@@ -859,6 +936,8 @@ export const pl: Translations = {
     saveFailed: 'Nie udało się zapisać oferty',
     editOffer: 'Edytuj ofertę',
     currentlyEditingBanner: 'Teraz edytujesz ofertę:',
+    readOnlyBanner: 'Podgląd (tylko do odczytu) - oferta wysłana do klienta:',
+    renegotiateBanner: 'Renegocjacja - zapis utworzy nową wersję tej samej oferty:',
     stalePglBannerTitle: 'PGL zaktualizowane',
     stalePglBannerBody: 'Ta oferta była wyceniona na Q{fromQ} {fromYear}. Edytujesz ją teraz w Q{toQ} {toYear} — PGL, ceny i okres ważności zostały automatycznie zaktualizowane do bieżącego kwartału ({count} pozycji przeliczonych).',
     stalePglBannerLegacy: '{count} starszych pozycji (bez pełnej zapisanej konfiguracji) dostało tylko nowe PGL — sprawdź je ręcznie, marża i cena mogły nie zostać przeliczone.',
@@ -1376,6 +1455,73 @@ export const pl: Translations = {
     },
   },
   // Analytics panel (app/analytics)
+  priceBook: {
+    navLabel: 'Cennik dopłat',
+    title: 'Cennik dopłat',
+    subtitle: 'Dopłaty huty i SSC osobno dla każdego typu stali. Zmiany działają od następnego otwarcia kalkulatora — zapisane oferty zachowują swoje ceny.',
+    linkHint: 'Gatunki, opcje, matryce i progi — osobno dla każdego typu stali',
+    retiredMark: 'wycofany',
+    notMigrated: 'Brak tabel cennika w bazie — uruchom migrations/031_price_book.sql. Kalkulator działa na wartościach domyślnych, zapis jest niedostępny.',
+    loadFailed: 'Nie udało się wczytać cennika',
+    sectionGrades: 'Gatunki',
+    sectionHuta: 'Opcje huty',
+    sectionSsc: 'Opcje SSC',
+    sectionMatrices: 'Matryce',
+    sectionFallbacks: 'Progi i dopłata Re',
+    sectionLog: 'Historia zmian',
+    gradeSearch: 'Szukaj gatunku…',
+    gradeName: 'Gatunek',
+    gradeSurcharge: 'Dopłata',
+    gradeYield: 'Dopłata Re',
+    gradeAdd: 'Dodaj gatunek',
+    gradeRetire: 'Wycofaj',
+    gradeRestore: 'Przywróć',
+    gradeNew: 'nowy',
+    gradeRemoveNew: 'Usuń',
+    gradeRetiredCount: 'wycofane: {count}',
+    showRetired: 'Pokaż wycofane',
+    gradeNameRequired: 'Podaj nazwę gatunku',
+    gradeDuplicate: 'Gatunek o tej nazwie już istnieje',
+    matrixDimension: 'Wymiar (grubość × szerokość)',
+    matrixCoating: 'Powłoka (grubość × klasa)',
+    matrixBaseLength: 'Dopłata bazowa SSC (grubość × długość)',
+    matrixBaseWidth: 'Dopłata bazowa SSC (grubość × szerokość)',
+    matrixPickling: 'Trawienie (grubość)',
+    matrixTeardrop: 'Łezka (szerokość)',
+    thicknessMm: 'Grubość [mm]',
+    widthMm: 'Szerokość [mm]',
+    lengthMm: 'Długość [mm]',
+    value: 'Dopłata',
+    emptyCell: 'brak w tabeli',
+    fallbackBase: 'Dopłata bazowa SSC poza tabelą',
+    fallbackTeardrop: 'Łezka — szerokość powyżej 2050 mm',
+    yieldAmount: 'Kwota dopłaty Re (gatunki oznaczone „Dopłata Re”)',
+    defaultValue: 'domyślnie {value}',
+    changedCount: 'Zmiany: {count}',
+    save: 'Zapisz {type}',
+    saving: 'Zapisywanie…',
+    discard: 'Odrzuć zmiany',
+    saved: 'Zapisano cennik {type}',
+    saveFailed: 'Nie udało się zapisać cennika',
+    invalidValue: 'Liczba od -1000 do 5000, maks. 2 miejsca po przecinku',
+    unsaved: 'niezapisane zmiany',
+    logEmpty: 'Brak zmian w cenniku',
+    logWhen: 'Kiedy',
+    logWho: 'Kto',
+    logType: 'Typ',
+    logWhat: 'Pozycja',
+    logChange: 'Zmiana',
+    logAllTypes: 'Wszystkie typy',
+    actionSet: 'zmiana',
+    actionReset: 'przywrócono domyślną',
+    actionGradeAdd: 'nowy gatunek',
+    actionGradeSurcharge: 'dopłata gatunku',
+    actionGradeYield: 'dopłata Re',
+    actionGradeRetire: 'wycofano gatunek',
+    actionGradeRestore: 'przywrócono gatunek',
+    forbiddenTitle: 'Brak dostępu',
+    forbiddenText: 'Cennik dopłat może edytować tylko superużytkownik.',
+  },
   analytics: {
     title: 'Analiza',
     subtitle: 'Tony, klienci i skuteczność ofert',
@@ -1541,6 +1687,9 @@ export const en: Translations = {
     pendingOnly: 'Awaiting review',
     reviewedByMe: 'Reviewed by me',
     awaitingSend: 'Awaiting send',
+    tileReviewHint: 'Approve or reject →',
+    tileSendHint: 'Send to client →',
+    noOffersForFilter: 'No offers in this view.',
     clientsTabLabel: 'Clients',
   },
 
@@ -1573,6 +1722,8 @@ export const en: Translations = {
     saveFailed: 'Failed to save offer',
     editOffer: 'Edit offer',
     currentlyEditingBanner: 'You are currently editing offer:',
+    readOnlyBanner: 'View only - this offer was sent to the client:',
+    renegotiateBanner: 'Renegotiation - saving creates a new version of the same offer:',
     stalePglBannerTitle: 'PGL updated',
     stalePglBannerBody: 'This offer was priced for Q{fromQ} {fromYear}. You are now editing it in Q{toQ} {toYear} — PGL, prices and the validity period were automatically updated to the current quarter ({count} item(s) recalculated).',
     stalePglBannerLegacy: '{count} older item(s) (without a full saved configuration) only got the new PGL swapped in — please review them manually, margin/price may not have been recalculated.',
@@ -2090,6 +2241,73 @@ export const en: Translations = {
     },
   },
   // Analytics panel (app/analytics)
+  priceBook: {
+    navLabel: 'Price book',
+    title: 'Surcharge price book',
+    subtitle: 'Mill and SSC surcharges per steel type. Changes apply from the next calculator load — saved offers keep their prices.',
+    linkHint: 'Grades, options, matrices and fallbacks — per steel type',
+    retiredMark: 'retired',
+    notMigrated: 'Price book tables are missing — run migrations/031_price_book.sql. The calculator uses the defaults; saving is unavailable.',
+    loadFailed: 'Could not load the price book',
+    sectionGrades: 'Grades',
+    sectionHuta: 'Mill options',
+    sectionSsc: 'SSC options',
+    sectionMatrices: 'Matrices',
+    sectionFallbacks: 'Fallbacks and yield surcharge',
+    sectionLog: 'Change log',
+    gradeSearch: 'Search grade…',
+    gradeName: 'Grade',
+    gradeSurcharge: 'Surcharge',
+    gradeYield: 'Yield surcharge',
+    gradeAdd: 'Add grade',
+    gradeRetire: 'Retire',
+    gradeRestore: 'Restore',
+    gradeNew: 'new',
+    gradeRemoveNew: 'Remove',
+    gradeRetiredCount: 'retired: {count}',
+    showRetired: 'Show retired',
+    gradeNameRequired: 'Enter a grade name',
+    gradeDuplicate: 'A grade with this name already exists',
+    matrixDimension: 'Dimension (thickness × width)',
+    matrixCoating: 'Coating (thickness × class)',
+    matrixBaseLength: 'SSC base surcharge (thickness × length)',
+    matrixBaseWidth: 'SSC base surcharge (thickness × width)',
+    matrixPickling: 'Pickling (thickness)',
+    matrixTeardrop: 'Teardrop (width)',
+    thicknessMm: 'Thickness [mm]',
+    widthMm: 'Width [mm]',
+    lengthMm: 'Length [mm]',
+    value: 'Surcharge',
+    emptyCell: 'not in the table',
+    fallbackBase: 'SSC base surcharge outside the table',
+    fallbackTeardrop: 'Teardrop — width above 2050 mm',
+    yieldAmount: 'Yield surcharge amount (grades marked “Yield surcharge”)',
+    defaultValue: 'default {value}',
+    changedCount: 'Changes: {count}',
+    save: 'Save {type}',
+    saving: 'Saving…',
+    discard: 'Discard changes',
+    saved: 'Saved the {type} price book',
+    saveFailed: 'Could not save the price book',
+    invalidValue: 'Number from -1000 to 5000, max. 2 decimals',
+    unsaved: 'unsaved changes',
+    logEmpty: 'No price book changes yet',
+    logWhen: 'When',
+    logWho: 'Who',
+    logType: 'Type',
+    logWhat: 'Item',
+    logChange: 'Change',
+    logAllTypes: 'All types',
+    actionSet: 'changed',
+    actionReset: 'reset to default',
+    actionGradeAdd: 'grade added',
+    actionGradeSurcharge: 'grade surcharge',
+    actionGradeYield: 'yield surcharge',
+    actionGradeRetire: 'grade retired',
+    actionGradeRestore: 'grade restored',
+    forbiddenTitle: 'Access denied',
+    forbiddenText: 'Only the superuser can edit the price book.',
+  },
   analytics: {
     title: 'Analytics',
     subtitle: 'Tonnage, clients and offer success',
@@ -2254,6 +2472,9 @@ export const cs: Translations = {
     pendingOnly: 'Čekající na kontrolu',
     reviewedByMe: 'Zkontrolováno mnou',
     awaitingSend: 'Čekající na odeslání',
+    tileReviewHint: 'Schválit nebo zamítnout →',
+    tileSendHint: 'Odeslat klientovi →',
+    noOffersForFilter: 'V tomto zobrazení nejsou žádné nabídky.',
     clientsTabLabel: 'Klienti',
   },
 
@@ -2286,6 +2507,8 @@ export const cs: Translations = {
     saveFailed: 'Nabídku se nepodařilo uložit',
     editOffer: 'Upravit nabídku',
     currentlyEditingBanner: 'Nyní upravujete nabídku:',
+    readOnlyBanner: 'Pouze náhled - nabídka byla odeslána klientovi:',
+    renegotiateBanner: 'Nové vyjednávání - uložení vytvoří novou verzi téže nabídky:',
     stalePglBannerTitle: 'PGL aktualizováno',
     stalePglBannerBody: 'Tato nabídka byla oceněna pro Q{fromQ} {fromYear}. Nyní ji upravujete v Q{toQ} {toYear} — PGL, ceny a doba platnosti byly automaticky aktualizovány na aktuální čtvrtletí (přepočítáno {count} položek).',
     stalePglBannerLegacy: '{count} starších položek (bez plné uložené konfigurace) dostalo pouze nové PGL — zkontrolujte je ručně, marže/cena nemusí být přepočítány.',
@@ -2803,6 +3026,73 @@ export const cs: Translations = {
     },
   },
   // Analytics panel (app/analytics)
+  priceBook: {
+    navLabel: 'Ceník příplatků',
+    title: 'Ceník příplatků',
+    subtitle: 'Příplatky hutě a SSC pro každý typ oceli zvlášť. Změny platí od dalšího otevření kalkulačky — uložené nabídky si ponechají své ceny.',
+    linkHint: 'Jakosti, volby, matice a meze — pro každý typ oceli',
+    retiredMark: 'vyřazená',
+    notMigrated: 'V databázi chybí tabulky ceníku — spusťte migrations/031_price_book.sql. Kalkulačka používá výchozí hodnoty, ukládání není dostupné.',
+    loadFailed: 'Ceník se nepodařilo načíst',
+    sectionGrades: 'Jakosti',
+    sectionHuta: 'Volby hutě',
+    sectionSsc: 'Volby SSC',
+    sectionMatrices: 'Matice',
+    sectionFallbacks: 'Meze a příplatek Re',
+    sectionLog: 'Historie změn',
+    gradeSearch: 'Hledat jakost…',
+    gradeName: 'Jakost',
+    gradeSurcharge: 'Příplatek',
+    gradeYield: 'Příplatek Re',
+    gradeAdd: 'Přidat jakost',
+    gradeRetire: 'Vyřadit',
+    gradeRestore: 'Obnovit',
+    gradeNew: 'nová',
+    gradeRemoveNew: 'Odebrat',
+    gradeRetiredCount: 'vyřazené: {count}',
+    showRetired: 'Zobrazit vyřazené',
+    gradeNameRequired: 'Zadejte název jakosti',
+    gradeDuplicate: 'Jakost s tímto názvem již existuje',
+    matrixDimension: 'Rozměr (tloušťka × šířka)',
+    matrixCoating: 'Povlak (tloušťka × třída)',
+    matrixBaseLength: 'Základní příplatek SSC (tloušťka × délka)',
+    matrixBaseWidth: 'Základní příplatek SSC (tloušťka × šířka)',
+    matrixPickling: 'Moření (tloušťka)',
+    matrixTeardrop: 'Slza (šířka)',
+    thicknessMm: 'Tloušťka [mm]',
+    widthMm: 'Šířka [mm]',
+    lengthMm: 'Délka [mm]',
+    value: 'Příplatek',
+    emptyCell: 'není v tabulce',
+    fallbackBase: 'Základní příplatek SSC mimo tabulku',
+    fallbackTeardrop: 'Slza — šířka nad 2050 mm',
+    yieldAmount: 'Výše příplatku Re (jakosti označené „Příplatek Re“)',
+    defaultValue: 'výchozí {value}',
+    changedCount: 'Změny: {count}',
+    save: 'Uložit {type}',
+    saving: 'Ukládání…',
+    discard: 'Zahodit změny',
+    saved: 'Ceník {type} uložen',
+    saveFailed: 'Ceník se nepodařilo uložit',
+    invalidValue: 'Číslo od -1000 do 5000, max. 2 desetinná místa',
+    unsaved: 'neuložené změny',
+    logEmpty: 'Zatím žádné změny ceníku',
+    logWhen: 'Kdy',
+    logWho: 'Kdo',
+    logType: 'Typ',
+    logWhat: 'Položka',
+    logChange: 'Změna',
+    logAllTypes: 'Všechny typy',
+    actionSet: 'změna',
+    actionReset: 'vráceno na výchozí',
+    actionGradeAdd: 'nová jakost',
+    actionGradeSurcharge: 'příplatek jakosti',
+    actionGradeYield: 'příplatek Re',
+    actionGradeRetire: 'jakost vyřazena',
+    actionGradeRestore: 'jakost obnovena',
+    forbiddenTitle: 'Přístup odepřen',
+    forbiddenText: 'Ceník příplatků může upravovat pouze superuživatel.',
+  },
   analytics: {
     title: 'Analýza',
     subtitle: 'Tonáž, zákazníci a úspěšnost nabídek',
@@ -2967,6 +3257,9 @@ export const de: Translations = {
     pendingOnly: 'Ausstehende Prüfung',
     reviewedByMe: 'Von mir geprüft',
     awaitingSend: 'Wartend auf Versand',
+    tileReviewHint: 'Freigeben oder ablehnen →',
+    tileSendHint: 'An Kunden senden →',
+    noOffersForFilter: 'Keine Angebote in dieser Ansicht.',
     clientsTabLabel: 'Kunden',
   },
 
@@ -2999,6 +3292,8 @@ export const de: Translations = {
     saveFailed: 'Angebot konnte nicht gespeichert werden',
     editOffer: 'Angebot bearbeiten',
     currentlyEditingBanner: 'Sie bearbeiten gerade Angebot:',
+    readOnlyBanner: 'Nur Ansicht - Angebot wurde an den Kunden gesendet:',
+    renegotiateBanner: 'Nachverhandlung - Speichern erstellt eine neue Version desselben Angebots:',
     stalePglBannerTitle: 'PGL aktualisiert',
     stalePglBannerBody: 'Dieses Angebot wurde für Q{fromQ} {fromYear} kalkuliert. Sie bearbeiten es jetzt in Q{toQ} {toYear} — PGL, Preise und Gültigkeitszeitraum wurden automatisch auf das aktuelle Quartal aktualisiert ({count} Position(en) neu berechnet).',
     stalePglBannerLegacy: '{count} ältere Position(en) (ohne vollständig gespeicherte Konfiguration) haben nur das neue PGL erhalten — bitte manuell prüfen, Marge/Preis wurden eventuell nicht neu berechnet.',
@@ -3516,6 +3811,73 @@ export const de: Translations = {
     },
   },
   // Analytics panel (app/analytics)
+  priceBook: {
+    navLabel: 'Aufpreisliste',
+    title: 'Aufpreisliste',
+    subtitle: 'Werks- und SSC-Aufpreise je Stahlsorte. Änderungen gelten ab dem nächsten Öffnen des Kalkulators — gespeicherte Angebote behalten ihre Preise.',
+    linkHint: 'Güten, Optionen, Matrizen und Grenzwerte — je Stahlsorte',
+    retiredMark: 'ausgemustert',
+    notMigrated: 'Die Tabellen der Aufpreisliste fehlen — migrations/031_price_book.sql ausführen. Der Kalkulator nutzt die Standardwerte; Speichern ist nicht möglich.',
+    loadFailed: 'Aufpreisliste konnte nicht geladen werden',
+    sectionGrades: 'Güten',
+    sectionHuta: 'Werksoptionen',
+    sectionSsc: 'SSC-Optionen',
+    sectionMatrices: 'Matrizen',
+    sectionFallbacks: 'Grenzwerte und Re-Aufpreis',
+    sectionLog: 'Änderungsprotokoll',
+    gradeSearch: 'Güte suchen…',
+    gradeName: 'Güte',
+    gradeSurcharge: 'Aufpreis',
+    gradeYield: 'Re-Aufpreis',
+    gradeAdd: 'Güte hinzufügen',
+    gradeRetire: 'Ausmustern',
+    gradeRestore: 'Wiederherstellen',
+    gradeNew: 'neu',
+    gradeRemoveNew: 'Entfernen',
+    gradeRetiredCount: 'ausgemustert: {count}',
+    showRetired: 'Ausgemusterte anzeigen',
+    gradeNameRequired: 'Gütenname eingeben',
+    gradeDuplicate: 'Eine Güte mit diesem Namen existiert bereits',
+    matrixDimension: 'Abmessung (Dicke × Breite)',
+    matrixCoating: 'Beschichtung (Dicke × Klasse)',
+    matrixBaseLength: 'SSC-Grundaufpreis (Dicke × Länge)',
+    matrixBaseWidth: 'SSC-Grundaufpreis (Dicke × Breite)',
+    matrixPickling: 'Beizen (Dicke)',
+    matrixTeardrop: 'Tränenblech (Breite)',
+    thicknessMm: 'Dicke [mm]',
+    widthMm: 'Breite [mm]',
+    lengthMm: 'Länge [mm]',
+    value: 'Aufpreis',
+    emptyCell: 'nicht in der Tabelle',
+    fallbackBase: 'SSC-Grundaufpreis außerhalb der Tabelle',
+    fallbackTeardrop: 'Tränenblech — Breite über 2050 mm',
+    yieldAmount: 'Höhe des Re-Aufpreises (Güten mit „Re-Aufpreis“)',
+    defaultValue: 'Standard {value}',
+    changedCount: 'Änderungen: {count}',
+    save: '{type} speichern',
+    saving: 'Speichern…',
+    discard: 'Änderungen verwerfen',
+    saved: 'Aufpreisliste {type} gespeichert',
+    saveFailed: 'Aufpreisliste konnte nicht gespeichert werden',
+    invalidValue: 'Zahl von -1000 bis 5000, max. 2 Nachkommastellen',
+    unsaved: 'ungespeicherte Änderungen',
+    logEmpty: 'Noch keine Änderungen',
+    logWhen: 'Wann',
+    logWho: 'Wer',
+    logType: 'Sorte',
+    logWhat: 'Position',
+    logChange: 'Änderung',
+    logAllTypes: 'Alle Sorten',
+    actionSet: 'geändert',
+    actionReset: 'auf Standard zurückgesetzt',
+    actionGradeAdd: 'Güte hinzugefügt',
+    actionGradeSurcharge: 'Gütenaufpreis',
+    actionGradeYield: 'Re-Aufpreis',
+    actionGradeRetire: 'Güte ausgemustert',
+    actionGradeRestore: 'Güte wiederhergestellt',
+    forbiddenTitle: 'Kein Zugriff',
+    forbiddenText: 'Nur der Superuser darf die Aufpreisliste bearbeiten.',
+  },
   analytics: {
     title: 'Analyse',
     subtitle: 'Tonnage, Kunden und Angebotserfolg',

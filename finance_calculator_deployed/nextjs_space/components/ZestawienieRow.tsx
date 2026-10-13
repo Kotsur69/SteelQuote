@@ -2,7 +2,8 @@
 
 import { Reorder, useDragControls } from 'framer-motion';
 import { GripVertical } from 'lucide-react';
-import { GRADE_TABLES } from '@/lib/calculatorData';
+import { findGrade, type PriceBook } from '@/lib/priceBook';
+import { fixedGrouped } from '@/lib/numberFormat';
 import type { Translations, Language } from '@/lib/translations';
 import type { ZestawienieItem } from '@/components/Calculator';
 
@@ -16,6 +17,7 @@ interface ZestawienieRowProps {
   currencyUnit: string;
   money2: (eur: number) => string;
   moneyCeil: (eur: number) => string;
+  priceBook: PriceBook;
   onEdit: (id: number) => void;
   onDuplicate: (id: number) => void;
   onDelete: (id: number) => void;
@@ -31,11 +33,23 @@ export default function ZestawienieRow({
   currencyUnit,
   money2,
   moneyCeil,
+  priceBook,
   onEdit,
   onDuplicate,
   onDelete,
 }: ZestawienieRowProps) {
   const dragControls = useDragControls();
+  // Margin % straight from the item snapshot; legacy items without `inputs` derive it
+  // from marza = (PGL + Σ Mill) × pct / 100 (see pricingEngine.computeCenaKoncowa).
+  const cenaWsadu = item.pgl + item.sumaHuta;
+  const rawMarginPct = item.inputs?.marginPct ?? (cenaWsadu > 0 ? (item.marza / cenaWsadu) * 100 : null);
+  const marginPct = rawMarginPct === null ? null : Math.round(rawMarginPct * 100) / 100;
+  // One-time = the saved grade is not in the price book at all; retired = still in the book
+  // but no longer offered for new items.
+  const snapshotGrade = item.inputs?.selectedGrade;
+  const bookGrade = snapshotGrade ? findGrade(priceBook, item.type, snapshotGrade.name) : undefined;
+  const isOneTimeGrade = !!snapshotGrade && !bookGrade;
+  const isRetiredGrade = bookGrade?.retired === true;
 
   return (
     <Reorder.Item
@@ -71,12 +85,16 @@ export default function ZestawienieRow({
           {/* Znacznik gatunku jednorazowego — wyłącznie wewnętrzny (PDF i Excel
               pokazują samą nazwę). Sprawdzamy snapshot, a nie item.grade, żeby
               stare pozycje bez `inputs` nigdy nie dostały fałszywej etykiety. */}
-          {item.inputs?.selectedGrade &&
-            !GRADE_TABLES[item.type].some(g => g.name === item.inputs!.selectedGrade!.name) && (
-              <span className="text-[9px] font-semibold tracking-wider uppercase text-[var(--accent-cr)] border border-[var(--accent-cr)] rounded px-1.5 py-0.5">
-                {t.inputs.oneTimeGradeBadge}
-              </span>
-            )}
+          {isOneTimeGrade && (
+            <span className="text-[9px] font-semibold tracking-wider uppercase text-[var(--accent-cr)] border border-[var(--accent-cr)] rounded px-1.5 py-0.5">
+              {t.inputs.oneTimeGradeBadge}
+            </span>
+          )}
+          {isRetiredGrade && (
+            <span className="text-[9px] font-semibold tracking-wider uppercase text-[var(--text-muted)] border border-[var(--border)] rounded px-1.5 py-0.5">
+              {t.priceBook.retiredMark}
+            </span>
+          )}
         </div>
         <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">
           {item.thickness} × {item.width}{item.isCoil ? '' : ` × ${item.length}`} mm
@@ -96,12 +114,16 @@ export default function ZestawienieRow({
           {item.type}
         </span>
       </td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.pgl)}</td>
       <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaHuta)}</td>
       <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaSSC)}</td>
-      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.marza)}</td>
-      <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{moneyCeil(item.finalPrice)} {symbol}</td>
-      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{item.tons.toFixed(2)} {t.common.tons}</td>
-      <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right">{moneyCeil(item.totalValue)} {currencyUnit}</td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right whitespace-nowrap">
+        {money2(item.marza)}
+        {marginPct !== null && <span className="text-[var(--text-secondary)]"> / {marginPct}%</span>}
+      </td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right whitespace-nowrap">{moneyCeil(item.finalPrice)} {symbol}</td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right whitespace-nowrap">{fixedGrouped(item.tons, 2)} {t.common.tons}</td>
+      <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right whitespace-nowrap">{moneyCeil(item.totalValue)} {currencyUnit}</td>
       <td className="px-2 sm:px-3.5 py-2 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
         <button onClick={() => onEdit(item.id)} className="bg-transparent border border-[var(--border)] rounded px-1 sm:px-2 py-1 text-[13px] hover:border-[var(--accent-cr)] hover:text-[var(--accent-cr)] transition-colors ml-0.5 sm:ml-1" title={t.common.edit}>✏️</button>
         <button onClick={() => onDuplicate(item.id)} className="bg-transparent border border-[var(--border)] rounded px-1 sm:px-2 py-1 text-[13px] hover:border-[#a78bfa] hover:text-[#a78bfa] transition-colors ml-0.5 sm:ml-1" title={t.common.duplicate}>⧉</button>

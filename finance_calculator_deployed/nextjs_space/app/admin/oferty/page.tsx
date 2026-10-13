@@ -45,6 +45,7 @@ interface AdminOffer {
   created_at: string;
   root_offer_id: number | null;
   version_number: number;
+  client_decision?: 'pending' | 'won' | 'lost';
 }
 
 interface UserOption { id: number; email: string; full_name: string | null; }
@@ -214,7 +215,7 @@ function AdminOffersContent() {
   const offerGroups = groupOffersByVersion(sortedOffers);
 
   const handleEdit = (offerId: number) => {
-    router.push(`/calculator?edit=${offerId}`);
+    router.push(`/calculator?edit=${offerId}&from=admin`);
   };
 
   const handleApprove = async (offerId: number) => {
@@ -228,6 +229,8 @@ function AdminOffersContent() {
       } else {
         const data = await res.json().catch(() => ({}));
         flash('error', data.error || t.workflow.actionFailed);
+        // Re-routed to a higher level: refresh so the new pending level shows.
+        if (data.code === 'rerouted') fetchOffers();
       }
     } catch {
       flash('error', t.workflow.actionFailed);
@@ -477,8 +480,8 @@ function AdminOffersContent() {
                 {offerGroups.map(({ primary: o, history }) => (
                   <Fragment key={o.id}>
                   <tr
-                    onClick={() => { if (o.status !== 'sent') handleEdit(o.id); }}
-                    className={o.status !== 'sent' ? 'cursor-pointer hover:bg-[rgba(255,255,255,0.02)]' : ''}
+                    onClick={() => handleEdit(o.id)}
+                    className="cursor-pointer hover:bg-[rgba(255,255,255,0.02)]"
                   >
                     <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
                       {o.display_name}
@@ -533,8 +536,9 @@ function AdminOffersContent() {
                         📄 PDF
                       </button>
                       {/* Edycja: admin poprawia ofertę w KAŻDYM statusie, nie tylko w pending_review.
-                          Wyjątek: 'sent' — to, co poszło do klienta, zostaje nietknięte. */}
-                      {o.status !== 'sent' && (
+                          Wyjątek: 'sent' — to, co poszło do klienta, zostaje nietknięte; a lost one
+                          (the newest version, as every primary row is) may be renegotiated. */}
+                      {(o.status !== 'sent' || o.client_decision === 'lost') && (
                         <button
                           onClick={() => handleEdit(o.id)}
                           className="ml-1.5 px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-[var(--accent-cr)] bg-[rgba(59,142,245,0.08)] hover:bg-[rgba(59,142,245,0.15)] transition-colors"
@@ -579,8 +583,8 @@ function AdminOffersContent() {
                           {history.map((v) => (
                             <div
                               key={v.id}
-                              onClick={() => { if (v.status !== 'sent') handleEdit(v.id); }}
-                              className={`flex items-center justify-between gap-3 flex-wrap text-xs ${v.status !== 'sent' ? 'cursor-pointer hover:bg-[rgba(255,255,255,0.03)]' : ''}`}
+                              onClick={() => handleEdit(v.id)}
+                              className="flex items-center justify-between gap-3 flex-wrap text-xs cursor-pointer hover:bg-[rgba(255,255,255,0.03)]"
                             >
                               <div className="flex items-center gap-2 flex-wrap min-w-0">
                                 <span className="font-mono text-[var(--text-secondary)]">{offerNumberLabel(v)}</span>

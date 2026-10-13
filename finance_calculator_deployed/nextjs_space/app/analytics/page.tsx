@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
+import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import Navigation from '@/components/Navigation';
 import { useDarkMode } from '@/lib/useDarkMode';
@@ -49,6 +50,7 @@ import BreakdownPanel, {
 } from '@/components/analytics/BreakdownPanel';
 import WinLossPanel from '@/components/analytics/WinLossPanel';
 import LostReasonsPanel from '@/components/analytics/LostReasonsPanel';
+import { lostReasonUi } from '@/lib/lostReasons';
 import DataTablePanel from '@/components/analytics/DataTablePanel';
 import { Segmented } from '@/components/analytics/controls';
 
@@ -131,12 +133,10 @@ export default function AnalyticsPage() {
   const [timeKind, setTimeKind] = useState<TimeChartKind>('stackedBar');
   const [breakdownDimension, setBreakdownDimension] = useState<Dimension>('steelType');
   const [breakdownKind, setBreakdownKind] = useState<BreakdownChartKind>('bar');
-  /** Which seller tier the Handlowcy panel shows - purely a display filter over the
-   * already-fetched bySalesperson groups, not a query param, since the data for every tier is
-   * fetched in one round trip anyway. */
-  const [salespersonRoleFilter, setSalespersonRoleFilter] = useState<
-    'all' | 'junior' | 'senior' | 'admin'
-  >('all');
+  /** Which hierarchy tier (level code, e.g. N0 / N+1 / NPR) the Handlowcy panel shows - purely
+   * a display filter over the already-fetched bySalesperson groups, not a query param, since the
+   * data for every tier is fetched in one round trip anyway. */
+  const [salespersonRoleFilter, setSalespersonRoleFilter] = useState<string>('all');
 
   const query = useMemo(() => buildQuery(filters), [filters]);
 
@@ -310,9 +310,11 @@ export default function AnalyticsPage() {
     <FilterChip icon="👤" label={selectedSalesperson.name} onClear={clearSalespersonFilter} clearLabel={a.reset} />
   );
 
-  // Handlowcy panel: which tier (junior/senior/admin) each row's user id belongs to, so the
-  // role Segmented control can filter the already-fetched groups without another round trip.
-  const roleByUserId = new Map(data?.facets.users.map((u) => [String(u.id), u.role]) ?? []);
+  // Handlowcy panel: which hierarchy tier each row's user id belongs to, so the tier Segmented
+  // control can filter the already-fetched groups without another round trip. The tiers come
+  // from the configured levels, never from a hardcoded role list.
+  const roleByUserId = new Map(data?.facets.users.map((u) => [String(u.id), u.tier ?? '']) ?? []);
+  const tiers = [...new Set((data?.facets.users ?? []).map((u) => u.tier).filter((x): x is string => !!x))].sort();
   const topSalespeopleGroups =
     salespersonRoleFilter === 'all'
       ? (data?.bySalesperson ?? [])
@@ -325,9 +327,7 @@ export default function AnalyticsPage() {
       onChange={setSalespersonRoleFilter}
       options={[
         { value: 'all', label: a.allSelected },
-        { value: 'junior', label: t.roles.junior },
-        { value: 'senior', label: t.roles.senior },
-        { value: 'admin', label: t.roles.admin },
+        ...tiers.map((tier) => ({ value: tier, label: tier })),
       ]}
     />
   );
@@ -400,6 +400,7 @@ export default function AnalyticsPage() {
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <LanguageSelector />
+          <AdminSettingsShortcut />
 
           {/* Currency switch, same as the calculator: EUR is the stored truth, PLN a display
               layer converted with each offer's own frozen rate. */}
@@ -627,6 +628,7 @@ export default function AnalyticsPage() {
                 currency={currency}
                 language={language}
                 offersCountLabel={a.offersCount}
+                archivedLabel={lostReasonUi(language).archivedMark}
               />
             </ChartFrame>
 
