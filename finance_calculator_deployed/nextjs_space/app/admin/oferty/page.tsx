@@ -11,6 +11,7 @@ import type { ItemInputs } from '@/lib/calculatorData';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
+import OfferItemsPreview, { type OfferPreviewItem } from '@/components/OfferItemsPreview';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
 import {
   formatOfferMoney,
@@ -30,7 +31,7 @@ interface AdminOffer {
   // displayCurrency/eurPlnRate: waluta handlowca i kurs zamrożony przy zapisie oferty.
   // Starsze oferty ich nie mają -> EUR.
   offer_data: {
-    zestawienie?: Array<{ totalValue: number }>;
+    zestawienie?: OfferPreviewItem[];
     clientInfo?: ClientInfo;
     displayCurrency?: Currency;
     eurPlnRate?: number;
@@ -117,6 +118,8 @@ function AdminOffersContent() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // Której rodziny ofert (id najnowszej wersji) ma rozwiniętą historię poprzednich wersji.
   const [expandedVersionsKey, setExpandedVersionsKey] = useState<number | null>(null);
+  // Offer whose item list (with PGL, margin and prices) is expanded, as in /offers and /senior.
+  const [expandedItemsId, setExpandedItemsId] = useState<number | null>(null);
   // Sortowanie listy — jak w /offers. Domyślne 'date' odtwarza dotychczasową kolejność
   // z backendu (ORDER BY created_at DESC).
   const [sortKey, setSortKey] = useState<'date' | 'name' | 'company' | 'sap' | 'value' | 'status'>('date');
@@ -490,6 +493,19 @@ function AdminOffersContent() {
                       <span className="block mt-0.5 text-[10px] font-mono font-normal text-[var(--text-secondary)] opacity-60">
                         {offerNumberLabel(o)}
                       </span>
+                      {(o.offer_data.zestawienie?.length ?? 0) > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setExpandedItemsId(expandedItemsId === o.id ? null : o.id); }}
+                          aria-expanded={expandedItemsId === o.id}
+                          title={language === 'pl' ? 'Pokaż/ukryj pozycje' : 'Show/hide items'}
+                          className="block mt-1 text-[10px] font-mono font-normal text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                        >
+                          📦 {o.offer_data.zestawienie?.length} {t.offers.items}
+                          {' '}
+                          <span className="text-[8px]">{expandedItemsId === o.id ? '▲' : '▼'}</span>
+                        </button>
+                      )}
                       {history.length > 0 && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setExpandedVersionsKey(expandedVersionsKey === o.id ? null : o.id); }}
@@ -576,6 +592,18 @@ function AdminOffersContent() {
                       )}
                     </td>
                   </tr>
+                  {expandedItemsId === o.id && (
+                    <tr>
+                      <td colSpan={6} className="px-4 pb-3 pt-0 bg-[var(--bg-panel)]">
+                        <OfferItemsPreview
+                          items={o.offer_data.zestawienie ?? []}
+                          offerData={o.offer_data}
+                          isExpanded
+                          onExpand={() => setExpandedItemsId(o.id)}
+                        />
+                      </td>
+                    </tr>
+                  )}
                   {history.length > 0 && expandedVersionsKey === o.id && (
                     <tr>
                       <td colSpan={6} className="px-4 py-2 bg-[var(--bg-panel)]">
