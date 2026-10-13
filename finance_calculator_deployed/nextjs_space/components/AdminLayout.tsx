@@ -8,6 +8,7 @@ import { useDarkMode } from '@/lib/useDarkMode';
 import { useHighContrast } from '@/lib/useHighContrast';
 import { getThemeVars } from '@/lib/themeVars';
 import { useAccessT } from '@/lib/i18n/access';
+import { lostReasonsAdminStrings } from '@/components/lostReasons/adminStrings';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -16,7 +17,7 @@ interface AdminLayoutProps {
 // Wspólny szkielet stron /admin: motyw (CSS custom properties), nagłówek i pod-nawigacja.
 // Wzorzec ciemny/jasny motyw i zmienne --accent-* takie same jak w reszcie aplikacji.
 export default function AdminLayout({ children }: AdminLayoutProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const at = useAccessT();
   const pathname = usePathname();
   const router = useRouter();
@@ -34,6 +35,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin/kontakty', label: t.admin.navContacts, icon: '📇' },
     { href: '/admin/oferty', label: t.admin.navOffers, icon: '📋' },
     { href: '/admin/cennik', label: t.priceBook.navLabel, icon: '🧾' },
+    { href: '/admin/powody-przegranej', label: lostReasonsAdminStrings(language).navLabel, icon: '📉' },
     { href: '/admin/ustawienia', label: t.admin.navSettings, icon: '⚙️' },
   ];
 

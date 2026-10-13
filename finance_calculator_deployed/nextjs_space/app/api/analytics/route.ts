@@ -27,6 +27,7 @@ import {
 } from '@/lib/analyticsPeriods';
 import { fetchAnalyticsRows, fetchFacets, fetchToday } from '@/lib/analyticsQuery';
 import { computeKpi, computeLostReasons, normalizeOffers, withinWindow } from '@/lib/analyticsAggregate';
+import { loadLostReasons } from '@/lib/lostReasonsDb';
 import { buildSeries, groupBy, splitKeysFrom } from '@/lib/analyticsSeries';
 import type { SteelType } from '@/lib/calculatorData';
 
@@ -169,6 +170,9 @@ export async function GET(request: NextRequest) {
       splitKeys: splitKeys.map((s) => s.key),
     });
 
+    // Archived reasons included: they still explain past losses.
+    const { reasons: lostReasons } = await loadLostReasons();
+
     const payload: AnalyticsPayload = {
       scope: {
         userId: session.userId,
@@ -188,7 +192,7 @@ export async function GET(request: NextRequest) {
       byDecision,
       bySalesperson,
       byClient,
-      byLostReason: computeLostReasons(current),
+      byLostReason: computeLostReasons(current, lostReasons),
       rows: current.map((o) => ({
         id: o.id,
         label: o.label,

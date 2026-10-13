@@ -5,7 +5,7 @@
 // modules. The aggregation itself lives in lib/analyticsAggregate.ts.
 
 import type { SteelType } from './calculatorData';
-import type { LostReason } from './lostReasons';
+import type { ReasonLabels } from './lostReasons';
 
 export type OfferStatus = 'draft' | 'pending_review' | 'approved' | 'rejected' | 'sent';
 export type ClientDecision = 'pending' | 'won' | 'lost';
@@ -163,9 +163,13 @@ export interface AnalyticsGroup {
   winRateTons: number | null;
 }
 
-/** Lost offers of one rejection reason (lib/lostReasons.ts). */
+/** Lost offers of one rejection reason (admin-managed list, lib/lostReasons.ts). */
 export interface LostReasonStat {
-  reason: LostReason;
+  reason: string;
+  /** The reason's name in every UI language, so the panel needs no second lookup. */
+  labels: ReasonLabels;
+  /** Archived by the admin: no longer pickable, still counted for past losses. */
+  archived: boolean;
   offers: number;
   tonsLost: number;
   valueLostEur: number;
@@ -230,7 +234,7 @@ export interface AnalyticsPayload {
   byDecision: AnalyticsGroup[];
   bySalesperson: AnalyticsGroup[];
   byClient: AnalyticsGroup[];
-  /** Lost offers by the reason the client gave, in the fixed LOST_REASONS order. */
+  /** Lost offers by the reason the client gave, in the admin's list order. */
   byLostReason: LostReasonStat[];
   rows: AnalyticsRow[];
   facets: AnalyticsFacets;

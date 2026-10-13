@@ -50,6 +50,7 @@ import BreakdownPanel, {
 } from '@/components/analytics/BreakdownPanel';
 import WinLossPanel from '@/components/analytics/WinLossPanel';
 import LostReasonsPanel from '@/components/analytics/LostReasonsPanel';
+import { lostReasonUi } from '@/lib/lostReasons';
 import DataTablePanel from '@/components/analytics/DataTablePanel';
 import { Segmented } from '@/components/analytics/controls';
 
@@ -627,6 +628,7 @@ export default function AnalyticsPage() {
                 currency={currency}
                 language={language}
                 offersCountLabel={a.offersCount}
+                archivedLabel={lostReasonUi(language).archivedMark}
               />
             </ChartFrame>
 

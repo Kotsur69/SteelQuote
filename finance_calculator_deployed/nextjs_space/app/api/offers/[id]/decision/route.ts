@@ -4,15 +4,12 @@ import { requireAccess } from '@/lib/access/context';
 import { loadOfferAccess } from '@/lib/access/offerAccess';
 import { accessError } from '@/lib/access/errors';
 import { CLIENT_DECISIONS, type ClientDecision } from '@/lib/analytics';
-import { DEFAULT_LOST_REASON, isLostReason, type LostReason } from '@/lib/lostReasons';
+import { activeLostReasons, cleanNote, lostReasonUi, validateLostChoice } from '@/lib/lostReasons';
+import { loadLostReasons } from '@/lib/lostReasonsDb';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
-
-// Longest reason we store. Long enough for a real sentence, short enough that the column
-// cannot be used as free storage.
-const MAX_NOTE_LENGTH = 500;
 
 // POST - record what the client answered on a sent offer: won, lost, or back to pending.
 //
@@ -49,26 +46,33 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
     const value = decision as ClientDecision;
 
-    const rawNote = typeof body.note === 'string' ? body.note.trim() : '';
-    const note = value === 'pending' || rawNote.length === 0
-      ? null
-      : rawNote.slice(0, MAX_NOTE_LENGTH);
-
-    // Structured reason, only meaningful for a loss. Picking nothing is allowed and lands in
-    // 'other' (the catch-all, whose custom text is the note); an unknown code is a client bug
-    // and is rejected rather than silently remapped.
-    if (value === 'lost' && body.reason !== undefined && body.reason !== null && body.reason !== '' && !isLostReason(body.reason)) {
-      return NextResponse.json({ error: 'Nieprawidłowy powód odrzucenia' }, { status: 400 });
-    }
-    const reason: LostReason | null =
-      value !== 'lost' ? null : isLostReason(body.reason) ? body.reason : DEFAULT_LOST_REASON;
-
     // Who may record it is offerActions().canRecordDecision: the owner, an approver of the
     // offer's flow, the superuser - and only on an offer they can see. The status check stays in
     // the UPDATE, so a status change racing this request makes the write miss.
     const access = await loadOfferAccess(session, offerId);
     if (!access) return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
     if (access.offer.status === 'sent' && !access.actions.canRecordDecision) return accessError('cannot_decide');
+
+    // A loss needs an active reason from the admin's list (lib/lostReasons.ts); 'other' also
+    // needs the note. Won keeps an optional note; pending clears everything.
+    let note: string | null = null;
+    let reason: string | null = null;
+    if (value === 'lost') {
+      const { reasons } = await loadLostReasons();
+      const active = new Set(activeLostReasons(reasons).map((r) => r.code));
+      const choice = validateLostChoice(body.reason, body.note, active);
+      if (!choice.ok) {
+        return NextResponse.json(
+          { error: lostReasonUi('pl').errors[choice.error], code: choice.error },
+          { status: 400 }
+        );
+      }
+      reason = choice.reason;
+      note = choice.note;
+    } else if (value === 'won') {
+      note = cleanNote(body.note);
+    }
+
     const values: unknown[] = [offerId, value, session.userId, note, reason];
 
     // $2 is cast to text at every use. Without it Postgres deduces the type twice - `character
