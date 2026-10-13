@@ -6,18 +6,18 @@ costs, margin, transport) for **HRS, CR, HDG, PICKLED** (pickled HRS),
 an offer, run it through an approval workflow, and export it to PDF or Excel for
 a client.
 
-Current release: **1.9** (rolling out to production now). Next version in
-development: **2.0**.
+Current release: **2.0** (rolling out to production now). Next version in
+development: **2.1**.
 
 ![HRS pricing defaults](screenshot_hrs_defaults.png)
 ![CR pricing defaults](screenshot_cr_defaults.png)
 ![HDG pricing defaults](screenshot_hdg_defaults.png)
 
 Live at [steelpricinghub.abacusai.app](https://steelpricinghub.abacusai.app)
-(production runs 1.8 until the 1.9 deploy is confirmed; after that this repo
-moves on to 2.0). On Android the login screen offers to install it as an app.
+(the 2.0 deploy, prepared 13 October 2026, replaces 1.8 in production; this repo
+now moves on to 2.1). On Android the login screen offers to install it as an app.
 
-### In development for 2.0: configurable flows, roles and approval rules
+### What's new in 2.0: configurable flows, roles and approval rules
 
 The fixed junior / senior / admin roles are replaced by configuration the admin
 edits in the new **Uprawnienia** panel (`/admin/dostep`), seeded from the business
@@ -38,6 +38,20 @@ spec *Formularz uprawnień i walidacji ofert* (see
   offer (the rules re-run and may raise the level), reject it with instructions,
   or approve and send it to the client on the seller's behalf
 - The salespeople panel adds per-flow memberships and a pyramid / org-chart view
+  showing who reports to whom
+- Only the offer's creator sends it to the client; a sent offer opens read-only,
+  and a lost offer can be renegotiated as a new version
+- **Surcharge price book** (`/admin/cennik`): mill and processing surcharges per
+  steel type are edited in the app, every change is logged, and saved offers keep
+  the prices they were quoted with
+- **Lost reasons** (`/admin/powody-przegranej`): marking an offer lost requires a
+  reason from an admin-managed list; "Inne" (other) also requires a note
+- Thousands separators (`1 000 000`) in every displayed amount and tonnage,
+  including the PDF
+- Review decision bar on top of an offer under review, approvable straight from
+  the calculator; offer items are validated server-side on save
+- Deploy hardening: the CSRF origin check honours the proxy's `x-forwarded-host`,
+  and `@types/react` is pinned so a fresh yarn install builds
 
 ### What's new in 1.9
 
@@ -114,8 +128,8 @@ still prices without an API key.
 
 ### Offers and approval workflow
 
-- Roles, hierarchy levels and permissions are configured per flow (2.0, see
-  above) — no logic reads a role name. Workflow: draft → pending review →
+- Roles, hierarchy levels and permissions are configured per flow (since 2.0,
+  see above) — no logic reads a role name. Workflow: draft → pending review →
   approved/rejected → sent
 - On submit the flow's validation rules decide which level must approve; when no
   rule fires (or the creator's own level covers it) the offer goes straight to the
@@ -217,7 +231,7 @@ cd finance_calculator_deployed/nextjs_space
 npm install --legacy-peer-deps   # legacy flag: eslint 9 vs @typescript-eslint/parser@7, lint-only conflict
 cp .env.example .env.local       # fill in DATABASE_URL and JWT_SECRET for your local Postgres
 
-# Migrations are idempotent and must run in order (001 → 029).
+# Migrations are idempotent and must run in order (001 → 032).
 for f in migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
 
 npm run dev
