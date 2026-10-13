@@ -163,6 +163,10 @@ dopasuj lokalizacje do istniejacej struktury projektu.
   `"test": "vitest run"`. `yarn install` dociagnie ja (zmiana w lockfile'u dotyczaca vitest i
   jego zaleznosci jest oczekiwana). Jesli `yarn install` chce zmienic cokolwiek INNEGO niz
   vitest i jego drzewo zaleznosci — pokaz mi to i zatrzymaj sie.
+- `package.json` ma sekcje `"resolutions": { "@types/react": "18.2.22" }` (dopisana po
+  pierwszym podejsciu do tego deployu, commit `d28d9ab`): `@types/react-dom@18.2.7` zalezy od
+  `@types/react: "*"`, wiec swiezy `yarn install` zagniezdzal pod nim typy React 19 i
+  `createPortal` w `components/Modal.tsx` nie przechodzil sprawdzania typow. Nie usuwaj jej.
 
 ## 4. Migracje bazy danych — 024 do 032, w tej kolejnosci
 
