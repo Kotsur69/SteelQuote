@@ -29,3 +29,9 @@ node_modules/
 
 # Internal working notes — not for the public repo
 STAN_PROJEKTU.md
+
+# Third-party market reports / generated offers - never commit
+*.pdf
+*.xlsx
+*.xls
+*.csv
