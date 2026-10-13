@@ -6,16 +6,15 @@ costs, margin, transport) for **HRS, CR, HDG, PICKLED** (pickled HRS),
 an offer, run it through an approval workflow, and export it to PDF or Excel for
 a client.
 
-Current release: **2.0** (rolling out to production now). Next version in
-development: **2.1**.
+Current release: **2.0** (live in production since 13 October 2026). Next
+version in development: **2.1**.
 
 ![HRS pricing defaults](screenshot_hrs_defaults.png)
 ![CR pricing defaults](screenshot_cr_defaults.png)
 ![HDG pricing defaults](screenshot_hdg_defaults.png)
 
 Live at [steelpricinghub.abacusai.app](https://steelpricinghub.abacusai.app)
-(the 2.0 deploy, prepared 13 October 2026, replaces 1.8 in production; this repo
-now moves on to 2.1). On Android the login screen offers to install it as an app.
+(production runs 2.0; this repo is on 2.1). On Android the login screen offers to install it as an app.
 
 ### What's new in 2.0: configurable flows, roles and approval rules
 
