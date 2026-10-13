@@ -861,7 +861,7 @@ export const pl: Translations = {
     yes: 'Tak',
     no: 'Nie',
     loading: 'Ładowanie...',
-    version: 'v2.0',
+    version: 'v2.1',
   },
 
   navigation: {
@@ -1647,7 +1647,7 @@ export const en: Translations = {
     yes: 'Yes',
     no: 'No',
     loading: 'Loading...',
-    version: 'v2.0',
+    version: 'v2.1',
   },
 
   navigation: {
@@ -2432,7 +2432,7 @@ export const cs: Translations = {
     yes: 'Ano',
     no: 'Ne',
     loading: 'Načítání...',
-    version: 'v2.0',
+    version: 'v2.1',
   },
 
   navigation: {
@@ -3217,7 +3217,7 @@ export const de: Translations = {
     yes: 'Ja',
     no: 'Nein',
     loading: 'Wird geladen...',
-    version: 'v2.0',
+    version: 'v2.1',
   },
 
   navigation: {
