@@ -59,8 +59,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const newName = `Kopia ${original.display_name}`;
 
     const result = await pool.query(
-      `INSERT INTO offers (user_id, offer_name, offer_data, flow_id)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO offers (user_id, offer_name, offer_data, flow_id, created_by)
+       VALUES ($1, $2, $3, $4, $1)
        RETURNING id, offer_name, display_name, offer_data, flow_id, created_at, updated_at`,
       [ctx.userId, newName, original.offer_data, flowId]
     );

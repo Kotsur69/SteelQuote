@@ -18,6 +18,9 @@
   --accent-teardrop: #22c1d6;
   --accent-zm:   #8b7cf6;
   --accent-sum:  #f5475a;
+  /* Version diff: price/margin up = green, down = red (darker in light mode for 4.5:1). */
+  --trend-up:    #15803d;
+  --trend-down:  #b91c1c;
   --text-primary:   #0d1220;
   --text-secondary: #2e3a5c;
   --text-muted:     #6b789a;
@@ -40,6 +43,8 @@
   --accent-teardrop: #22c1d6;
   --accent-zm:   #8b7cf6;
   --accent-sum:  #f5475a;
+  --trend-up:    #2ecc71;
+  --trend-down:  #f5475a;
   --text-primary:   #e8ecf5;
   --text-secondary: #7b88aa;
   --text-muted:     #4a536b;
