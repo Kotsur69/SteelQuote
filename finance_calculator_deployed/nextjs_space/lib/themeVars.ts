@@ -31,6 +31,9 @@ const dark: ThemeVars = {
   '--accent-teardrop': '#22c1d6',
   '--accent-zm': '#8b7cf6',
   '--accent-sum': '#f5475a',
+  // Version diff direction (OfferChangeBadge): price/margin up = green, down = red.
+  '--trend-up': '#2ecc71',
+  '--trend-down': '#f5475a',
 };
 
 const light: ThemeVars = {
@@ -51,6 +54,9 @@ const light: ThemeVars = {
   '--accent-teardrop': '#22c1d6',
   '--accent-zm': '#8b7cf6',
   '--accent-sum': '#f5475a',
+  // Darker than the accents: #2ecc71 / #f5475a on white are below 4.5:1.
+  '--trend-up': '#15803d',
+  '--trend-down': '#b91c1c',
 };
 
 // Wysoki kontrast = normalne kolory + minimalnie mocniejszy kontrast krawędzi

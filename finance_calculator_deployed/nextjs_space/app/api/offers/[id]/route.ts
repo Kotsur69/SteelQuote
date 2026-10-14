@@ -216,8 +216,9 @@ async function updateInTransaction(
   const assessment = await assessOffer({ flowId: existing.flow_id, ownerId: existing.user_id, offerData }, db);
 
   // Owner and flow of the version = those of the edited row, never the editor's: a reviewer
-  // correcting someone's offer must not take it over. A version of an offer in review (or an
-  // approved one) is re-assessed: still needs an approval -> review continues on the new
+  // correcting someone's offer must not take it over. The editor goes to created_by
+  // (migration 033), which the lists show as the version's author.
+  // A version of an offer in review (or an approved one) is re-assessed: still needs an approval -> review continues on the new
   // version with fresh steps; nothing left to approve (e.g. the reviewer fixed the margin) ->
   // approved. Draft / rejected versions keep their status. A renegotiated lost offer starts the
   // new round as a draft (client_decision back to its 'pending' default) and goes through
@@ -232,12 +233,12 @@ async function updateInTransaction(
 
   const inserted = await db.query(
     `INSERT INTO offers (user_id, offer_name, offer_data, client_id, status, root_offer_id,
-                         version_number, flow_id, validation_snapshot)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                         version_number, flow_id, validation_snapshot, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING id, offer_name, display_name, offer_data, status, flow_id, created_at, updated_at,
                root_offer_id, version_number`,
     [existing.user_id, name, JSON.stringify(offerData), clientId, versionStatus, rootId,
-      nextVersion, existing.flow_id, JSON.stringify(snapshotOf(assessment))]
+      nextVersion, existing.flow_id, JSON.stringify(snapshotOf(assessment)), ctx.userId]
   );
   const row = inserted.rows[0];
 

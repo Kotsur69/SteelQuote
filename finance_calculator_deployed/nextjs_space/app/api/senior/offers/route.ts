@@ -3,6 +3,8 @@ import pool from '@/lib/db';
 import { forbidden, isApproverAnywhere, requireAccess } from '@/lib/access/context';
 import { awaitingMyReviewSql, openUntilClientDecisionSql } from '@/lib/access/scope';
 import { escapeLikePattern } from '@/lib/search';
+import { PREDECESSOR_COLUMNS, PREDECESSOR_JOIN } from '@/lib/offerVersions';
+import { withChangeSummary } from '@/lib/offerVersionDiff';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,11 +50,13 @@ export async function GET(request: NextRequest) {
     const where = `${visibility} AND ($2::text IS NULL OR ${SEARCH_CLAUSE})`;
 
     const result = await pool.query(
-      `SELECT ${OFFER_COLUMNS}, ${awaiting} AS awaiting_me, ${ownLevel} AS awaiting_own_level
+      `SELECT ${OFFER_COLUMNS}, ${PREDECESSOR_COLUMNS},
+              ${awaiting} AS awaiting_me, ${ownLevel} AS awaiting_own_level
        FROM offers o
        LEFT JOIN users u ON u.id = o.user_id
        LEFT JOIN users r ON r.id = o.reviewed_by
        LEFT JOIN flows f ON f.id = o.flow_id
+       ${PREDECESSOR_JOIN}
        WHERE ${where}
        ORDER BY
          CASE WHEN ${awaiting} THEN 0 ELSE 1 END,
@@ -61,7 +65,7 @@ export async function GET(request: NextRequest) {
     );
 
     return NextResponse.json({
-      offers: result.rows,
+      offers: result.rows.map(withChangeSummary),
       userId: session.userId,
     });
   } catch (error) {

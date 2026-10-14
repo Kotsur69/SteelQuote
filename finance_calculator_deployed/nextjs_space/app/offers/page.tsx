@@ -38,6 +38,8 @@ import {
   type Currency,
 } from '@/lib/currency';
 import OfferItemsPreview from '@/components/OfferItemsPreview';
+import OfferChangeBadge from '@/components/OfferChangeBadge';
+import type { ChangeSummary } from '@/lib/offerVersionDiff';
 
 interface OfferData {
   currentType: string;
@@ -131,6 +133,8 @@ interface Offer {
   updated_at: string;
   root_offer_id: number | null;
   version_number: number;
+  // What changed against the previous version, computed by the list API (lib/offerVersionDiff.ts).
+  change_summary?: ChangeSummary;
 }
 
 export default function OffersPage() {
@@ -747,6 +751,7 @@ export default function OffersPage() {
                       <h3 className="font-medium text-base text-[var(--text-primary)] truncate">
                         {offerNumberLabel(offer)}
                       </h3>
+                      <OfferChangeBadge summary={offer.change_summary} />
                       {/* Powód odrzucenia dopisany wprost do badge'a statusu, zamiast osobnego
                           pełnowymiarowego bloku pod nazwą firmy — pełny tekst w title (hover). */}
                       <span
@@ -1035,6 +1040,7 @@ export default function OffersPage() {
                             >
                               <div className="flex items-center gap-2 flex-wrap min-w-0">
                                 <span className="font-mono text-[var(--text-secondary)]">{offerNumberLabel(v)}</span>
+                                <OfferChangeBadge summary={v.change_summary} />
                                 <span
                                   className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold uppercase tracking-wider border ${statusBadgeClass(v.status)}`}
                                 >
