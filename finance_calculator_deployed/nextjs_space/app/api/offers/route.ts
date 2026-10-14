@@ -10,6 +10,8 @@ import { fieldViolation } from '@/lib/access/fieldGuards';
 import { loadBaseResolver, loadDefaultMarginPct, loadPolicies } from '@/lib/access/config';
 import { accessError } from '@/lib/access/errors';
 import { validateOfferItems } from '@/lib/offerItemValidation';
+import { PREDECESSOR_COLUMNS, PREDECESSOR_JOIN } from '@/lib/offerVersions';
+import { withChangeSummary } from '@/lib/offerVersionDiff';
 
 const OFFER_COLUMNS = `o.id, o.offer_name, o.display_name, o.offer_data, o.status, o.user_id,
   o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at, o.rejection_reason, o.sent_at,
@@ -55,10 +57,11 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await pool.query(
-      `SELECT ${OFFER_COLUMNS}
+      `SELECT ${OFFER_COLUMNS}, ${PREDECESSOR_COLUMNS}
        FROM offers o
        LEFT JOIN users u ON u.id = o.user_id
        LEFT JOIN flows f ON f.id = o.flow_id
+       ${PREDECESSOR_JOIN}
        WHERE ${where}
        ORDER BY o.created_at DESC`,
       params
@@ -87,7 +90,11 @@ export async function GET(request: NextRequest) {
           plan,
           policy
         );
-        return { ...row, actions, pending_levels: steps.filter((s) => s.status === 'pending').map((s) => s.levelCode) };
+        return {
+          ...withChangeSummary(row),
+          actions,
+          pending_levels: steps.filter((s) => s.status === 'pending').map((s) => s.levelCode),
+        };
       })
     );
 
@@ -150,8 +157,8 @@ export async function POST(request: NextRequest) {
       const clientId = await upsertClientFromOffer(db, clientInfo, ctx.userId);
 
       const result = await db.query(
-        `INSERT INTO offers (user_id, offer_name, offer_data, client_id, flow_id)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO offers (user_id, offer_name, offer_data, client_id, flow_id, created_by)
+         VALUES ($1, $2, $3, $4, $5, $1)
          RETURNING id, offer_name, display_name, offer_data, status, flow_id, created_at, updated_at`,
         [ctx.userId, name, JSON.stringify(offer_data), clientId, flowId]
       );

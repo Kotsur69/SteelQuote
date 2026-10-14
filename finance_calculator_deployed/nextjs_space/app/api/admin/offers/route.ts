@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import { escapeLikePattern } from '@/lib/search';
+import { PREDECESSOR_COLUMNS, PREDECESSOR_JOIN } from '@/lib/offerVersions';
+import { withChangeSummary } from '@/lib/offerVersionDiff';
 
 const VALID_STATUSES = ['draft', 'pending_review', 'approved', 'rejected', 'sent'];
 
@@ -67,16 +69,18 @@ export async function GET(request: NextRequest) {
               o.created_at, o.updated_at, o.reviewed_by, o.reviewed_at,
               o.rejection_reason, o.sent_at, o.root_offer_id, o.version_number, o.client_decision,
               u.full_name AS owner_name, u.email AS owner_email,
-              r.full_name AS reviewer_name, r.email AS reviewer_email
+              r.full_name AS reviewer_name, r.email AS reviewer_email,
+              ${PREDECESSOR_COLUMNS}
        FROM offers o
        LEFT JOIN users u ON u.id = o.user_id
        LEFT JOIN users r ON r.id = o.reviewed_by
+       ${PREDECESSOR_JOIN}
        ${where}
        ORDER BY o.created_at DESC`,
       values
     );
 
-    return NextResponse.json({ offers: result.rows });
+    return NextResponse.json({ offers: result.rows.map(withChangeSummary) });
   } catch (error) {
     console.error('Error fetching admin offers:', error);
     return NextResponse.json({ error: 'Failed to fetch offers' }, { status: 500 });
