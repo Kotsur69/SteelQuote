@@ -13,6 +13,26 @@ export function offerNumberLabel(offer: VersionedOffer): string {
   return offer.version_number > 0 ? `offer_${rootId}.${offer.version_number}` : `offer_${rootId}`;
 }
 
+// Predecessor of each listed row, for the "what changed" summary (lib/offerVersionDiff.ts
+// withChangeSummary). The predecessor is the family member (same root_offer_id ?? id) with the
+// highest version_number BELOW the row's own - looked up in the whole table, not in the
+// filtered list, so it is found even when the list's status/queue/search filters hide it, and
+// a deleted version is simply skipped. Requires the list query to alias offers as `o`.
+// created_by (migration 033) names who saved the version.
+export const PREDECESSOR_COLUMNS = `prev.id AS prev_id, prev.offer_data AS prev_offer_data,
+  prev.offer_name AS prev_offer_name, prev.client_decision AS prev_client_decision,
+  o.created_by, cb.full_name AS created_by_name, cb.email AS created_by_email`;
+
+export const PREDECESSOR_JOIN = `LEFT JOIN LATERAL (
+    SELECT p.id, p.offer_data, p.offer_name, p.client_decision
+    FROM offers p
+    WHERE (p.id = COALESCE(o.root_offer_id, o.id) OR p.root_offer_id = COALESCE(o.root_offer_id, o.id))
+      AND p.version_number < o.version_number
+    ORDER BY p.version_number DESC
+    LIMIT 1
+  ) prev ON TRUE
+  LEFT JOIN users cb ON cb.id = o.created_by`;
+
 export interface OfferVersionGroup<T extends VersionedOffer> {
   // Najnowszy wpis rodziny (najwyzszy version_number) - to on jest "aktywna" oferta,
   // ktora widac jako glowna karte na liscie.

@@ -16,6 +16,8 @@ import { getThemeVars } from '@/lib/themeVars';
 import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
+import OfferChangeBadge from '@/components/OfferChangeBadge';
+import type { ChangeSummary } from '@/lib/offerVersionDiff';
 import ClientPaymentTermsPanel from '@/components/ClientPaymentTermsPanel';
 import SeniorStatusTiles, { type SeniorFilter } from '@/components/SeniorStatusTiles';
 import ValidationNotice, { type ValidationSnapshot } from '@/components/ValidationNotice';
@@ -84,6 +86,8 @@ interface Offer {
   flow_name?: string | null;
   validation_snapshot?: ValidationSnapshot | null;
   pending_levels?: string[];
+  // What changed against the previous version, computed by the list API (lib/offerVersionDiff.ts).
+  change_summary?: ChangeSummary;
 }
 
 export default function SeniorPage() {
@@ -580,9 +584,12 @@ export default function SeniorPage() {
                     {/* Stały numer oferty pod nazwą — dyskretny, pokazywany ZAWSZE (także gdy
                         oferta nie ma nazwy własnej), żeby numer stał w każdym wierszu w tym
                         samym miejscu. */}
-                    <p className="mt-0.5 text-[10px] font-mono text-[var(--text-secondary)] opacity-60">
-                      {offerNumberLabel(offer)}
-                    </p>
+                    <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-mono text-[var(--text-secondary)] opacity-60">
+                        {offerNumberLabel(offer)}
+                      </span>
+                      <OfferChangeBadge summary={offer.change_summary} />
+                    </div>
 
                     {/* Author */}
                     <p className="mt-1 text-[11px] text-[var(--text-secondary)] font-mono">
@@ -728,6 +735,7 @@ export default function SeniorPage() {
                           >
                             <div className="flex items-center gap-2 flex-wrap min-w-0">
                               <span className="font-mono text-[var(--text-secondary)]">{offerNumberLabel(v)}</span>
+                              <OfferChangeBadge summary={v.change_summary} />
                               <span
                                 className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold uppercase tracking-wider border ${statusBadgeClass(v.status)}`}
                               >

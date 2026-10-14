@@ -13,6 +13,8 @@ import { useOfferSearch } from '@/lib/useOfferSearch';
 import OfferSearchInput from '@/components/OfferSearchInput';
 import OfferItemsPreview, { type OfferPreviewItem } from '@/components/OfferItemsPreview';
 import { offerNumberLabel, groupOffersByVersion } from '@/lib/offerVersions';
+import OfferChangeBadge from '@/components/OfferChangeBadge';
+import type { ChangeSummary } from '@/lib/offerVersionDiff';
 import {
   formatOfferMoney,
   formatOfferMoneyCeil,
@@ -47,6 +49,8 @@ interface AdminOffer {
   root_offer_id: number | null;
   version_number: number;
   client_decision?: 'pending' | 'won' | 'lost';
+  // What changed against the previous version, computed by the list API (lib/offerVersionDiff.ts).
+  change_summary?: ChangeSummary;
 }
 
 interface UserOption { id: number; email: string; full_name: string | null; }
@@ -490,9 +494,12 @@ function AdminOffersContent() {
                       {o.display_name}
                       {/* Stały numer oferty pod nazwą — dyskretny, pokazywany ZAWSZE, żeby stał
                           w każdym wierszu tabeli w tym samym miejscu. */}
-                      <span className="block mt-0.5 text-[10px] font-mono font-normal text-[var(--text-secondary)] opacity-60">
-                        {offerNumberLabel(o)}
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap mt-0.5 font-normal">
+                        <span className="text-[10px] font-mono text-[var(--text-secondary)] opacity-60">
+                          {offerNumberLabel(o)}
+                        </span>
+                        <OfferChangeBadge summary={o.change_summary} />
+                      </div>
                       {(o.offer_data.zestawienie?.length ?? 0) > 0 && (
                         <button
                           type="button"
@@ -616,6 +623,7 @@ function AdminOffersContent() {
                             >
                               <div className="flex items-center gap-2 flex-wrap min-w-0">
                                 <span className="font-mono text-[var(--text-secondary)]">{offerNumberLabel(v)}</span>
+                                <OfferChangeBadge summary={v.change_summary} />
                                 <span
                                   className={`px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider border ${statusBadgeClass(v.status)}`}
                                 >
