@@ -93,6 +93,7 @@ interface Sample {
   validTo?: string;
   value?: number;
   termDays?: number;
+  hours?: number;
 }
 
 // Standard offer: margin at target, PGL at base, validity inside one month, 2-day term (48h).
@@ -102,6 +103,7 @@ function offer(s: Sample = {}) {
     validFrom: s.validFrom ?? '2026-10-01',
     validTo: s.validTo ?? '2026-10-30',
     paymentTermDays: s.termDays ?? 2,
+    ...(s.hours !== undefined ? { quoteValidityHours: s.hours } : {}),
   };
 }
 
@@ -192,7 +194,17 @@ describe('confirmed routing decisions', () => {
     expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { pgl: 600, value: 100 }, extra).plan)).toEqual(['N+3', 'NPR']);
   });
 
-  it('quotation validity over 48h (payment term > 2 days) goes to N+2 in Flow 1', () => {
+  it('quotation validity hours: 24h and 48h need no approval, over 48h goes to N+2 / NPR', () => {
+    // A 30-day client payment term no longer counts as 720h validity.
+    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { termDays: 30, hours: 24 }).plan)).toEqual([]);
+    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { termDays: 30, hours: 48 }).plan)).toEqual([]);
+    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { termDays: 30, hours: 49 }).plan)).toEqual(['N+2']);
+    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { termDays: 30, hours: 72 }).plan)).toEqual(['N+2']);
+    expect(stepCodes(run(FLOW2, FLOW2_ROLES, IFO2, { termDays: 30, hours: 48 }).plan)).toEqual([]);
+    expect(stepCodes(run(FLOW2, FLOW2_ROLES, IFO2, { termDays: 30, hours: 72 }).plan)).toEqual(['NPR']);
+  });
+
+  it('legacy offer without hours: validity over 48h (payment term > 2 days) goes to N+2 in Flow 1', () => {
     expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { termDays: 7 }).plan)).toEqual(['N+2']);
   });
 
