@@ -7,7 +7,8 @@ import Navigation from '@/components/Navigation';
 import NumericField from '@/components/NumericField';
 import ZestawienieRow from '@/components/ZestawienieRow';
 import TransportPanel, { EMPTY_TRANSPORT_ROUTE, type TransportRoute } from '@/components/TransportPanel';
-import PaymentTermPicker from '@/components/PaymentTermPicker';
+import QuoteValidityPicker from '@/components/QuoteValidityPicker';
+import { DEFAULT_QUOTE_VALIDITY_HOURS, resolveQuoteValidityHours } from '@/lib/quoteValidity';
 import OfferValidityPicker from '@/components/OfferValidityPicker';
 import OfferReviewBar, { reviewReturnPath } from '@/components/OfferReviewBar';
 import { useAccess } from '@/lib/useAccess';
@@ -111,19 +112,12 @@ export interface ZestawienieItem {
   inputs?: ItemInputs;
 }
 
-// Domyślny termin płatności dla nowej oferty bez wybranego klienta (v1.9.1) — przywraca sens
-// dawnej stałej linijki PDF "Ważność oferty: 48h od daty wystawienia" (usuniętej w abdcce0 razem
-// z zakresem dat płatności), tym razem policzonej z tej wartości (2 dni × 24h), patrz
-// PDF_LABELS.validityHoursNote i jej wywołanie w app/api/generate-pdf/route.ts. Klient z własnym
-// terminem (applyClientSuggestion) albo ręczna zmiana w PaymentTermPicker nadpisują to bez zmian.
-const DEFAULT_NEW_OFFER_PAYMENT_TERM_DAYS = 2;
-
 // Clean-slate snapshot of a brand-new offer. Same shape collectOfferData() returns, built
 // from the initial useState values below, so restoreOfferData(INITIAL_OFFER_DATA) resets
 // the whole calculator in one call (used by the "Nowa oferta" button and the "Kalkulator"
-// tab). pglBase/transport/validFrom/validTo/paymentTermDays are placeholders here — the
-// admin-defaults effect overwrites them (this-month validity + the 2-day default above) right
-// after the reset, exactly as on a fresh page load.
+// tab). pglBase/transport/validFrom/validTo/paymentTermDays/quoteValidityHours are
+// placeholders here — the admin-defaults effect overwrites them (this-month validity, the
+// global payment term, 24h quote validity) right after the reset, as on a fresh page load.
 const INITIAL_OFFER_DATA: Record<string, unknown> = {
   currentType: 'HRS',
   thickness: 4,
@@ -136,7 +130,7 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
   ...optionSelectionFields(DEFAULT_PRICE_BOOK, 'HRS', defaultOptionSelection('HRS')),
   selectedCoating: 'Z275',
   pglBase: 645, marginPct: 7, extra: 0, extraComment: '', extraCommentInPdf: false, transport: 20, tons: 1,
-  validFrom: '', validTo: '', paymentTermDays: null,
+  validFrom: '', validTo: '', paymentTermDays: null, quoteValidityHours: null,
   zestawienie: [],
   clientInfo: EMPTY_CLIENT_INFO,
   transportRoute: EMPTY_TRANSPORT_ROUTE,
@@ -284,11 +278,14 @@ export default function Calculator() {
   const [validFrom, setValidFrom] = useState('');
   const [validTo, setValidTo] = useState('');
 
-  // Termin płatności — liczba dni (przyciski PaymentTermPicker: 0 = przedpłata, 15, 30, 45,
-  // 60, 90 albo "Inny"), niezależny od okresu ważności oferty powyżej. Wybranie klienta
-  // przy tworzeniu nowej oferty ustawia domyślny termin tego klienta (albo globalny z
-  // Ustawień) — handlowiec może go potem nadpisać ręcznie, tak jak dawniej z datami.
+  // Payment term in days from invoice receipt — not editable per offer: taken from the
+  // selected client (clients.payment_term_days, edited in Klienci / senior panel) or the
+  // global default from Ustawienia. Frozen with the offer once saved.
   const [paymentTermDays, setPaymentTermDays] = useState<number | null>(null);
+
+  // Offer validity in hours (24h default / 48h / custom), chosen per offer. Feeds the PDF
+  // "Ważność oferty: Nh" line and the quote_validity_hours approval rules.
+  const [quoteValidityHours, setQuoteValidityHours] = useState<number | null>(null);
 
   const [gradeInput, setGradeInput] = useState('S235JR+N');
   const [selectedGrade, setSelectedGrade] = useState<Grade | null>({ name: 'S235JR+N', value: 24 });
@@ -461,8 +458,7 @@ export default function Calculator() {
       sapId: client.sapId,
     }));
 
-    // Termin płatności klienta (albo globalny domyślny, gdy klient go nie ma) — od razu
-    // ustawiony jako preset w PaymentTermPicker; handlowiec może go nadpisać ręcznie.
+    // Client's payment term (or the global default when the client has none).
     setPaymentTermDays(client.paymentTermDays ?? settings.paymentTermDays);
   };
 
@@ -1030,6 +1026,7 @@ export default function Calculator() {
     validFrom, validTo,
     // Termin płatności (liczba dni) — mrożony razem z resztą, tak samo jak okres ważności.
     paymentTermDays,
+    quoteValidityHours,
     zestawienie,
     clientInfo,
     // Trasa zamrażana razem z ofertą — po ponownym otwarciu widać, na jakim adresie
@@ -1074,6 +1071,11 @@ export default function Calculator() {
     // wartość z poprzednio wczytanej oferty — stąd sprawdzamy `!== undefined`, nie `typeof === 'number'`.
     if (data.paymentTermDays !== undefined) {
       setPaymentTermDays(typeof data.paymentTermDays === 'number' ? data.paymentTermDays : null);
+    }
+    // Offers saved before quoteValidityHours existed get the legacy days x 24 value (what
+    // their PDF printed); null from INITIAL_OFFER_DATA clears it before the defaults land.
+    if (data.quoteValidityHours !== undefined || data.paymentTermDays !== undefined) {
+      setQuoteValidityHours(resolveQuoteValidityHours(data));
     }
     if (data.zestawienie !== undefined) setZestawienie(data.zestawienie);
     // normalizeClientInfo, a nie surowe przypisanie: oferta zapisana przed dodaniem
@@ -1129,6 +1131,7 @@ export default function Calculator() {
         validFrom,
         validTo,
         paymentTermDays,
+        quoteValidityHours,
       });
       setSaveMessage({ type: 'success', text: language === 'pl' ? 'PDF wygenerowany!' : 'PDF generated!' });
     } catch (error) {
@@ -1230,13 +1233,14 @@ export default function Calculator() {
       const s = fresh ?? settings;
       setPglBase(pglBaseForType(currentType, s));
       setTransport(s.transportBase);
-      // Domyślny okres ważności ("Ten miesiąc") i termin płatności (2 dni) dla oferty bez
-      // wybranego jeszcze klienta — patrz DEFAULT_NEW_OFFER_PAYMENT_TERM_DAYS wyżej. Klient z
-      // własnym terminem (applyClientSuggestion) nadpisuje to bez zmian.
+      // Defaults for an offer with no client yet: "Ten miesiąc" price validity, 24h quote
+      // validity and the global payment term — a picked client's own term overrides it
+      // (applyClientSuggestion).
       const { from, to } = thisMonthValidityRange();
       setValidFrom(from);
       setValidTo(to);
-      setPaymentTermDays(DEFAULT_NEW_OFFER_PAYMENT_TERM_DAYS);
+      setPaymentTermDays(s.paymentTermDays);
+      setQuoteValidityHours(DEFAULT_QUOTE_VALIDITY_HOURS);
       // Baseline for a fresh offer is captured only after the admin defaults land, so the
       // default PGL/transport are not themselves seen as unsaved changes.
       setBaselineNonce(n => n + 1);
@@ -1426,7 +1430,8 @@ export default function Calculator() {
         const { from, to } = thisMonthValidityRange();
         setValidFrom(from);
         setValidTo(to);
-        setPaymentTermDays(DEFAULT_NEW_OFFER_PAYMENT_TERM_DAYS);
+        setPaymentTermDays(s.paymentTermDays);
+        setQuoteValidityHours(DEFAULT_QUOTE_VALIDITY_HOURS);
         defaultsAppliedRef.current = true;
         setBaselineNonce(n => n + 1);
       })();
@@ -1986,20 +1991,30 @@ export default function Calculator() {
           />
         </div>
 
-        {/* Termin płatności — liczba dni (0 = przedpłata, presety albo "Inny"), osobny od
-            okresu ważności oferty powyżej. Domyślnie ustawiony na termin klienta z podpowiedzi
-            (patrz applyClientSuggestion) albo globalny domyślny z Ustawień, edytowalny ręcznie. */}
+        {/* Quote validity in hours (24h / 48h / custom); the payment term next to it is
+            read-only — it comes from the client's settings (see applyClientSuggestion). */}
         <div className="flex items-center gap-2 flex-wrap px-3 py-2 rounded-md border-[1.5px] border-[var(--border)] bg-[var(--bg-panel)]">
           <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
-            {t.inputs.paymentTerm}
+            {t.inputs.quoteValidity}
           </label>
-          <PaymentTermPicker
-            value={paymentTermDays}
-            onChange={setPaymentTermDays}
-            prepaymentLabel={t.inputs.paymentTermPrepayment}
-            customLabel={t.inputs.paymentTermCustom}
+          <QuoteValidityPicker
+            key={currentOfferId ?? 'new'}
+            value={quoteValidityHours}
+            onChange={setQuoteValidityHours}
+            customLabel={t.inputs.offerValidityCustom}
           />
         </div>
+
+        {paymentTermDays !== null && (
+          <span
+            title={t.inputs.paymentTermFromClientHint}
+            className="px-3 py-2 rounded-md border-[1.5px] border-[var(--border)] bg-[var(--bg-panel)] text-[11px] font-mono text-[var(--text-secondary)] whitespace-nowrap"
+          >
+            {paymentTermDays === 0
+              ? t.inputs.paymentTermFromClientPrepayment
+              : t.inputs.paymentTermFromClient.replace('{days}', String(paymentTermDays))}
+          </span>
+        )}
       </div>
 
       {validitySpansQuarters && (

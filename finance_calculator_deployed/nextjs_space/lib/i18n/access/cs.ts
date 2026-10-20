@@ -116,7 +116,7 @@ export const cs: AccessTexts = {
     creatorRole: 'Role autora',
     offerMargin: 'Marže nabídky (%)',
     pglReductionPct: 'Snížení základu vs standard (%)',
-    paymentTermDays: 'Splatnost (dny)',
+    quoteValidityHours: 'Platnost nabídky (h)',
     validFrom: 'Platí od',
     validTo: 'Platí do',
     offerValue: 'Hodnota nabídky (EUR)',

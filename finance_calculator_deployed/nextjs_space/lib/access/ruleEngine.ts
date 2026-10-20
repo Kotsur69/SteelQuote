@@ -8,6 +8,7 @@
 // comparable with them and becomes an additional approval instead.
 
 import type { HierarchyLevel } from './types';
+import { resolveQuoteValidityHours } from '../quoteValidity';
 
 export const CRITERIA = [
   'margin_below_target',
@@ -52,7 +53,7 @@ export interface OfferFacts {
   baseChanged: 0 | 1;
   /** Largest reduction of an item's PGL below its base, in % of the base (0 = none). */
   baseReductionPct: number;
-  /** Quotation validity in hours = payment term days x 24 (0 when unset). */
+  /** Quotation validity in hours (legacy offers: payment term days x 24; 0 when unset). */
   quoteValidityHours: number;
   /** 0 = within one calendar month, 1 = within one quarter, 2 = spans quarters. */
   priceValidityQuarters: number;
@@ -76,11 +77,11 @@ export interface OfferDataInput {
   validFrom?: unknown;
   validTo?: unknown;
   paymentTermDays?: unknown;
+  quoteValidityHours?: unknown;
 }
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const HOURS_PER_DAY = 24;
 // Tolerance for '=' / '!=' on values that went through float arithmetic (margins, %).
 const EPSILON = 1e-9;
 // A PGL counts as "below base" only beyond float noise - same tolerance as fieldGuards.ts.
@@ -161,7 +162,6 @@ export function computeOfferFacts(
     offerValueEur += Math.max(0, stored, recomputed);
   }
 
-  const termDays = finite(data?.paymentTermDays);
   const validity = priceValidity(data?.validFrom, data?.validTo);
 
   const roundedReduction = round4(baseReductionPct);
@@ -169,7 +169,7 @@ export function computeOfferFacts(
     minMarginPct,
     baseChanged: roundedReduction > 0 ? 1 : 0,
     baseReductionPct: roundedReduction,
-    quoteValidityHours: termDays !== null && termDays > 0 ? termDays * HOURS_PER_DAY : 0,
+    quoteValidityHours: resolveQuoteValidityHours(data) ?? 0,
     priceValidityQuarters: validity.quarters,
     priceValidityDays: validity.days,
     offerValueEur: round4(offerValueEur),

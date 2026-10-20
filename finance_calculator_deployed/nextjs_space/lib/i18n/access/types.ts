@@ -105,7 +105,7 @@ export interface AccessTexts {
     creatorRole: string;
     offerMargin: string;
     pglReductionPct: string;
-    paymentTermDays: string;
+    quoteValidityHours: string;
     validFrom: string;
     validTo: string;
     offerValue: string;

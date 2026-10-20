@@ -116,7 +116,7 @@ export const en: AccessTexts = {
     creatorRole: 'Creator role',
     offerMargin: 'Offer margin (%)',
     pglReductionPct: 'Base reduction vs standard (%)',
-    paymentTermDays: 'Payment term (days)',
+    quoteValidityHours: 'Quotation validity (h)',
     validFrom: 'Valid from',
     validTo: 'Valid to',
     offerValue: 'Offer value (EUR)',

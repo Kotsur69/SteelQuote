@@ -40,15 +40,12 @@ export interface PdfLabels {
   // Zakres dat "okresu ważności oferty" (od-do) wybranego w kalkulatorze — opcjonalna
   // dodatkowa linijka. Renderowana tylko gdy obie daty przyszły.
   validityRangeNote: (from: string, to: string) => string;
-  // Przywrócona wersja dawnej stałej "Ważność oferty: 48h od daty wystawienia" (usuniętej w
-  // abdcce0) — teraz liczona z terminu płatności (dni × 24h) zamiast być na sztywno wpisana.
-  // Renderowana tylko gdy paymentTermDays > 0 (patrz app/api/generate-pdf/route.ts); przy 0
-  // (przedpłata) godziny nie mają sensu, więc linijka się nie pojawia.
+  // "Ważność oferty: Nh od daty wystawienia" — hours picked per offer (24h/48h/custom,
+  // lib/quoteValidity.ts). Legacy offers without the field fall back to payment days x 24.
   validityHoursNote: (hours: number) => string;
   paymentNote: string;
-  // Termin płatności jako liczba dni (przyciski w kalkulatorze: 0/15/30/45/60/90 + "Inny") —
-  // zastępuje paymentNote w stopce PDF, gdy handlowiec go wybrał. 0 dni = paymentPrepaymentNote
-  // zamiast tego (patrz niżej), nie "0 dni". Brak wyboru = paymentNote zostaje bez zmian.
+  // Payment term in days from invoice receipt (from the client's settings) — replaces
+  // paymentNote when set. 0 days = paymentPrepaymentNote instead, not "0 dni".
   paymentTermDaysNote: (days: number) => string;
   paymentPrepaymentNote: string;
   minQuantityNote: string;
@@ -105,7 +102,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     validityRangeNote: (from, to) => `Okres ważności oferty: ${from} – ${to}.`,
     validityHoursNote: (hours) => `Ważność oferty: ${hours}h od daty wystawienia.`,
     paymentNote: 'Warunki płatności: wg ustaleń indywidualnych.',
-    paymentTermDaysNote: (days) => `Termin płatności: ${days} dni.`,
+    paymentTermDaysNote: (days) => `Termin płatności: ${days} dni od otrzymania faktury.`,
     paymentPrepaymentNote: 'Warunki płatności: przedpłata.',
     minQuantityNote: 'Minimalna ilość: 5 ton na pozycję.',
     deliveryNote: 'Termin dostawy: po potwierdzeniu dostępności materiału.',
@@ -149,7 +146,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     validityRangeNote: (from, to) => `Offer validity period: ${from} – ${to}.`,
     validityHoursNote: (hours) => `Offer validity: ${hours}h from issue date.`,
     paymentNote: 'Payment terms: as individually agreed.',
-    paymentTermDaysNote: (days) => `Payment term: ${days} days.`,
+    paymentTermDaysNote: (days) => `Payment term: ${days} days from receipt of invoice.`,
     paymentPrepaymentNote: 'Payment terms: prepayment.',
     minQuantityNote: 'Minimum quantity: 5 tons per item.',
     deliveryNote: 'Delivery time: upon confirmation of material availability.',
@@ -193,7 +190,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     validityRangeNote: (from, to) => `Doba platnosti nabídky: ${from} – ${to}.`,
     validityHoursNote: (hours) => `Platnost nabídky: ${hours}h od data vystavení.`,
     paymentNote: 'Platební podmínky: dle individuální dohody.',
-    paymentTermDaysNote: (days) => `Splatnost: ${days} dní.`,
+    paymentTermDaysNote: (days) => `Splatnost: ${days} dní od obdržení faktury.`,
     paymentPrepaymentNote: 'Platební podmínky: platba předem.',
     minQuantityNote: 'Minimální množství: 5 tun na položku.',
     deliveryNote: 'Termín dodání: po potvrzení dostupnosti materiálu.',
@@ -237,7 +234,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     validityRangeNote: (from, to) => `Gültigkeitszeitraum des Angebots: ${from} – ${to}.`,
     validityHoursNote: (hours) => `Angebotsgültigkeit: ${hours}h ab Ausstellungsdatum.`,
     paymentNote: 'Zahlungsbedingungen: nach individueller Vereinbarung.',
-    paymentTermDaysNote: (days) => `Zahlungsziel: ${days} Tage.`,
+    paymentTermDaysNote: (days) => `Zahlungsziel: ${days} Tage nach Rechnungseingang.`,
     paymentPrepaymentNote: 'Zahlungsbedingungen: Vorkasse.',
     minQuantityNote: 'Mindestmenge: 5 Tonnen pro Position.',
     deliveryNote: 'Liefertermin: nach Bestätigung der Materialverfügbarkeit.',

@@ -12,7 +12,6 @@ import type { FlowRole, HierarchyLevel } from '@/lib/access/types';
 import { useAccessT } from '@/lib/i18n/access';
 import { Badge, Card, inputCls, labelCls, numOrNull, rolesInFlow, secondaryBtnCls, tdCls, thCls, theadRowCls, type PanelProps } from './ui';
 
-const HOURS_PER_DAY = 24;
 const FLOW1_CODE = 'FLOW1';
 const FLOW2_CODE = 'FLOW2';
 const N0_CODE = 'N0';
@@ -27,7 +26,7 @@ interface SimForm {
   roleId: number | null;
   margin: string;
   reduction: string;
-  days: string;
+  hours: string;
   validFrom: string;
   validTo: string;
   value: string;
@@ -37,13 +36,13 @@ interface SimForm {
 interface Preset {
   id: string;
   flowCode: string;
-  values: Pick<SimForm, 'margin' | 'reduction' | 'days' | 'validFrom' | 'validTo' | 'value'>;
+  values: Pick<SimForm, 'margin' | 'reduction' | 'hours' | 'validFrom' | 'validTo' | 'value'>;
   withExtraRule: boolean;
   /** Level code the sheet expects; null = no validation, 'conflict' = configuration conflict. */
   expected: string | null | 'conflict';
 }
 
-const BASE = { margin: '4.5', reduction: '0', days: '2', validFrom: '2026-10-01', validTo: '2026-10-30', value: '100' };
+const BASE = { margin: '4.5', reduction: '0', hours: '24', validFrom: '2026-10-01', validTo: '2026-10-30', value: '100' };
 const PRESETS: Preset[] = [
   { id: 'T1', flowCode: FLOW1_CODE, values: BASE, withExtraRule: false, expected: null },
   { id: 'T2', flowCode: FLOW1_CODE, values: { ...BASE, margin: '4.0' }, withExtraRule: false, expected: 'N+1' },
@@ -75,7 +74,7 @@ function factsOf(f: SimForm): OfferFacts {
     minMarginPct: numOrNull(f.margin),
     baseChanged: reduction > 0 ? 1 : 0,
     baseReductionPct: reduction,
-    quoteValidityHours: (numOrNull(f.days) ?? 0) * HOURS_PER_DAY,
+    quoteValidityHours: numOrNull(f.hours) ?? 0,
     priceValidityQuarters: validity.quarters,
     priceValidityDays: validity.days,
     offerValueEur: numOrNull(f.value) ?? 0,
@@ -218,7 +217,7 @@ export default function SimulatorPanel({ config }: PanelProps) {
           {([
             ['margin', t.simulator.offerMargin, 'number'],
             ['reduction', t.simulator.pglReductionPct, 'number'],
-            ['days', t.simulator.paymentTermDays, 'number'],
+            ['hours', t.simulator.quoteValidityHours, 'number'],
             ['value', t.simulator.offerValue, 'number'],
             ['validFrom', t.simulator.validFrom, 'date'],
             ['validTo', t.simulator.validTo, 'date'],

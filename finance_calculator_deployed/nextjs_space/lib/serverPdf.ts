@@ -52,6 +52,8 @@ export interface ServerPdfInput {
   // 60, 90 albo "Inny" (dowolna wartość 0-365). Brak (null/undefined) = PDF pokazuje
   // generyczną formułkę "wg ustaleń indywidualnych".
   paymentTermDays?: number | null;
+  // Offer validity in hours (24h / 48h / custom). Missing = server falls back to days x 24.
+  quoteValidityHours?: number | null;
 }
 
 /**
@@ -110,6 +112,7 @@ export async function downloadServerPdf(input: ServerPdfInput): Promise<void> {
       validFrom,
       validTo,
       paymentTermDays: input.paymentTermDays,
+      quoteValidityHours: input.quoteValidityHours,
       // Saved offer: the server prints its creator as "prepared by", whoever downloads it.
       offerId: input.offerId ?? null,
     }),

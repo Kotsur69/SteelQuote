@@ -116,7 +116,7 @@ export const pl: AccessTexts = {
     creatorRole: 'Rola tworząca',
     offerMargin: 'Marża oferty (%)',
     pglReductionPct: 'Obniżenie bazy vs standard (%)',
-    paymentTermDays: 'Termin płatności (dni)',
+    quoteValidityHours: 'Ważność oferty (h)',
     validFrom: 'Ważna od',
     validTo: 'Ważna do',
     offerValue: 'Wartość oferty (EUR)',

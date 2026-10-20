@@ -7,6 +7,7 @@ import { isCurrency, sanitizeRate, DEFAULT_CURRENCY, type Currency } from '@/lib
 import { isLanguage, type Language } from '@/lib/translations';
 import { PDF_LABELS, PDF_DATE_LOCALE } from '@/lib/pdfLabels';
 import { fixedGrouped } from '@/lib/numberFormat';
+import { resolveQuoteValidityHours, sanitizeQuoteValidityHours } from '@/lib/quoteValidity';
 import fs from 'fs';
 import path from 'path';
 
@@ -77,7 +78,8 @@ function buildHtml(
   language: Language,
   validFrom?: string,
   validTo?: string,
-  paymentTermDays?: number
+  paymentTermDays?: number,
+  quoteValidityHours?: number
 ): string {
   const logo = getLogoBase64();
   const L = PDF_LABELS[language];
@@ -270,7 +272,7 @@ function buildHtml(
       ${isPln ? `<li>${L.rateNote(eurPlnRate.toFixed(4).replace(/0+$/, '').replace(/\.$/, ''))}</li>` : ''}
       <li>${L.invoiceNote}</li>
       ${validFrom && validTo ? `<li>${escapeHtml(L.validityRangeNote(validFrom, validTo))}</li>` : ''}
-      ${typeof paymentTermDays === 'number' && paymentTermDays > 0 ? `<li>${escapeHtml(L.validityHoursNote(paymentTermDays * 24))}</li>` : ''}
+      ${quoteValidityHours !== undefined ? `<li>${escapeHtml(L.validityHoursNote(quoteValidityHours))}</li>` : ''}
       <li>${
         typeof paymentTermDays === 'number'
           ? paymentTermDays === 0
@@ -316,7 +318,7 @@ export async function POST(request: Request) {
     }
     const session = auth.ctx;
 
-    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language, validFrom, validTo, paymentTermDays, offerId } = await request.json();
+    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language, validFrom, validTo, paymentTermDays, quoteValidityHours, offerId } = await request.json();
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'No items provided' }, { status: 400 });
     }
@@ -346,8 +348,12 @@ export async function POST(request: Request) {
       typeof paymentTermDays === 'number' && Number.isFinite(paymentTermDays) && paymentTermDays >= 0 && paymentTermDays <= 365
         ? paymentTermDays
         : undefined;
+    // Quote validity hours; a payload without the field (older caller) keeps the legacy
+    // days x 24 line, same as resolveQuoteValidityHours does for saved offers.
+    const quoteValidityHoursNum: number | undefined =
+      sanitizeQuoteValidityHours(resolveQuoteValidityHours({ quoteValidityHours, paymentTermDays: paymentTermDaysNum }));
 
-    const html_content = buildHtml(items, client, offerName || '', date, userName, pdfCurrency, pdfRate, pdfLanguage, validFromStr, validToStr, paymentTermDaysNum);
+    const html_content = buildHtml(items, client, offerName || '', date, userName, pdfCurrency, pdfRate, pdfLanguage, validFromStr, validToStr, paymentTermDaysNum, quoteValidityHoursNum);
 
     // Step 1: Create PDF request
     const createResponse = await fetch('https://apps.abacus.ai/api/createConvertHtmlToPdfRequest', {

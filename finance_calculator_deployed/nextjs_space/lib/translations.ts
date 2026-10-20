@@ -208,6 +208,11 @@ export interface Translations {
     paymentTerm: string;
     paymentTermPrepayment: string;
     paymentTermCustom: string;
+    quoteValidity: string;
+    /** "{days}" = client's payment term in days. */
+    paymentTermFromClient: string;
+    paymentTermFromClientPrepayment: string;
+    paymentTermFromClientHint: string;
   };
 
   // Mill surcharges (Huta)
@@ -1045,6 +1050,10 @@ export const pl: Translations = {
     paymentTerm: 'Termin płatności (dni)',
     paymentTermPrepayment: 'Przedpłata',
     paymentTermCustom: 'Inny',
+    quoteValidity: 'Ważność oferty',
+    paymentTermFromClient: 'Termin płatności: {days} dni od otrzymania faktury',
+    paymentTermFromClientPrepayment: 'Termin płatności: przedpłata',
+    paymentTermFromClientHint: 'Z ustawień klienta (domyślnie z Ustawień globalnych)',
   },
   
   huta: {
@@ -1330,7 +1339,7 @@ export const pl: Translations = {
       scrapPct: 'Złom (%)',
       scrapPctHint: 'Procent ceny wsadu (PGL + Σ Huta) doliczany w podsumowaniu SSC jako "Złom".',
       paymentTermDays: 'Domyślny termin płatności (dni)',
-      paymentTermDaysHint: 'Liczony od "Ważna od" oferty. Klient może mieć własny termin (panel Klienci) — wtedy ma pierwszeństwo przed tą wartością.',
+      paymentTermDaysHint: 'Liczony od daty otrzymania faktury. Klient może mieć własny termin (panel Klienci) — wtedy ma pierwszeństwo przed tą wartością.',
       daysUnit: 'dni',
       transportBaseHint: 'Wartość startowa transportu w nowej kalkulacji. Handlowiec może ją nadpisać.',
       transportOrigin: 'Adres nadania',
@@ -1875,6 +1884,10 @@ export const en: Translations = {
     paymentTerm: 'Payment term (days)',
     paymentTermPrepayment: 'Prepayment',
     paymentTermCustom: 'Custom',
+    quoteValidity: 'Offer validity',
+    paymentTermFromClient: 'Payment term: {days} days from invoice receipt',
+    paymentTermFromClientPrepayment: 'Payment term: prepayment',
+    paymentTermFromClientHint: 'From the client settings (global default otherwise)',
   },
   
   huta: {
@@ -2160,7 +2173,7 @@ export const en: Translations = {
       scrapPct: 'Scrap (%)',
       scrapPctHint: 'Percentage of the input price (PGL + Σ Mill) added in the SSC summary as "Scrap".',
       paymentTermDays: 'Default payment term (days)',
-      paymentTermDaysHint: 'Counted from the offer\'s "Valid from" date. A client can have their own term (Clients panel) — that takes priority over this value.',
+      paymentTermDaysHint: 'Counted from the invoice receipt date. A client can have their own term (Clients panel) — that takes priority over this value.',
       daysUnit: 'days',
       transportBaseHint: 'Starting transport value for a new calculation. Salespeople can override it.',
       transportOrigin: 'Origin address',
@@ -2704,6 +2717,10 @@ export const cs: Translations = {
     paymentTerm: 'Splatnost (dny)',
     paymentTermPrepayment: 'Platba předem',
     paymentTermCustom: 'Vlastní',
+    quoteValidity: 'Platnost nabídky',
+    paymentTermFromClient: 'Splatnost: {days} dní od obdržení faktury',
+    paymentTermFromClientPrepayment: 'Splatnost: platba předem',
+    paymentTermFromClientHint: 'Z nastavení klienta (jinak globální výchozí)',
   },
 
   huta: {
@@ -2989,7 +3006,7 @@ export const cs: Translations = {
       scrapPct: 'Šrot (%)',
       scrapPctHint: 'Procento ceny vsázky (PGL + Σ Huť) připočítané v souhrnu SSC jako "Šrot".',
       paymentTermDays: 'Výchozí splatnost (dny)',
-      paymentTermDaysHint: 'Počítáno od data "Platná od" nabídky. Klient může mít vlastní splatnost (panel Klienti) — ta má přednost před touto hodnotou.',
+      paymentTermDaysHint: 'Počítáno od data obdržení faktury. Klient může mít vlastní splatnost (panel Klienti) — ta má přednost před touto hodnotou.',
       daysUnit: 'dny',
       transportBaseHint: 'Výchozí hodnota dopravy pro novou kalkulaci. Obchodník ji může přepsat.',
       transportOrigin: 'Adresa odeslání',
@@ -3533,6 +3550,10 @@ export const de: Translations = {
     paymentTerm: 'Zahlungsziel (Tage)',
     paymentTermPrepayment: 'Vorkasse',
     paymentTermCustom: 'Andere',
+    quoteValidity: 'Angebotsgültigkeit',
+    paymentTermFromClient: 'Zahlungsziel: {days} Tage nach Rechnungseingang',
+    paymentTermFromClientPrepayment: 'Zahlungsziel: Vorkasse',
+    paymentTermFromClientHint: 'Aus den Kundeneinstellungen (sonst globaler Standard)',
   },
 
   huta: {
@@ -3818,7 +3839,7 @@ export const de: Translations = {
       scrapPct: 'Schrott (%)',
       scrapPctHint: 'Prozentsatz des Einsatzpreises (PGL + Σ Werk), der in der SSC-Summe als "Schrott" berechnet wird.',
       paymentTermDays: 'Standard-Zahlungsziel (Tage)',
-      paymentTermDaysHint: 'Berechnet ab "Gültig ab" des Angebots. Ein Kunde kann ein eigenes Zahlungsziel haben (Panel Kunden) — dieses hat Vorrang vor diesem Wert.',
+      paymentTermDaysHint: 'Berechnet ab Rechnungseingang. Ein Kunde kann ein eigenes Zahlungsziel haben (Panel Kunden) — dieses hat Vorrang vor diesem Wert.',
       daysUnit: 'Tage',
       transportBaseHint: 'Startwert für Transport in einer neuen Kalkulation. Vertrieb kann ihn überschreiben.',
       transportOrigin: 'Versandadresse',
