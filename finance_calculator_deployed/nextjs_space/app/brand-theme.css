@@ -20,7 +20,8 @@
 /* Logo swap: the "SSC" gradient tile becomes the ArcelorMittal logo */
 [class*="from-[#3b8ef5]"][class*="to-[#e8a020]"] {
   background: var(--logo) left center / contain no-repeat !important;
-  width: 132px !important; height: 40px !important; color: transparent !important; font-size: 0 !important;
+  /* Sized from the SVG viewBox (558x236): at 40px the wordmark caps were ~8px and the "A" smeared */
+  height: 52px !important; width: auto !important; aspect-ratio: 558 / 236; color: transparent !important; font-size: 0 !important;
   border-radius: 0 !important; flex-shrink: 0;
 }
 [class*="from-[#3b8ef5]"][class*="to-[#e8a020]"] * { display: none; }
@@ -37,7 +38,7 @@
 [class*="from-[#e8a020]"][class*="to-[#f0c040]"] { background: var(--am-gradient) !important; color: #fff !important; letter-spacing: .06em; }
 /* Login header: stack logo above the title so the wider logo never squeezes it */
 [class*="bg-[#1e2333]"] > div:first-child > div:first-child { flex-direction: column; align-items: flex-start; gap: 14px; }
-[class*="bg-[#1e2333]"] [class*="from-[#3b8ef5]"] { width: 150px !important; height: 46px !important; }
+[class*="bg-[#1e2333]"] [class*="from-[#3b8ef5]"] { height: 60px !important; }
 /* Inline-style and class blues inside the calculator -> brand accent */
 [style*="59,142,245"], [style*="59, 142, 245"] { background-color: var(--accent-tint-strong) !important; border-color: var(--accent) !important; color: var(--accent) !important; }
 .toggle-btn.active-toggle, .type-btn.active-cr, .grade-option:hover { background: var(--accent-tint-strong) !important; }
@@ -63,7 +64,8 @@ html:not(.dark), html:not(.dark) body {
   background-attachment: fixed !important;
 }
 html:not(.dark) .bg-card, html:not(.dark) .bg-panel { backdrop-filter: blur(14px); box-shadow: 0 10px 30px -18px rgba(127,24,120,.35); }
-html:not(.dark) [class*="rounded-"]:not(.rounded-full) { border-radius: 14px !important; }
+/* Excludes the logo tile: this rule out-specifies its radius reset, and the 14px corner clipped the "A" */
+html:not(.dark) [class*="rounded-"]:not(.rounded-full):not([class*="to-[#e8a020]"]) { border-radius: 14px !important; }
 html:not(.dark) nav a[class*="border-[#3b8ef5]"] { background: var(--am-gradient) !important; border-color: transparent !important; color: #fff !important; }
 html:not(.dark) .min-h-screen[class*="bg-[#0f1117]"] { background: radial-gradient(700px 500px at 10% 10%, #f0c6e6 0%, transparent 60%), radial-gradient(800px 600px at 95% 90%, #fdd0b8 0%, transparent 60%), #fbf6f8 !important; }
 html:not(.dark) [class*="bg-[#1e2333]"] { background: rgba(255,255,255,.75) !important; backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.9) !important; border-radius: 24px !important; box-shadow: 0 30px 70px -30px rgba(127,24,120,.45) !important; }
