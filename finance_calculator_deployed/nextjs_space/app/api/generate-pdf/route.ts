@@ -57,16 +57,45 @@ interface ClientInfo {
   email: string;
 }
 
-function getLogoBase64(): string {
+// Brand assets for the offer PDF (AM branding policy: colour logo top-right, Gilroy, AM colours).
+// Embedded as data URIs because the HTML goes to an external renderer that cannot reach us.
+function readAsDataUri(relPath: string, mime: string): string {
   try {
-    const logoPath = path.join(process.cwd(), 'public', 'logo.jpg');
-    const logoBuffer = fs.readFileSync(logoPath);
-    return `data:image/jpeg;base64,${logoBuffer.toString('base64')}`;
-  } catch {
+    const buffer = fs.readFileSync(path.join(process.cwd(), 'public', relPath));
+    return `data:${mime};base64,${buffer.toString('base64')}`;
+  } catch (error) {
+    console.error(`PDF asset missing: ${relPath}`, error);
     return '';
   }
 }
 
+function brandFontFaces(): string {
+  return ([['GilroyW05-Regular.woff2', 400], ['GilroyW05-SemiBold.woff2', 600]] as const)
+    .map(([file, weight]) => {
+      const uri = readAsDataUri(`brand/fonts/${file}`, 'font/woff2');
+      return uri ? `@font-face{font-family:Gilroy;src:url(${uri}) format('woff2');font-weight:${weight}}` : '';
+    })
+    .join('');
+}
+
+// Steel type badges in AM colours (Template 8). Unknown types fall back to the muted grey.
+const TYPE_COLORS: Record<string, string> = {
+  HRS: '#7F1878', CR: '#C12974', HDG: '#E74341', PICKLED: '#F58847', TEARDROP: '#414141', ZM: '#8a8a8a',
+};
+
+// Uwagi as running text: "Key: value" notes become a muted key + bold value, joined by dots.
+function notesFlowHtml(notes: string[]): string {
+  const parts = notes.map((note) => {
+    const sep = note.indexOf(': ');
+    if (sep === -1) return `<b>${escapeHtml(note)}</b>`;
+    return `<span class="k">${escapeHtml(note.slice(0, sep))}:</span>&nbsp;<b>${escapeHtml(note.slice(sep + 2))}</b>`;
+  });
+  return `<div class="nf">${parts.map((p) => `<span class="nfi">${p}</span>`).join(' ')}</div>`;
+}
+
+// Offer PDF = Template 8 ("O_kompakt_pion_ciemny", Szablony PDF/Template 8): portrait, dense,
+// dark table header, gradient rule under the header. Content is the same as before - only layout
+// and branding changed.
 function buildHtml(
   items: OrderItem[],
   client: ClientInfo,
@@ -81,7 +110,7 @@ function buildHtml(
   paymentTermDays?: number,
   quoteValidityHours?: number
 ): string {
-  const logo = getLogoBase64();
+  const logo = readAsDataUri('brand/logo-color.svg', 'image/svg+xml');
   const L = PDF_LABELS[language];
 
   // Kwoty w pozycjach są zawsze w EUR (tak liczy kalkulator). Do PDF przeliczamy je
@@ -102,31 +131,22 @@ function buildHtml(
 
   const rows = items.map((item, idx) => {
     const dims = `${item.thickness} × ${item.width}${!item.isCoil ? ` × ${item.length}` : ''}`;
-    // Jawna mapa kolorów per typ — poprzedni 2-poziomowy ternary po cichu kolorował
-    // każdy typ inny niż HRS/CR na zielono (HDG), co po dodaniu nowych typów byłoby błędne.
-    const TYPE_COLORS: Record<string, string> = {
-      HRS: '#3b82f6', CR: '#8b5cf6', HDG: '#10b981',
-      PICKLED: '#e0499a', TEARDROP: '#22c1d6', ZM: '#8b7cf6',
-    };
-    const typeClass = TYPE_COLORS[item.steelType] ?? '#64748b';
-    const notesHtml = (item.notes ?? [])
-      .map(n => `<span style="display:inline-block;background:#f1f5f9;border-radius:3px;padding:1px 5px;margin:1px 2px 1px 0;white-space:nowrap;">${escapeHtml(n)}</span>`)
-      .join('');
+    const typeColor = TYPE_COLORS[item.steelType] ?? '#6f6a66';
     return `
       <tr>
-        <td style="text-align:center;font-weight:600;">${idx + 1}</td>
+        <td class="c g">${idx + 1}</td>
         <td>
-          <div style="font-weight:600;font-size:11px;">${escapeHtml(item.grade)}</div>
-          <div style="font-size:10px;color:#64748b;">${dims}${item.coating ? ' / ' + escapeHtml(item.coating) : ''}${item.isCoil ? ' ' + L.coilSuffix : ''}</div>
+          <div class="g">${escapeHtml(item.grade)}</div>
+          <div class="ds">${dims}${item.coating ? ' / ' + escapeHtml(item.coating) : ''}${item.isCoil ? ' ' + L.coilSuffix : ''}</div>
         </td>
-        <td style="text-align:center;"><span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${typeClass};color:#fff;font-size:10px;font-weight:700;">${escapeHtml(item.steelType)}</span></td>
-        <td style="text-align:right;font-family:'Courier New',monospace;">${item.thickness.toFixed(2)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;">${item.width.toFixed(0)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;">${item.isCoil ? '-' : item.length.toFixed(0)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;white-space:nowrap;">${num(item.quantity, 2)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;font-weight:600;white-space:nowrap;">${ceilNum(item.pricePerTon * fx)}</td>
-        <td style="text-align:right;font-family:'Courier New',monospace;white-space:nowrap;">${ceilNum(item.pricePerTon * item.quantity * fx)}</td>
-        <td style="font-size:8px;color:#64748b;line-height:1.5;">${notesHtml}</td>
+        <td class="c"><span class="tb" style="background:${typeColor}">${escapeHtml(item.steelType)}</span></td>
+        <td class="r n">${item.thickness.toFixed(2)}</td>
+        <td class="r n">${item.width.toFixed(0)}</td>
+        <td class="r n">${item.isCoil ? '-' : item.length.toFixed(0)}</td>
+        <td class="r n">${num(item.quantity, 2)}</td>
+        <td class="r n g">${ceilNum(item.pricePerTon * fx)}</td>
+        <td class="r n">${ceilNum(item.pricePerTon * item.quantity * fx)}</td>
+        <td class="nt">${notesFlowHtml(item.notes ?? [])}</td>
       </tr>`;
   }).join('');
 
@@ -134,114 +154,108 @@ function buildHtml(
   // identyczne szerokości kolumn, żeby "RAZEM" wizualnie wyrównywało się z
   // kolumnami powyżej mimo że to teraz DWIE osobne tabele (patrz niżej, dlaczego).
   const colgroup = `<colgroup>
-    <col style="width:30px">
-    <col>
-    <col style="width:45px">
-    <col style="width:55px">
-    <col style="width:55px">
-    <col style="width:55px">
-    <col style="width:70px">
-    <col style="width:78px">
-    <col style="width:130px">
-    <col style="width:168px">
+    <col style="width:22px"><col style="width:96px"><col style="width:56px"><col style="width:40px"><col style="width:40px">
+    <col style="width:40px"><col style="width:48px"><col style="width:50px"><col style="width:62px"><col>
   </colgroup>`;
+
+  const infoRow = (label: string, value: string) => `<div class="ir"><span class="l">${label}</span><span class="v">${value}</span></div>`;
+  const clientRows = [
+    client.company ? infoRow(L.companyLabel, escapeHtml(client.company)) : '',
+    (client.firstName || client.lastName) ? infoRow(L.personLabel, `${escapeHtml(client.firstName)} ${escapeHtml(client.lastName)}`) : '',
+    client.address ? infoRow(L.addressLabel, escapeHtml(client.address)) : '',
+    client.nip ? infoRow(L.taxIdLabel, escapeHtml(client.nip)) : '',
+    client.sapId ? infoRow(L.sapIdLabel, escapeHtml(client.sapId)) : '',
+    client.phone ? infoRow(L.phoneLabel, escapeHtml(client.phone)) : '',
+    client.email ? infoRow(L.emailLabel, escapeHtml(client.email)) : '',
+  ].join('');
+  const summaryRows = [
+    infoRow(L.itemsLabel, String(items.length)),
+    infoRow(L.totalTonsLabel, `<span class="n">${num(totalTons, 2)} t</span>`),
+    infoRow(L.valueLabel, `<span class="hlv n">${ceilNum(totalValue)} ${unit}</span>`),
+    infoRow(L.typesLabel, escapeHtml([...new Set(items.map(i => i.steelType))].join(', '))),
+  ].join('');
 
   return `<!DOCTYPE html>
 <html lang="${language}">
 <head>
 <meta charset="UTF-8">
 <style>
-  @page { margin: 20mm 15mm 25mm 15mm; size: A4 landscape; }
+  ${brandFontFaces()}
+  :root { --ink:#414141; --mut:#6f6a66; --line:#e7e2dd; --soft:#f7f4f1; --or:#ff3700;
+    --grad:linear-gradient(90deg,#7F1878 0%,#C12974 35%,#E74341 68%,#F58847 100%); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1e293b; line-height: 1.5; }
-  .page { padding: 0; }
-  .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 3px solid #1e40af; }
-  .header-left { display: flex; align-items: center; gap: 14px; }
-  .logo { width: 52px; height: 52px; border-radius: 12px; object-fit: cover; }
-  .company-name { font-size: 18px; font-weight: 800; color: #1e40af; letter-spacing: 0.5px; }
-  .company-sub { font-size: 10px; color: #64748b; margin-top: 2px; }
-  .offer-meta { text-align: right; }
-  .offer-meta .offer-title { font-size: 16px; font-weight: 700; color: #1e293b; }
-  .offer-meta .meta-row { font-size: 10px; color: #64748b; margin-top: 3px; }
-  .offer-meta .meta-val { font-weight: 600; color: #1e293b; }
-  .info-grid { display: flex; gap: 24px; margin-bottom: 18px; }
-  .info-block { flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; }
-  .info-block-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1e40af; margin-bottom: 8px; }
-  .info-row { font-size: 10px; margin-bottom: 3px; }
-  .info-row .lbl { color: #64748b; display: inline-block; width: 70px; }
-  .info-row .val { font-weight: 600; color: #1e293b; }
-  table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 16px; }
-  .items-table { margin-bottom: 0; }
-  thead th { background: #1e40af; color: #fff; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; padding: 8px 10px; border: none; }
-  thead th:first-child { border-radius: 6px 0 0 0; }
-  thead th:last-child { border-radius: 0 6px 0 0; }
-  tbody td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; font-size: 11px; overflow: hidden; }
-  tbody tr:nth-child(even) { background: #f8fafc; }
-  tbody tr:hover { background: #eff6ff; }
-  .totals-table { break-inside: avoid; page-break-inside: avoid; }
-  .totals-table td { padding: 10px; font-weight: 700; font-size: 12px; background: #1e293b; color: #fff; border: none; overflow: visible; white-space: nowrap; }
-  .totals-table td:first-child { border-radius: 0 0 0 6px; }
-  .totals-table td:last-child { border-radius: 0 0 6px 0; }
-  .footer { margin-top: 24px; padding-top: 14px; border-top: 2px solid #e2e8f0; }
-  .footer-notes { font-size: 10px; color: #64748b; line-height: 1.6; }
-  .footer-notes li { margin-bottom: 2px; }
-  .footer-sign { margin-top: 20px; display: flex; justify-content: space-between; }
-  .sign-block { text-align: center; }
-  .sign-line { width: 180px; border-top: 1px solid #94a3b8; margin-top: 40px; padding-top: 4px; font-size: 10px; color: #64748b; }
-  .sign-name { font-weight: 600; color: #1e293b; font-size: 11px; }
-  .badge-total { background: #059669; color: #fff; padding: 4px 12px; border-radius: 4px; font-weight: 700; font-size: 12px; white-space: nowrap; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { size: A4 portrait; margin: 10mm 10mm 12mm 10mm; }
+  body { font-family: Gilroy, Arial, sans-serif; color: var(--ink); font-size: 8.5pt; line-height: 1.35; }
+  .g { font-weight: 600; } .c { text-align: center; } .r { text-align: right; }
+  .n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .hd { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 8px; margin-bottom: 8px; position: relative; }
+  .hd:after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--grad); border-radius: 2px; }
+  .brand { text-align: right; } .brand .logo { height: 34px; display: block; margin-left: auto; }
+  .brand .sub { font-size: 7.5pt; color: var(--mut); margin-top: 4px; }
+  .meta .title { font-size: 16pt; font-weight: 600; line-height: 1.15; }
+  .mr { font-size: 7.8pt; color: var(--mut); margin-top: 1px; } .mr b { color: var(--ink); font-weight: 600; }
+  .info { display: flex; gap: 10px; margin-bottom: 8px; }
+  .ib { flex: 1; background: var(--soft); border-radius: 6px; padding: 6px 10px; }
+  .ib:first-child { flex: 1.7; } .ib:first-child .rows { columns: 2; column-gap: 12px; }
+  .ibt { font-size: 6.8pt; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--or); margin-bottom: 4px; }
+  .ir { font-size: 7.8pt; margin-bottom: 1px; display: flex; break-inside: avoid; }
+  .ir .l { color: var(--mut); width: 56px; flex: none; } .ir .v { font-weight: 600; }
+  .hlv { color: var(--or); font-size: 9.5pt; }
+  table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+  th { font-size: 6.4pt; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; padding: 5px 4px; text-align: left; line-height: 1.2; background: var(--ink); color: #fff; }
+  th.r { text-align: right; } th.c { text-align: center; }
+  thead th:first-child { border-radius: 5px 0 0 0; } thead th:last-child { border-radius: 0 5px 0 0; }
+  .it td { padding: 4px 4px; vertical-align: top; border-bottom: 1px solid var(--line); }
+  .it tr { break-inside: avoid; page-break-inside: avoid; }
+  .ds { font-size: 7.2pt; color: var(--mut); }
+  .tb { display: inline-block; padding: 1px 5px; border-radius: 3px; color: #fff; font-size: 6.6pt; font-weight: 600; letter-spacing: .3px; white-space: nowrap; }
+  .nt { font-size: 6.8pt; line-height: 1.35; color: var(--mut); }
+  .nf b { color: var(--ink); font-weight: 600; } .nfi { white-space: nowrap; } .nfi:not(:last-child):after { content: ' ·'; color: #c9c2bb; }
+  .tot { break-inside: avoid; page-break-inside: avoid; border-collapse: separate; border-spacing: 0; }
+  .tot td { padding: 6px 4px; font-weight: 600; white-space: nowrap; background: var(--soft); }
+  .tot td:first-child { border-radius: 0 0 0 5px; } .tot td:last-child { border-radius: 0 0 5px 0; }
+  .tl { font-size: 7pt; letter-spacing: 1px; text-transform: uppercase; }
+  .bt { display: inline-block; padding: 2px 9px; border-radius: 3px; background: var(--or); color: #fff; font-size: 9.5pt; }
+  .ft { margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 20px; break-inside: avoid; page-break-inside: avoid; }
+  .ft ul { flex: 1; list-style: none; font-size: 7.4pt; color: var(--mut); line-height: 1.55; columns: 2; column-gap: 16px; }
+  .ft ul li { break-inside: avoid; }
+  .sg { display: flex; gap: 22px; align-items: flex-end; } .sg > div { width: 150px; text-align: center; }
+  .sn { font-weight: 600; font-size: 8pt; }
+  .sl { border-top: 1px solid #b8b1ab; margin-top: 28px; padding-top: 3px; font-size: 7.2pt; color: var(--mut); }
 </style>
 </head>
 <body>
-<div class="page">
-  <div class="header">
-    <div class="header-left">
-      ${logo ? `<img src="${logo}" class="logo" alt="Logo">` : ''}
-      <div>
-        <div class="company-name">Steel Pricing Hub</div>
-        <div class="company-sub">${L.companySub}</div>
-      </div>
+  <div class="hd">
+    <div class="meta">
+      <div class="title">${escapeHtml(offerName) || L.defaultOfferTitle}</div>
+      <div class="mr">${L.dateLabel} <b>${escapeHtml(offerDate)}</b></div>
+      <div class="mr">${L.preparedByLabel} <b>${escapeHtml(userName) || '-'}</b></div>
     </div>
-    <div class="offer-meta">
-      <div class="offer-title">${escapeHtml(offerName) || L.defaultOfferTitle}</div>
-      <div class="meta-row"><span class="lbl">${L.dateLabel}</span><span class="meta-val">${escapeHtml(offerDate)}</span></div>
-      <div class="meta-row"><span class="lbl">${L.preparedByLabel}</span><span class="meta-val">${escapeHtml(userName) || '-'}</span></div>
+    <div class="brand">
+      ${logo ? `<img class="logo" src="${logo}" alt="ArcelorMittal">` : '<div class="title">ArcelorMittal</div>'}
+      <div class="sub">${L.companySub}</div>
     </div>
   </div>
 
-  <div class="info-grid">
-    <div class="info-block">
-      <div class="info-block-title">${L.recipientTitle}</div>
-      ${client.company ? `<div class="info-row"><span class="lbl">${L.companyLabel}</span><span class="val">${escapeHtml(client.company)}</span></div>` : ''}
-      ${(client.firstName || client.lastName) ? `<div class="info-row"><span class="lbl">${L.personLabel}</span><span class="val">${escapeHtml(client.firstName)} ${escapeHtml(client.lastName)}</span></div>` : ''}
-      ${client.address ? `<div class="info-row"><span class="lbl">${L.addressLabel}</span><span class="val">${escapeHtml(client.address)}</span></div>` : ''}
-      ${client.nip ? `<div class="info-row"><span class="lbl">${L.taxIdLabel}</span><span class="val">${escapeHtml(client.nip)}</span></div>` : ''}
-      ${client.sapId ? `<div class="info-row"><span class="lbl">${L.sapIdLabel}</span><span class="val">${escapeHtml(client.sapId)}</span></div>` : ''}
-      ${client.phone ? `<div class="info-row"><span class="lbl">${L.phoneLabel}</span><span class="val">${escapeHtml(client.phone)}</span></div>` : ''}
-      ${client.email ? `<div class="info-row"><span class="lbl">${L.emailLabel}</span><span class="val">${escapeHtml(client.email)}</span></div>` : ''}
-    </div>
-    <div class="info-block">
-      <div class="info-block-title">${L.summaryTitle}</div>
-      <div class="info-row"><span class="lbl">${L.itemsLabel}</span><span class="val">${items.length}</span></div>
-      <div class="info-row"><span class="lbl">${L.totalTonsLabel}</span><span class="val" style="white-space:nowrap;">${num(totalTons, 2)} t</span></div>
-      <div class="info-row"><span class="lbl">${L.valueLabel}</span><span class="val" style="color:#059669;font-size:12px;white-space:nowrap;">${ceilNum(totalValue)} ${unit}</span></div>
-      <div class="info-row"><span class="lbl">${L.typesLabel}</span><span class="val">${escapeHtml([...new Set(items.map(i => i.steelType))].join(', '))}</span></div>
-    </div>
+  <div class="info">
+    <div class="ib"><div class="ibt">${L.recipientTitle}</div><div class="rows">${clientRows}</div></div>
+    <div class="ib"><div class="ibt">${L.summaryTitle}</div><div class="rows">${summaryRows}</div></div>
   </div>
 
-  <table class="items-table">
+  <table class="it">
     ${colgroup}
     <thead>
       <tr>
-        <th style="text-align:center;">${L.colNo}</th>
-        <th style="text-align:left;">${L.colDesc}</th>
-        <th style="text-align:center;">${L.colType}</th>
-        <th style="text-align:right;">${L.colThickness}</th>
-        <th style="text-align:right;">${L.colWidth}</th>
-        <th style="text-align:right;">${L.colLength}</th>
-        <th style="text-align:right;">${L.colQty}</th>
-        <th style="text-align:right;">${L.colPrice} ${unit}/t</th>
-        <th style="text-align:right;">${L.colValue} ${unit}</th>
+        <th class="c">${L.colNo}</th>
+        <th>${L.colDesc}</th>
+        <th class="c">${L.colType}</th>
+        <th class="r">${L.colThickness}</th>
+        <th class="r">${L.colWidth}</th>
+        <th class="r">${L.colLength}</th>
+        <th class="r">${L.colQty}</th>
+        <th class="r">${L.colPrice} ${unit}/t</th>
+        <th class="r">${L.colValue} ${unit}</th>
         <th>${L.colNotes}</th>
       </tr>
     </thead>
@@ -253,21 +267,21 @@ function buildHtml(
        druku Chrome powtarza <thead>/<tfoot> na KAŻDEJ stronie, na którą tabela
        się rozleje. Jako osobny element idzie w flow strony jednorazowo, tuż po
        ostatnim wierszu pozycji, niezależnie od tego ile stron zajęły pozycje. -->
-  <table class="totals-table">
+  <table class="tot">
     ${colgroup}
     <tbody>
       <tr>
-        <td colspan="6" style="text-align:right;text-transform:uppercase;letter-spacing:1px;font-size:10px;">${L.totalRowLabel}</td>
-        <td style="text-align:right;">${num(totalTons, 2)} t</td>
-        <td style="text-align:right;"></td>
-        <td style="text-align:right;"><span class="badge-total">${ceilNum(totalValue)} ${unit}</span></td>
+        <td colspan="6" class="r tl">${L.totalRowLabel}</td>
+        <td class="r n">${num(totalTons, 2)} t</td>
+        <td></td>
+        <td class="r"><span class="bt n">${ceilNum(totalValue)} ${unit}</span></td>
         <td></td>
       </tr>
     </tbody>
   </table>
 
-  <div class="footer">
-    <ul class="footer-notes">
+  <div class="ft">
+    <ul>
       <li>${L.pricesNote(isPln ? 'PLN' : 'EUR')}</li>
       ${isPln ? `<li>${L.rateNote(eurPlnRate.toFixed(4).replace(/0+$/, '').replace(/\.$/, ''))}</li>` : ''}
       <li>${L.invoiceNote}</li>
@@ -284,18 +298,11 @@ function buildHtml(
       <li>${L.deliveryNote}</li>
       <li>${L.toleranceNote}</li>
     </ul>
-    <div class="footer-sign">
-      <div class="sign-block">
-        <div class="sign-name">${escapeHtml(userName)}</div>
-        <div class="sign-line">${L.signPreparedBy}</div>
-      </div>
-      <div class="sign-block">
-        <div class="sign-name">&nbsp;</div>
-        <div class="sign-line">${L.signClientAcceptance}</div>
-      </div>
+    <div class="sg">
+      <div><div class="sn">${escapeHtml(userName)}</div><div class="sl">${L.signPreparedBy}</div></div>
+      <div><div class="sn">&nbsp;</div><div class="sl">${L.signClientAcceptance}</div></div>
     </div>
   </div>
-</div>
 </body>
 </html>`;
 }
@@ -362,7 +369,8 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         deployment_token: process.env.ABACUSAI_API_KEY,
         html_content,
-        pdf_options: { format: 'A4', landscape: true, print_background: true, margin: { top: '10mm', right: '10mm', bottom: '15mm', left: '10mm' } },
+        // Portrait, margins equal to the @page rule of Template 8 in buildHtml.
+        pdf_options: { format: 'A4', landscape: false, print_background: true, margin: { top: '10mm', right: '10mm', bottom: '12mm', left: '10mm' } },
         base_url: process.env.NEXTAUTH_URL || '',
       }),
     });

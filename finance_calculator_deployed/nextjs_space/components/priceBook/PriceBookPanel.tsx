@@ -13,7 +13,8 @@ import OptionsSection from '@/components/priceBook/OptionsSection';
 import MatrixGrid from '@/components/priceBook/MatrixGrid';
 import FallbacksSection from '@/components/priceBook/FallbacksSection';
 import ChangeLog from '@/components/priceBook/ChangeLog';
-import { EMPTY_DRAFT, diffDraft, withCell, type TypeDraft } from '@/components/priceBook/draft';
+import BulkDeltaControl from '@/components/priceBook/BulkDeltaControl';
+import { EMPTY_DRAFT, diffDraft, withCell, withTableDelta, type TypeDraft } from '@/components/priceBook/draft';
 
 // Same palette per steel type as the calculator and /admin/ustawienia.
 const TYPE_COLOR: Record<SteelType, string> = {
@@ -103,6 +104,10 @@ export default function PriceBookPanel() {
   const onCell = useCallback((id: string, raw: string) => {
     updateDraft((d) => withCell(d, id, raw));
   }, [updateDraft]);
+
+  const onTableDelta = useCallback((table: PriceTableKey, delta: number) => {
+    updateDraft((d) => withTableDelta(d, book, activeType, table, delta));
+  }, [updateDraft, book, activeType]);
 
   const type = activeType;
   const draft = drafts[type];
@@ -210,7 +215,16 @@ export default function PriceBookPanel() {
             </Section>
             <Section title={t.priceBook.sectionMatrices}>
               <div className="space-y-6">
-                {typeMatrices.map((m) => <MatrixGrid key={m.table} table={m.table} title={m.title} rowHeader={m.rowHeader} colHeader={m.colHeader} {...sectionProps} />)}
+                <div className="rounded border border-dashed border-[var(--border-hi)] px-3 py-2">
+                  <BulkDeltaControl
+                    t={t}
+                    disabled={disabled}
+                    applyLabel={t.priceBook.bulkApplyAll}
+                    onApply={(delta) => updateDraft((d) => typeMatrices.reduce((acc, m) => withTableDelta(acc, book, type, m.table, delta), d))}
+                  />
+                  <p className="mt-1 text-[10px] text-[var(--text-muted)]">{t.priceBook.bulkHint}</p>
+                </div>
+                {typeMatrices.map((m) => <MatrixGrid key={m.table} table={m.table} title={m.title} rowHeader={m.rowHeader} colHeader={m.colHeader} onTableDelta={onTableDelta} {...sectionProps} />)}
               </div>
             </Section>
             <Section title={t.priceBook.sectionFallbacks}>

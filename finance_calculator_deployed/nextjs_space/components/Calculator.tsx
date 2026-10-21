@@ -2913,6 +2913,7 @@ export default function Calculator() {
                       money2={money2}
                       moneyCeil={moneyCeil}
                       priceBook={priceBook}
+                      minMarginPct={settings.minMarginPct}
                       onEdit={editItem}
                       onDuplicate={dupItem}
                       onDelete={deleteItem}

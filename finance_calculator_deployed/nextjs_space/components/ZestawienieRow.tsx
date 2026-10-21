@@ -18,6 +18,8 @@ interface ZestawienieRowProps {
   money2: (eur: number) => string;
   moneyCeil: (eur: number) => string;
   priceBook: PriceBook;
+  /** Settings threshold; a lower item margin gets the same warning as the margin input. */
+  minMarginPct: number;
   onEdit: (id: number) => void;
   onDuplicate: (id: number) => void;
   onDelete: (id: number) => void;
@@ -34,6 +36,7 @@ export default function ZestawienieRow({
   money2,
   moneyCeil,
   priceBook,
+  minMarginPct,
   onEdit,
   onDuplicate,
   onDelete,
@@ -44,6 +47,8 @@ export default function ZestawienieRow({
   const cenaWsadu = item.pgl + item.sumaHuta;
   const rawMarginPct = item.inputs?.marginPct ?? (cenaWsadu > 0 ? (item.marza / cenaWsadu) * 100 : null);
   const marginPct = rawMarginPct === null ? null : Math.round(rawMarginPct * 100) / 100;
+  // Same rule as lib/offerReview.ts: below the minimum = the position will need approval.
+  const isMarginBelowMin = rawMarginPct !== null && rawMarginPct < minMarginPct;
   // One-time = the saved grade is not in the price book at all; retired = still in the book
   // but no longer offered for new items.
   const snapshotGrade = item.inputs?.selectedGrade;
@@ -117,9 +122,16 @@ export default function ZestawienieRow({
       <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.pgl)}</td>
       <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaHuta)}</td>
       <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{money2(item.sumaSSC)}</td>
-      <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right whitespace-nowrap">
+      <td
+        className={`px-2 sm:px-3.5 py-2 font-mono text-xs text-right whitespace-nowrap ${
+          isMarginBelowMin ? 'bg-[rgba(239,68,68,0.12)] text-[#ef4444] font-semibold' : 'text-[var(--text-value)]'
+        }`}
+        title={isMarginBelowMin ? `${t.summary.marginBelowMinWarning} (${minMarginPct}%)` : undefined}
+      >
+        {isMarginBelowMin && <span aria-hidden className="mr-1">⚠️</span>}
         {money2(item.marza)}
-        {marginPct !== null && <span className="text-[var(--text-secondary)]"> / {marginPct}%</span>}
+        {marginPct !== null && <span className={isMarginBelowMin ? '' : 'text-[var(--text-secondary)]'}> / {marginPct}%</span>}
+        {isMarginBelowMin && <span className="sr-only"> {t.summary.marginBelowMinWarning} ({minMarginPct}%)</span>}
       </td>
       <td className="px-2 sm:px-3.5 py-2 font-mono text-[13px] font-bold text-[var(--accent-sum)] text-right whitespace-nowrap">{moneyCeil(item.finalPrice)} {symbol}</td>
       <td className="px-2 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right whitespace-nowrap">{fixedGrouped(item.tons, 2)} {t.common.tons}</td>

@@ -60,6 +60,34 @@ export function withCell(draft: TypeDraft, id: string, raw: string): TypeDraft {
   return { ...draft, cells: { ...draft.cells, [id]: raw } };
 }
 
+/**
+ * Adds `delta` to every priced cell of one matrix (negative = decrease). Builds on what is
+ * already typed in the draft; a cell whose draft text is invalid is left untouched. The result
+ * goes into the draft only, so the admin still reviews and saves it like a manual edit.
+ */
+export function withTableDelta(
+  draft: TypeDraft,
+  book: PriceBook,
+  type: SteelType,
+  table: PriceTableKey,
+  delta: number,
+): TypeDraft {
+  const { rows, cols } = gridLayout(type, table);
+  const cells: Record<string, string> = { ...draft.cells };
+  for (const row of rows) {
+    for (const col of cols) {
+      const fallback = defaultCell(type, table, row, col);
+      if (fallback === undefined) continue;
+      const id = cellId(table, row, col);
+      const raw = draft.cells[id];
+      const base = raw === undefined ? (bookCell(book, type, table, row, col) ?? fallback) : parsePrice(raw);
+      if (base === null) continue;
+      cells[id] = formatPrice(Math.round((base + delta) * 100) / 100);
+    }
+  }
+  return { ...draft, cells };
+}
+
 export function withGradeEdit(draft: TypeDraft, id: number, patch: GradeEdit): TypeDraft {
   return { ...draft, gradeEdits: { ...draft.gradeEdits, [id]: { ...draft.gradeEdits[id], ...patch } } };
 }

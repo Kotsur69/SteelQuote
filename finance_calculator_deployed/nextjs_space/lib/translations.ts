@@ -707,6 +707,10 @@ export interface Translations {
     matrixBaseWidth: string;
     matrixPickling: string;
     matrixTeardrop: string;
+    bulkLabel: string;
+    bulkApply: string;
+    bulkApplyAll: string;
+    bulkHint: string;
     thicknessMm: string;
     widthMm: string;
     lengthMm: string;
@@ -1512,6 +1516,10 @@ export const pl: Translations = {
     matrixBaseWidth: 'Dopłata bazowa SSC (grubość × szerokość)',
     matrixPickling: 'Trawienie (grubość)',
     matrixTeardrop: 'Łezka (szerokość)',
+    bulkLabel: 'Zmień każdą cenę o',
+    bulkApply: 'Zastosuj',
+    bulkApplyAll: 'Zastosuj do wszystkich macierzy',
+    bulkHint: 'Dodaje wpisaną kwotę €/t do każdej komórki (ujemna = obniżka). Zmiany trafiają do szkicu - sprawdź i zapisz.',
     thicknessMm: 'Grubość [mm]',
     widthMm: 'Szerokość [mm]',
     lengthMm: 'Długość [mm]',
@@ -2346,6 +2354,10 @@ export const en: Translations = {
     matrixBaseWidth: 'SSC base surcharge (thickness × width)',
     matrixPickling: 'Pickling (thickness)',
     matrixTeardrop: 'Teardrop (width)',
+    bulkLabel: 'Change every price by',
+    bulkApply: 'Apply',
+    bulkApplyAll: 'Apply to all matrices',
+    bulkHint: 'Adds the amount in €/t to every cell (negative = decrease). Changes go to the draft - review and save.',
     thicknessMm: 'Thickness [mm]',
     widthMm: 'Width [mm]',
     lengthMm: 'Length [mm]',
@@ -3179,6 +3191,10 @@ export const cs: Translations = {
     matrixBaseWidth: 'Základní příplatek SSC (tloušťka × šířka)',
     matrixPickling: 'Moření (tloušťka)',
     matrixTeardrop: 'Slza (šířka)',
+    bulkLabel: 'Změnit každou cenu o',
+    bulkApply: 'Použít',
+    bulkApplyAll: 'Použít na všechny matice',
+    bulkHint: 'Přičte zadanou částku €/t ke každé buňce (záporná = snížení). Změny jdou do konceptu - zkontrolujte a uložte.',
     thicknessMm: 'Tloušťka [mm]',
     widthMm: 'Šířka [mm]',
     lengthMm: 'Délka [mm]',
@@ -4012,6 +4028,10 @@ export const de: Translations = {
     matrixBaseWidth: 'SSC-Grundaufpreis (Dicke × Breite)',
     matrixPickling: 'Beizen (Dicke)',
     matrixTeardrop: 'Tränenblech (Breite)',
+    bulkLabel: 'Jeden Preis ändern um',
+    bulkApply: 'Anwenden',
+    bulkApplyAll: 'Auf alle Matrizen anwenden',
+    bulkHint: 'Addiert den Betrag in €/t zu jeder Zelle (negativ = Senkung). Änderungen landen im Entwurf - prüfen und speichern.',
     thicknessMm: 'Dicke [mm]',
     widthMm: 'Breite [mm]',
     lengthMm: 'Länge [mm]',

@@ -4,6 +4,7 @@ import type { SteelType } from '@/lib/calculatorData';
 import { bookCell, defaultCell, type PriceBook, type PriceTableKey } from '@/lib/priceBook';
 import type { Translations } from '@/lib/translations';
 import PriceCellInput from '@/components/priceBook/PriceCellInput';
+import BulkDeltaControl from '@/components/priceBook/BulkDeltaControl';
 import { bandLabel, cellId, gridLayout, type TypeDraft } from '@/components/priceBook/draft';
 
 type Props = {
@@ -17,17 +18,22 @@ type Props = {
   disabled: boolean;
   t: Translations;
   onCell: (id: string, raw: string, current: number) => void;
+  /** Adds X to every cell of this matrix (draft only). */
+  onTableDelta: (table: PriceTableKey, delta: number) => void;
 };
 
 // Editable grid of one matrix. Rows/columns come from the code structure; a cell that does
 // not exist there renders as a read-only '—' (no price defined for that combination).
-export default function MatrixGrid({ type, table, title, rowHeader, colHeader, book, draft, disabled, t, onCell }: Props) {
+export default function MatrixGrid({ type, table, title, rowHeader, colHeader, book, draft, disabled, t, onCell, onTableDelta }: Props) {
   const { rows, cols } = gridLayout(type, table);
   const singleCol = cols.length === 1;
 
   return (
     <div className="space-y-2">
-      <h4 className="text-[11px] font-semibold tracking-wider uppercase text-[var(--text-secondary)]">{title}</h4>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-[11px] font-semibold tracking-wider uppercase text-[var(--text-secondary)]">{title}</h4>
+        <BulkDeltaControl t={t} disabled={disabled} applyLabel={t.priceBook.bulkApply} onApply={(delta) => onTableDelta(table, delta)} />
+      </div>
       <div className="overflow-x-auto rounded border border-[var(--border)]">
         <table className="border-collapse text-[11px] font-mono tabular-nums">
           <thead>

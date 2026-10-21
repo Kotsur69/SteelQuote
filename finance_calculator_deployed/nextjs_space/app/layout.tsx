@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 import './globals.css';
+import './brand-theme.css';
 import type { Metadata } from 'next';
 import Providers from './providers';
 
