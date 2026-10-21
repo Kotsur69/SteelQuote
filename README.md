@@ -6,15 +6,38 @@ costs, margin, transport) for **HRS, CR, HDG, PICKLED** (pickled HRS),
 an offer, run it through an approval workflow, and export it to PDF or Excel for
 a client.
 
-Current release: **2.0** (live in production since 13 October 2026). Next
-version in development: **2.1**.
+Current release: **2.1** (live in production since 21 October 2026). Next
+version in development: **2.2**.
 
 ![HRS pricing defaults](screenshot_hrs_defaults.png)
 ![CR pricing defaults](screenshot_cr_defaults.png)
 ![HDG pricing defaults](screenshot_hdg_defaults.png)
 
 Live at [steelpricinghub.abacusai.app](https://steelpricinghub.abacusai.app)
-(production runs 2.0; this repo is on 2.1). On Android the login screen offers to install it as an app.
+(production runs 2.1; this repo is on 2.2). On Android the login screen offers to install it as an app.
+
+### What's new in 2.1: ArcelorMittal branding and offer version history
+
+- **ArcelorMittal look** across the whole app: light mode is the "V6 Aurora"
+  variant, dark mode "V3 Midnight", with the AM logo, the Gilroy font and AM
+  colours (`app/brand-theme.css`, assets in `public/brand/`). The light/dark
+  toggle now switches the entire page
+- **PDF offer on AM template 8**: A4 portrait, logo top-right, Gilroy embedded,
+  totals in a separate table so they don't repeat on every page; same content in
+  all four languages
+- **Change summary per offer version**: every version (`offer_X.N`) carries a
+  short label of its main changes, e.g. "HDG 2×1250 +5 t, offer value +6 082 €";
+  clicking it lists every old -> new value with the version's author
+  (`offers.created_by`, migration 033)
+- **Offer validity in hours** (24h default, 48h or custom) instead of a payment
+  term picker; the payment term now comes from the client, default 30 days
+  (migration 034). The "validity > 48h" approval rule counts the chosen hours
+- Admin offers list can expand an offer's items; every item table shows PGL and
+  margin (€/t and %)
+- Price book (`/admin/cennik`): "change every price by X €/t" per matrix or for
+  all matrices of a steel type at once - applied to the draft, saved explicitly
+- Calculator summary flags a margin below the configured minimum with ⚠️ and a
+  red highlight
 
 ### What's new in 2.0: configurable flows, roles and approval rules
 
@@ -212,7 +235,8 @@ still prices without an API key.
 
 ### Export and interface
 
-- PDF export of an offer, generated in the seller's selected UI language. The
+- PDF export of an offer (A4 portrait, ArcelorMittal template), generated in the
+  seller's selected UI language. The
   Remarks column lists every selected mill and processing (SSC) surcharge for
   each line item (thickness tolerance, certificate, coating, protection,
   packaging, surface, finish, weld, marking, edging, labels, and so on)
@@ -230,7 +254,7 @@ cd finance_calculator_deployed/nextjs_space
 npm install --legacy-peer-deps   # legacy flag: eslint 9 vs @typescript-eslint/parser@7, lint-only conflict
 cp .env.example .env.local       # fill in DATABASE_URL and JWT_SECRET for your local Postgres
 
-# Migrations are idempotent and must run in order (001 → 032).
+# Migrations are idempotent and must run in order (001 → 034).
 for f in migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
 
 npm run dev
