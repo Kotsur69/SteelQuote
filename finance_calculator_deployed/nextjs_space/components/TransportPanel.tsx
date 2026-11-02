@@ -1,5 +1,6 @@
 'use client';
 
+import { ChevronRight, Truck } from 'lucide-react';
 import type { Translations } from '@/lib/translations';
 import type { TransportBreakdown } from '@/lib/transportTariff';
 import { fixedGrouped } from '@/lib/numberFormat';
@@ -98,19 +99,37 @@ export default function TransportPanel({
 
   return (
     <div className="border-b border-[rgba(42,48,72,0.5)]">
+      {/* Always-visible bordered, tinted bar (not a bare text row) so the panel reads as
+          clickable in both themes - it was easy to miss, especially in light mode. */}
       <button
+        type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="w-full flex items-center gap-2 px-4 py-2 border border-transparent hover:border-[var(--accent-cr)] hover:bg-[rgba(59,142,245,0.08)] rounded transition-colors text-left"
+        className="group w-[calc(100%-1.5rem)] mx-3 my-2 flex items-center gap-2.5 px-3 py-2.5 rounded-md text-left
+          border border-[color-mix(in_srgb,var(--accent-cr)_45%,transparent)]
+          bg-[color-mix(in_srgb,var(--accent-cr)_9%,transparent)]
+          hover:border-[var(--accent-cr)] hover:bg-[color-mix(in_srgb,var(--accent-cr)_16%,transparent)]
+          focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-cr)]
+          transition-colors duration-150"
       >
-        <span className="text-[10px] text-[var(--accent-cr)] font-mono w-3">{open ? '▾' : '▸'}</span>
-        <span className="flex-1 text-xs font-semibold uppercase tracking-wide text-[var(--accent-cr)]">{s.transportRouteTitle}</span>
+        <ChevronRight
+          aria-hidden
+          className={`w-4 h-4 shrink-0 text-[var(--accent-cr)] transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
+        />
+        <Truck aria-hidden className="w-4 h-4 shrink-0 text-[var(--accent-cr)]" />
+        <span className="flex-1 text-[13px] font-bold uppercase tracking-wide text-[var(--accent-cr)]">{s.transportRouteTitle}</span>
         {/* Zwinięty panel i tak pokazuje kluczową liczbę — handlowiec nie musi go
             rozwijać, żeby sprawdzić, na jakiej odległości stoi wycena. */}
-        {route.distanceKm !== null && (
-          <span className="font-mono text-[11px] text-[var(--text-muted)]">
+        {route.distanceKm !== null ? (
+          <span className="font-mono text-[11px] font-semibold text-[var(--text-secondary)]">
             {route.distanceKm.toFixed(1)} km
           </span>
+        ) : (
+          !open && (
+            <span className="text-[11px] italic text-[var(--text-secondary)] group-hover:text-[var(--accent-cr)] transition-colors">
+              {s.transportRouteHint}
+            </span>
+          )
         )}
       </button>
 

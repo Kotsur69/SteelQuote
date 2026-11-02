@@ -276,6 +276,7 @@ export interface Translations {
     extraCommentInPdf: string;
     transport: string;
     transportRouteTitle: string;
+    transportRouteHint: string;
     transportOrigin: string;
     transportDest: string;
     transportDestPlaceholder: string;
@@ -1119,6 +1120,7 @@ export const pl: Translations = {
     extraCommentInPdf: 'Dołącz komentarz do PDF',
     transport: 'Transport',
     transportRouteTitle: 'Trasa i transport',
+    transportRouteHint: 'Kliknij, aby dodać szczegóły transportu',
     transportOrigin: 'Wysyłka z',
     transportDest: 'Transport do',
     transportDestPlaceholder: 'np. Marynarki Polskiej 100, Gdańsk',
@@ -1957,6 +1959,7 @@ export const en: Translations = {
     extraCommentInPdf: 'Include comment in PDF',
     transport: 'Transport',
     transportRouteTitle: 'Route & transport',
+    transportRouteHint: 'Click to add transport details',
     transportOrigin: 'Sent from',
     transportDest: 'Transport to',
     transportDestPlaceholder: 'e.g. Marynarki Polskiej 100, Gdańsk',
@@ -2794,6 +2797,7 @@ export const cs: Translations = {
     extraCommentInPdf: 'Zahrnout komentář do PDF',
     transport: 'Doprava',
     transportRouteTitle: 'Trasa a doprava',
+    transportRouteHint: 'Klikněte pro zadání detailů dopravy',
     transportOrigin: 'Odesláno z',
     transportDest: 'Doprava do',
     transportDestPlaceholder: 'např. Marynarki Polskiej 100, Gdańsk',
@@ -3631,6 +3635,7 @@ export const de: Translations = {
     extraCommentInPdf: 'Kommentar im PDF einschließen',
     transport: 'Transport',
     transportRouteTitle: 'Route & Transport',
+    transportRouteHint: 'Klicken, um Transportdetails hinzuzufügen',
     transportOrigin: 'Versand ab',
     transportDest: 'Transport nach',
     transportDestPlaceholder: 'z. B. Marynarki Polskiej 100, Gdańsk',
