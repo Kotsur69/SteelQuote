@@ -308,6 +308,8 @@ export interface Translations {
     quantity: string;
     totalValue: string;
     addToList: string;
+    addedToList: string;
+    itemUpdated: string;
     updateItem: string;
     cancelEdit: string;
   };
@@ -1154,6 +1156,8 @@ export const pl: Translations = {
     quantity: 'Ilość (tony)',
     totalValue: 'Wartość całkowita',
     addToList: 'Dodaj do zestawienia',
+    addedToList: 'Dodano do zestawienia',
+    itemUpdated: 'Zaktualizowano pozycję',
     updateItem: 'Aktualizuj pozycję',
     cancelEdit: 'Anuluj edycję',
   },
@@ -1996,6 +2000,8 @@ export const en: Translations = {
     quantity: 'Quantity (tons)',
     totalValue: 'Total value',
     addToList: 'Add to list',
+    addedToList: 'Added to list',
+    itemUpdated: 'Item updated',
     updateItem: 'Update item',
     cancelEdit: 'Cancel edit',
   },
@@ -2837,6 +2843,8 @@ export const cs: Translations = {
     quantity: 'Množství (tuny)',
     totalValue: 'Celková hodnota',
     addToList: 'Přidat do seznamu',
+    addedToList: 'Přidáno do seznamu',
+    itemUpdated: 'Položka aktualizována',
     updateItem: 'Aktualizovat položku',
     cancelEdit: 'Zrušit úpravu',
   },
@@ -3678,6 +3686,8 @@ export const de: Translations = {
     quantity: 'Menge (Tonnen)',
     totalValue: 'Gesamtwert',
     addToList: 'Zur Liste hinzufügen',
+    addedToList: 'Zur Liste hinzugefügt',
+    itemUpdated: 'Position aktualisiert',
     updateItem: 'Position aktualisieren',
     cancelEdit: 'Bearbeitung abbrechen',
   },

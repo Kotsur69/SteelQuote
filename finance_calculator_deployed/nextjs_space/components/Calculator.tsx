@@ -118,12 +118,15 @@ export interface ZestawienieItem {
 /** Item collected by the client itself (FCA) - no transport in its price. */
 const isPickupItem = (inputs: ItemInputs | undefined) => inputs?.incoterm === 'FCA';
 
+// How long the add/update button shows its "added" confirmation.
+const ADD_FEEDBACK_MS = 1800;
+
 // Clean-slate snapshot of a brand-new offer. Same shape collectOfferData() returns, built
 // from the initial useState values below, so restoreOfferData(INITIAL_OFFER_DATA) resets
 // the whole calculator in one call (used by the "Nowa oferta" button and the "Kalkulator"
 // tab). pglBase/transport/validFrom/validTo/paymentTermDays/quoteValidityHours are
 // placeholders here — the admin-defaults effect overwrites them (this-month validity, the
-// global payment term, 24h quote validity) right after the reset, as on a fresh page load.
+// global payment term, 1-day quote validity) right after the reset, as on a fresh page load.
 const INITIAL_OFFER_DATA: Record<string, unknown> = {
   currentType: 'HRS',
   thickness: 4,
@@ -413,6 +416,13 @@ export default function Calculator() {
   const [saveOfferName, setSaveOfferName] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Short confirmation on the add/update button itself - testers did not notice the new
+  // row in the list below and clicked again, adding a duplicate.
+  const [addFeedback, setAddFeedback] = useState<'added' | 'updated' | null>(null);
+  const addFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (addFeedbackTimerRef.current) clearTimeout(addFeedbackTimerRef.current);
+  }, []);
 
   // Unsaved-changes guard. `baseline` holds a JSON snapshot of the offer as it was last
   // loaded / saved; the calculator is "dirty" when the live snapshot differs. `baselineNonce`
@@ -926,6 +936,15 @@ export default function Calculator() {
   );
   
   // Add to zestawienie
+  const addButtonLabel =
+    addFeedback === 'added'
+      ? `✓ ${t.summary.addedToList.toUpperCase()}`
+      : addFeedback === 'updated'
+        ? `✓ ${t.summary.itemUpdated.toUpperCase()}`
+        : editingId !== null
+          ? `💾 ${t.summary.updateItem.toUpperCase()}`
+          : `＋ ${t.summary.addToList.toUpperCase()}`;
+
   const addToZestawienie = () => {
     const snap: ZestawienieItem = {
       id: editingId || Date.now(),
@@ -984,6 +1003,9 @@ export default function Calculator() {
     } else {
       setZestawienie(prev => [...prev, snap]);
     }
+    setAddFeedback(editingId !== null ? 'updated' : 'added');
+    if (addFeedbackTimerRef.current) clearTimeout(addFeedbackTimerRef.current);
+    addFeedbackTimerRef.current = setTimeout(() => setAddFeedback(null), ADD_FEEDBACK_MS);
   };
   
   // Edit zestawienie item
@@ -2036,7 +2058,7 @@ export default function Calculator() {
           />
         </div>
 
-        {/* Quote validity in hours (24h / 48h / custom); the payment term next to it is
+        {/* Quote validity in days (1 / 2 / 5 / 7 / custom, stored as hours); the payment term next to it is
             read-only — it comes from the client's settings (see applyClientSuggestion). */}
         <div className="flex items-center gap-2 flex-wrap px-3 py-2 rounded-md border-[1.5px] border-[var(--border)] bg-[var(--bg-panel)]">
           <label className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-secondary)]">
@@ -2047,6 +2069,7 @@ export default function Calculator() {
             value={quoteValidityHours}
             onChange={setQuoteValidityHours}
             customLabel={t.inputs.offerValidityCustom}
+            language={language}
           />
         </div>
 
@@ -2879,14 +2902,19 @@ export default function Calculator() {
             <div className="px-3.5 pt-2.5 pb-1.5">
               <button
                 onClick={addToZestawienie}
-                className={`w-full py-3 rounded font-mono text-xs font-bold tracking-wider hover:opacity-90 transition-opacity ${
-                  editingId !== null
-                    ? 'bg-gradient-to-r from-[#3b8ef5] to-[#5fa8ff] text-white'
-                    : 'bg-gradient-to-r from-[#e8a020] to-[#f0c040] text-[#0d1220]'
+                className={`w-full py-3 rounded font-mono text-xs font-bold tracking-wider hover:opacity-90 transition-[opacity,background-color] duration-200 ${
+                  addFeedback !== null
+                    ? 'bg-[#22a861] text-white'
+                    : editingId !== null
+                      ? 'bg-gradient-to-r from-[#3b8ef5] to-[#5fa8ff] text-white'
+                      : 'bg-gradient-to-r from-[#e8a020] to-[#f0c040] text-[#0d1220]'
                 }`}
               >
-                {editingId !== null ? `💾 ${t.summary.updateItem.toUpperCase()}` : `＋ ${t.summary.addToList.toUpperCase()}`}
+                {addButtonLabel}
               </button>
+              <span role="status" aria-live="polite" className="sr-only">
+                {addFeedback === 'added' ? t.summary.addedToList : addFeedback === 'updated' ? t.summary.itemUpdated : ''}
+              </span>
             </div>
           </div>
           
