@@ -219,7 +219,6 @@ export interface Translations {
   huta: {
     title: string;
     subtitle: string;
-    pglPeriod: string;
     thicknessWidth: string;
     grade: string;
     thicknessTolerance: string;
@@ -1065,7 +1064,6 @@ export const pl: Translations = {
   huta: {
     title: 'Huta Dopłaty',
     subtitle: 'mill surcharges',
-    pglPeriod: 'Okres ważności PGL',
     thicknessWidth: 'Grubość / szerokość',
     grade: 'Gatunek',
     thicknessTolerance: 'Tolerancja grubości',
@@ -1904,7 +1902,6 @@ export const en: Translations = {
   huta: {
     title: 'Mill Surcharges',
     subtitle: 'mill surcharges',
-    pglPeriod: 'PGL validity period',
     thicknessWidth: 'Thickness / width',
     grade: 'Grade',
     thicknessTolerance: 'Thickness tolerance',
@@ -2742,7 +2739,6 @@ export const cs: Translations = {
   huta: {
     title: 'Hutní příplatky',
     subtitle: 'hutní příplatky',
-    pglPeriod: 'Platnost PGL',
     thicknessWidth: 'Tloušťka / šířka',
     grade: 'Jakost',
     thicknessTolerance: 'Tolerance tloušťky',
@@ -3580,7 +3576,6 @@ export const de: Translations = {
   huta: {
     title: 'Hüttenzuschläge',
     subtitle: 'Hüttenzuschläge',
-    pglPeriod: 'PGL-Gültigkeitszeitraum',
     thicknessWidth: 'Dicke / Breite',
     grade: 'Güte',
     thicknessTolerance: 'Dickentoleranz',

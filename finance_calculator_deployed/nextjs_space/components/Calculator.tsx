@@ -2341,13 +2341,6 @@ export default function Calculator() {
           </div>
           
           <div className="flex-1 py-2">
-            {/* PGL Period */}
-            <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
-              <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.pglPeriod}</span>
-              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money(0)}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
-            </div>
-            
             {/* Dimension Surcharge */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.huta.thicknessWidth}</span>
