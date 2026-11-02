@@ -219,6 +219,7 @@ export default function AdminSalespeoplePage() {
       {/* Formularz dodawania */}
       <form
         onSubmit={handleCreate}
+        autoComplete="off"
         className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md p-4 mb-6"
       >
         <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)] mb-4">
@@ -226,15 +227,20 @@ export default function AdminSalespeoplePage() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <input
+            // This form creates ANOTHER user: stop the browser treating it as the admin's login form
+            // (autofill popup swallowed the first clicks and injected the admin's saved credentials).
             className={inputCls} type="email" required placeholder={t.admin.email}
+            name="new-user-email" autoComplete="off"
             value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
           <input
             className={inputCls} type="password" required placeholder={t.admin.password}
+            name="new-user-password" autoComplete="new-password"
             value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
           <input
             className={inputCls} type="text" placeholder={t.admin.fullName}
+            name="new-user-full-name" autoComplete="off"
             value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })}
           />
           <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">

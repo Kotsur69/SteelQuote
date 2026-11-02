@@ -2136,6 +2136,15 @@ export default function Calculator() {
             onChange={e => {
               const next = e.target.value;
               setGradeInput(next);
+              // A fully typed price-book name counts as a selection. Before, typing
+              // "P355GH" and tabbing away left selectedGrade null -> grade surcharge 0.
+              const exact = activeGradeTable.find(
+                g => g.name.toLowerCase() === next.trim().toLowerCase()
+              );
+              if (exact) {
+                setSelectedGrade(exact);
+                return;
+              }
               // Przy gatunku jednorazowym poprawka nazwy NIE kasuje wpisanej dopłaty —
               // ta sama zasada co przy komentarzu do dopłaty dodatkowej: nie gubimy tego,
               // co handlowiec już wpisał. Powrót do cennika = wybór pozycji z listy.
@@ -2153,8 +2162,13 @@ export default function Calculator() {
               ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
           />
           {showGradeDropdown && (filteredGrades.length > 0 || showOneTimeGradeOption) && (
-            <div className={`absolute top-full left-0 right-0 mt-1 bg-[var(--bg-panel)] border border-[var(--border-hi)] rounded-md z-50 max-h-60 overflow-y-auto shadow-lg
-              ${!isDark ? 'border-[#7e90c0] shadow-[0_8px_32px_rgba(0,0,0,0.15)]' : 'shadow-[0_8px_32px_rgba(0,0,0,0.6)]'}`}>
+            // Opaque in light theme: --bg-panel is 55% transparent there, so the cards below
+            // bled through the list. preventDefault on mousedown keeps the input focused, so
+            // its blur timer cannot unmount the list before a slow click lands.
+            <div
+              onMouseDown={e => e.preventDefault()}
+              className={`absolute top-full left-0 right-0 mt-1 border border-[var(--border-hi)] rounded-md z-50 max-h-60 overflow-y-auto shadow-lg
+              ${!isDark ? 'bg-white border-[#7e90c0] shadow-[0_8px_32px_rgba(0,0,0,0.15)]' : 'bg-[var(--bg-panel)] shadow-[0_8px_32px_rgba(0,0,0,0.6)]'}`}>
               {/* Gatunek jednorazowy — przypięty nad listą z cennika. Celowo renderowany
                   także wtedy, gdy nic nie pasuje: wcześniej lista znikała całkowicie i
                   wpisanie nieznanego gatunku kończyło się dopłatą 0 bez ostrzeżenia. */}
