@@ -930,7 +930,7 @@ export default function OffersPage() {
                       </button>
                     )}
 
-                    {/* Wyślij do weryfikacji (junior/senior, własna draft/rejected) */}
+                    {/* Submit for validation (creator, own draft/rejected, when the flow rules require it) */}
                     {p.canSubmit && (
                       <button
                         onClick={() => handleSubmit(offer.id)}
@@ -942,15 +942,16 @@ export default function OffersPage() {
                       </button>
                     )}
 
-                    {/* Wyślij do klienta (senior draft/approved lub junior approved).
-                        Zablokowany, dopóki brakuje danych firmy klienta - patrz hasClientDetails
-                        i strażnik w /api/offers/[id]/send. */}
+                    {/* Send to client: only the creator, when no validation is needed or the approval
+                        is still valid (offerActions().canSend). It sends nothing - it records that the
+                        PDF went out manually, so won/lost can be tracked. Blocked while the client's
+                        company details are missing - see hasClientDetails and /api/offers/[id]/send. */}
                     {p.canSend && (
                       <button
                         onClick={() => handleSend(offer.id)}
                         disabled={actionLoading === offer.id || !hasClientDetails(offer)}
                         className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-white bg-[var(--accent-cr)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={hasClientDetails(offer) ? t.workflow.sendToClient : t.offers.missingClientBadge}
+                        title={hasClientDetails(offer) ? t.workflow.sendToClientHint : t.offers.missingClientBadge}
                       >
                         📨 {t.workflow.sendToClient}
                       </button>

@@ -289,24 +289,6 @@ function AdminOffersContent() {
     }
   };
 
-  const handleSend = async (offerId: number) => {
-    setActionLoading(offerId);
-    try {
-      const res = await fetch(`/api/offers/${offerId}/send`, { method: 'POST' });
-      if (res.ok) {
-        flash('success', t.workflow.sent);
-        fetchOffers();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        flash('error', data.error || t.workflow.actionFailed);
-      }
-    } catch {
-      flash('error', t.workflow.actionFailed);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
   const handleExportExcel = (o: AdminOffer) => {
     try {
       exportOfferToExcel(o.display_name, o.offer_data.zestawienie);
@@ -589,16 +571,8 @@ function AdminOffersContent() {
                           </button>
                         </>
                       )}
-                      {/* Wyślij do klienta — dowolna oferta approved, admin nie musi być właścicielem */}
-                      {o.status === 'approved' && (
-                        <button
-                          onClick={() => handleSend(o.id)}
-                          disabled={actionLoading === o.id}
-                          className="ml-1.5 px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-cr)] text-white bg-[var(--accent-cr)] hover:opacity-90 transition-opacity disabled:opacity-50"
-                        >
-                          📨 {t.workflow.sendToClient}
-                        </button>
-                      )}
+                      {/* No "Send to client" here: since v2.0 only the creator sends (from My Offers),
+                          the server rejects it for anyone else, admin included. */}
                     </td>
                   </tr>
                   {expandedItemsId === o.id && (

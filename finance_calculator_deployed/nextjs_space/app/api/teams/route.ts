@@ -42,7 +42,7 @@ async function resolveSeniorId(
   }
   const seniorId = Number.parseInt(raw ?? '', 10);
   if (!Number.isInteger(seniorId) || seniorId <= 0) {
-    return { error: NextResponse.json({ error: 'Brak identyfikatora seniora' }, { status: 400 }) };
+    return { error: NextResponse.json({ error: 'Brak identyfikatora lidera zespołu' }, { status: 400 }) };
   }
   if (!(await isEligibleLeader(seniorId))) {
     return {

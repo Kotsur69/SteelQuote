@@ -73,12 +73,12 @@ export interface Translations {
     tileReviewHint: string;
     tileSendHint: string;
     noOffersForFilter: string;
-    // Zakładka "Klienci" (migracja 023) — senior ustawia tam własny termin płatności
+    // "Clients" tab (migration 023) - a team leader sets the client's own payment term there
     // klienta. Panel dzieli etykiety pól z client.paymentTermDays/-Hint/-Placeholder.
     clientsTabLabel: string;
   };
 
-  // Team management (senior builds a team of juniors; shared by /senior and /admin/handlowcy)
+  // Team management (a leader with approval rights builds a team; shared by /senior and /admin/handlowcy)
   team: {
     title: string;
     hint: string;
@@ -403,7 +403,7 @@ export interface Translations {
     sapId: string;
     // Termin płatności klienta w dniach (migracja 023) — puste = dziedziczy globalny
     // domyślny z Ustawień. Współdzielone przez panel admina (/admin/klienci) i
-    // zakładkę "Klienci" w Panelu Seniora (ClientPaymentTermsPanel).
+    // zakładkę "Klienci" w Panelu Menedżera (ClientPaymentTermsPanel).
     paymentTermDays: string;
     paymentTermDaysHint: string;
     phone: string;
@@ -477,13 +477,6 @@ export interface Translations {
     cancel: string;
   };
 
-  // Role handlowców
-  roles: {
-    junior: string;
-    senior: string;
-    admin: string;
-  };
-
   // Statusy oferty (badge)
   offerStatus: {
     draft: string;
@@ -497,6 +490,8 @@ export interface Translations {
   workflow: {
     submitForReview: string;
     sendToClient: string;
+    // Tooltip: the button only records a manual send, the app emails nothing
+    sendToClientHint: string;
     approve: string;
     reject: string;
     rejectReasonLabel: string;
@@ -940,13 +935,13 @@ export const pl: Translations = {
 
   team: {
     title: 'Mój zespół',
-    hint: 'Dodaj juniorów do zespołu, aby w panelu Analiza wybierać swoje dane lub dane wybranego juniora.',
+    hint: 'Dodaj osoby do zespołu, aby w panelu Analiza widzieć swoje dane lub dane wybranej osoby z zespołu.',
     loading: 'Wczytywanie zespołu…',
-    empty: 'Brak juniorów w zespole',
-    addPlaceholder: 'Wybierz juniora…',
+    empty: 'W zespole nie ma jeszcze nikogo',
+    addPlaceholder: 'Wybierz osobę…',
     add: 'Dodaj',
     remove: 'Usuń z zespołu',
-    noneAssignable: 'Brak juniorów do dodania',
+    noneAssignable: 'Brak osób do dodania',
     loadFailed: 'Nie udało się wczytać zespołu',
     saveFailed: 'Nie udało się zapisać zmiany',
   },
@@ -1296,12 +1291,6 @@ export const pl: Translations = {
     cancel: 'Anuluj',
   },
 
-  roles: {
-    junior: 'Młodszy handlowiec',
-    senior: 'Starszy handlowiec',
-    admin: 'Administrator',
-  },
-
   offerStatus: {
     draft: 'Szkic',
     pending_review: 'Do weryfikacji',
@@ -1313,6 +1302,7 @@ export const pl: Translations = {
   workflow: {
     submitForReview: 'Wyślij do weryfikacji',
     sendToClient: 'Wyślij do klienta',
+    sendToClientHint: 'Aplikacja niczego nie wysyła. Pobierz PDF i wyślij go klientowi samodzielnie (e-mail, telefon), a potem kliknij tutaj, żeby potwierdzić wysyłkę. Później oznacz ofertę jako wygraną lub przegraną.',
     approve: 'Zatwierdź',
     reject: 'Odrzuć',
     rejectReasonLabel: 'Powód odrzucenia',
@@ -1325,7 +1315,7 @@ export const pl: Translations = {
     submitted: 'Wysłano do weryfikacji',
     approved: 'Oferta zatwierdzona',
     rejected: 'Oferta odrzucona',
-    sent: 'Oferta wysłana do klienta',
+    sent: 'Oznaczono jako wysłaną do klienta',
     actionFailed: 'Operacja nie powiodła się',
     readOnlySent: 'Oferta wysłana — tylko do odczytu',
   },
@@ -1349,10 +1339,10 @@ export const pl: Translations = {
       pglBasePickled: 'PGL bazowe (PICKLED)',
       pglBaseTeardrop: 'PGL bazowe (TEARDROP)',
       pglBaseZm: 'PGL bazowe (ZM)',
-      pglBaseHint: 'Wartość startowa PGL w nowej kalkulacji dla tego typu stali. Handlowiec może ją nadpisać.',
+      pglBaseHint: 'Wartość startowa PGL w nowej kalkulacji dla tego typu stali. Zmienić ją w kalkulatorze może tylko rola z uprawnieniem „Zmienia bazę PGL”, a obniżenie bazy wymaga zatwierdzenia.',
       transportBase: 'Transport bazowy',
       minMarginPct: 'Minimalna marża (%)',
-      minMarginPctHint: 'Poniżej tego progu marża pozycji wymaga zatwierdzenia przez seniora lub admina.',
+      minMarginPctHint: 'Poniżej tego progu kalkulator ostrzega o niskiej marży. Kto musi zatwierdzić ofertę, ustalają reguły w zakładce Uprawnienia.',
       scrapPct: 'Złom (%)',
       scrapPctHint: 'Procent ceny wsadu (PGL + Σ Huta) doliczany w podsumowaniu SSC jako "Złom".',
       paymentTermDays: 'Domyślny termin płatności (dni)',
@@ -1383,7 +1373,7 @@ export const pl: Translations = {
       saved: 'Ustawienia zapisane.',
       saveFailed: 'Nie udało się zapisać ustawień.',
       frozenRateNotice:
-        'Zmiany dotyczą wyłącznie NOWYCH kalkulacji. Oferty zapisane, oczekujące na akceptację seniora i wysłane zachowują swój kurs oraz swoje PGL z dnia wyceny.',
+        'Zmiany dotyczą wyłącznie NOWYCH kalkulacji. Oferty zapisane, oczekujące na zatwierdzenie i wysłane zachowują swój kurs oraz swoje PGL z dnia wyceny.',
       historyTitle: 'Historia zmian PGL bazowego',
       historyDownload: 'Pobierz historię (.xlsx)',
       historyEmpty: 'Brak zapisanych zmian cen PGL.',
@@ -1784,13 +1774,13 @@ export const en: Translations = {
 
   team: {
     title: 'My team',
-    hint: 'Add juniors to your team so the Analytics panel lets you view your own data or any team member’s.',
+    hint: 'Add people to your team so the Analytics panel lets you view your own data or any team member’s.',
     loading: 'Loading team…',
-    empty: 'No juniors on the team yet',
-    addPlaceholder: 'Pick a junior…',
+    empty: 'No one on the team yet',
+    addPlaceholder: 'Pick a person…',
     add: 'Add',
     remove: 'Remove from team',
-    noneAssignable: 'No juniors left to add',
+    noneAssignable: 'No one left to add',
     loadFailed: 'Could not load the team',
     saveFailed: 'Could not save the change',
   },
@@ -2140,12 +2130,6 @@ export const en: Translations = {
     cancel: 'Cancel',
   },
 
-  roles: {
-    junior: 'Junior sales rep',
-    senior: 'Senior sales rep',
-    admin: 'Administrator',
-  },
-
   offerStatus: {
     draft: 'Draft',
     pending_review: 'Pending review',
@@ -2157,6 +2141,7 @@ export const en: Translations = {
   workflow: {
     submitForReview: 'Submit for review',
     sendToClient: 'Send to client',
+    sendToClientHint: 'The app sends nothing. Download the PDF and send it to the client yourself (email, phone), then click here to confirm it went out. Later, mark the offer as won or lost.',
     approve: 'Approve',
     reject: 'Reject',
     rejectReasonLabel: 'Rejection reason',
@@ -2169,7 +2154,7 @@ export const en: Translations = {
     submitted: 'Submitted for review',
     approved: 'Offer approved',
     rejected: 'Offer rejected',
-    sent: 'Offer sent to client',
+    sent: 'Marked as sent to client',
     actionFailed: 'Operation failed',
     readOnlySent: 'Offer sent — read only',
   },
@@ -2193,10 +2178,10 @@ export const en: Translations = {
       pglBaseHrs: 'Base PGL (HRS)',
       pglBaseCr: 'Base PGL (CR)',
       pglBaseHdg: 'Base PGL (HDG)',
-      pglBaseHint: 'Starting PGL value for a new calculation of this steel type. Salespeople can override it.',
+      pglBaseHint: 'Starting PGL value for a new calculation of this steel type. Only a role with the "Changes PGL base" permission can change it in the calculator, and lowering the base needs approval.',
       transportBase: 'Base transport',
       minMarginPct: 'Minimum margin (%)',
-      minMarginPctHint: 'Below this margin threshold, a position requires senior or admin approval.',
+      minMarginPctHint: 'Below this threshold the calculator warns about a low margin. Who has to approve the offer is set by the rules on the Permissions page.',
       scrapPct: 'Scrap (%)',
       scrapPctHint: 'Percentage of the input price (PGL + Σ Mill) added in the SSC summary as "Scrap".',
       paymentTermDays: 'Default payment term (days)',
@@ -2227,7 +2212,7 @@ export const en: Translations = {
       saved: 'Settings saved.',
       saveFailed: 'Failed to save settings.',
       frozenRateNotice:
-        'Changes apply to NEW calculations only. Saved offers, offers awaiting senior approval and sent offers keep the rate and PGL from the day they were priced.',
+        'Changes apply to NEW calculations only. Saved offers, offers awaiting approval and sent offers keep the rate and PGL from the day they were priced.',
       historyTitle: 'Base PGL price change history',
       historyDownload: 'Download history (.xlsx)',
       historyEmpty: 'No PGL price changes recorded yet.',
@@ -2627,13 +2612,13 @@ export const cs: Translations = {
 
   team: {
     title: 'Můj tým',
-    hint: 'Přidejte juniory do týmu, aby vám panel Analýza umožnil zobrazit vaše data nebo data vybraného juniora.',
+    hint: 'Přidejte lidi do týmu, aby vám panel Analýza umožnil zobrazit vaše data nebo data vybraného člena týmu.',
     loading: 'Načítání týmu…',
-    empty: 'V týmu zatím nejsou žádní junioři',
-    addPlaceholder: 'Vyberte juniora…',
+    empty: 'V týmu zatím nikdo není',
+    addPlaceholder: 'Vyberte osobu…',
     add: 'Přidat',
     remove: 'Odebrat z týmu',
-    noneAssignable: 'Žádní junioři k přidání',
+    noneAssignable: 'Nikdo k přidání',
     loadFailed: 'Tým se nepodařilo načíst',
     saveFailed: 'Změnu se nepodařilo uložit',
   },
@@ -2983,12 +2968,6 @@ export const cs: Translations = {
     cancel: 'Zrušit',
   },
 
-  roles: {
-    junior: 'Mladší obchodník',
-    senior: 'Starší obchodník',
-    admin: 'Administrátor',
-  },
-
   offerStatus: {
     draft: 'Koncept',
     pending_review: 'Čeká na kontrolu',
@@ -3000,6 +2979,7 @@ export const cs: Translations = {
   workflow: {
     submitForReview: 'Odeslat ke kontrole',
     sendToClient: 'Odeslat klientovi',
+    sendToClientHint: 'Aplikace nic neodesílá. Stáhněte PDF a pošlete ho klientovi sami (e-mail, telefon), pak sem klikněte a potvrďte odeslání. Později označte nabídku jako vyhranou nebo prohranou.',
     approve: 'Schválit',
     reject: 'Zamítnout',
     rejectReasonLabel: 'Důvod zamítnutí',
@@ -3012,7 +2992,7 @@ export const cs: Translations = {
     submitted: 'Odesláno ke kontrole',
     approved: 'Nabídka schválena',
     rejected: 'Nabídka zamítnuta',
-    sent: 'Nabídka odeslána klientovi',
+    sent: 'Označeno jako odesláno klientovi',
     actionFailed: 'Operace se nezdařila',
     readOnlySent: 'Nabídka odeslána — pouze ke čtení',
   },
@@ -3036,10 +3016,10 @@ export const cs: Translations = {
       pglBaseHrs: 'Základní PGL (HRS)',
       pglBaseCr: 'Základní PGL (CR)',
       pglBaseHdg: 'Základní PGL (HDG)',
-      pglBaseHint: 'Výchozí hodnota PGL pro novou kalkulaci tohoto typu oceli. Obchodník ji může přepsat.',
+      pglBaseHint: 'Výchozí hodnota PGL pro novou kalkulaci tohoto typu oceli. V kalkulačce ji může změnit jen role s oprávněním „Mění základ PGL“ a snížení základu vyžaduje schválení.',
       transportBase: 'Základní doprava',
       minMarginPct: 'Minimální marže (%)',
-      minMarginPctHint: 'Pod touto hranicí marže položka vyžaduje schválení seniorem nebo adminem.',
+      minMarginPctHint: 'Pod touto hranicí kalkulačka upozorní na nízkou marži. Kdo musí nabídku schválit, určují pravidla na stránce Oprávnění.',
       scrapPct: 'Šrot (%)',
       scrapPctHint: 'Procento ceny vsázky (PGL + Σ Huť) připočítané v souhrnu SSC jako "Šrot".',
       paymentTermDays: 'Výchozí splatnost (dny)',
@@ -3470,13 +3450,13 @@ export const de: Translations = {
 
   team: {
     title: 'Mein Team',
-    hint: 'Füge Juniors zu deinem Team hinzu, damit das Analyse-Panel deine eigenen Daten oder die eines Teammitglieds anzeigen kann.',
+    hint: 'Füge Personen zu deinem Team hinzu, damit das Analyse-Panel deine eigenen Daten oder die eines Teammitglieds anzeigen kann.',
     loading: 'Team wird geladen…',
-    empty: 'Noch keine Juniors im Team',
-    addPlaceholder: 'Junior auswählen…',
+    empty: 'Noch niemand im Team',
+    addPlaceholder: 'Person auswählen…',
     add: 'Hinzufügen',
     remove: 'Aus dem Team entfernen',
-    noneAssignable: 'Keine Juniors zum Hinzufügen',
+    noneAssignable: 'Niemand zum Hinzufügen',
     loadFailed: 'Team konnte nicht geladen werden',
     saveFailed: 'Änderung konnte nicht gespeichert werden',
   },
@@ -3826,12 +3806,6 @@ export const de: Translations = {
     cancel: 'Abbrechen',
   },
 
-  roles: {
-    junior: 'Junior-Vertriebsmitarbeiter',
-    senior: 'Senior-Vertriebsmitarbeiter',
-    admin: 'Administrator',
-  },
-
   offerStatus: {
     draft: 'Entwurf',
     pending_review: 'Prüfung ausstehend',
@@ -3843,6 +3817,7 @@ export const de: Translations = {
   workflow: {
     submitForReview: 'Zur Prüfung einreichen',
     sendToClient: 'An Kunden senden',
+    sendToClientHint: 'Die App versendet nichts. Lade das PDF herunter und schicke es selbst an den Kunden (E-Mail, Telefon), dann klicke hier, um den Versand zu bestätigen. Markiere das Angebot später als gewonnen oder verloren.',
     approve: 'Genehmigen',
     reject: 'Ablehnen',
     rejectReasonLabel: 'Ablehnungsgrund',
@@ -3855,7 +3830,7 @@ export const de: Translations = {
     submitted: 'Zur Prüfung eingereicht',
     approved: 'Angebot genehmigt',
     rejected: 'Angebot abgelehnt',
-    sent: 'Angebot an Kunden gesendet',
+    sent: 'Als an Kunden gesendet markiert',
     actionFailed: 'Vorgang fehlgeschlagen',
     readOnlySent: 'Angebot gesendet — schreibgeschützt',
   },
@@ -3879,10 +3854,10 @@ export const de: Translations = {
       pglBaseHrs: 'Basis-PGL (HRS)',
       pglBaseCr: 'Basis-PGL (CR)',
       pglBaseHdg: 'Basis-PGL (HDG)',
-      pglBaseHint: 'Startwert für PGL in einer neuen Kalkulation dieses Stahltyps. Vertrieb kann ihn überschreiben.',
+      pglBaseHint: 'Startwert für PGL in einer neuen Kalkulation dieses Stahltyps. Nur eine Rolle mit der Berechtigung „Ändert PGL-Basis“ kann ihn im Kalkulator ändern, eine Senkung der Basis muss freigegeben werden.',
       transportBase: 'Basis-Transport',
       minMarginPct: 'Mindestmarge (%)',
-      minMarginPctHint: 'Unterhalb dieser Marge erfordert eine Position die Genehmigung durch Senior oder Admin.',
+      minMarginPctHint: 'Unterhalb dieser Schwelle warnt der Kalkulator vor einer niedrigen Marge. Wer das Angebot freigeben muss, legen die Regeln auf der Seite Berechtigungen fest.',
       scrapPct: 'Schrott (%)',
       scrapPctHint: 'Prozentsatz des Einsatzpreises (PGL + Σ Werk), der in der SSC-Summe als "Schrott" berechnet wird.',
       paymentTermDays: 'Standard-Zahlungsziel (Tage)',
