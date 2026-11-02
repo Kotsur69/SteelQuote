@@ -82,6 +82,10 @@ import { useDarkMode } from '@/lib/useDarkMode';
 import { useHighContrast } from '@/lib/useHighContrast';
 import { getThemeVars } from '@/lib/themeVars';
 
+// Densities [g/cm3] for the displayed sheet weight.
+const STEEL_SHEET_DENSITY = 7.85;
+const TEARDROP_SHEET_DENSITY = 8.25;
+
 // Wynik migrateStaleOfferData() (patrz niżej) — steruje banerem "PGL zostało zaktualizowane".
 export interface StalePglMigrationInfo {
   fromYear: number;
@@ -600,6 +604,9 @@ export default function Calculator() {
 
   // Dopłata Łezka — tylko TEARDROP, zależna od szerokości taśmy
   const teardropSurcharge = pricingEngine.computeTeardropSurcharge(priceBook, currentType, width);
+
+  // Sheet weight density [g/cm3]. TEARDROP uses 8.25 to account for the raised pattern.
+  const sheetDensity = currentType === 'TEARDROP' ? TEARDROP_SHEET_DENSITY : STEEL_SHEET_DENSITY;
 
   // Calculate base surcharge
   const baseSurchargeRaw = isCoilMode
@@ -2271,11 +2278,11 @@ export default function Calculator() {
             {t.inputs.sheetWeight}
           </span>
           <span className="font-mono text-[13px] font-bold text-[var(--accent)]">
-            {((thickness * width * length * 7.85) / 1_000_000_000).toFixed(4)}
+            {((thickness * width * length * sheetDensity) / 1_000_000_000).toFixed(4)}
           </span>
           <span className="text-[10px] text-[var(--text-muted)]">t</span>
           <span className="text-[10px] text-[var(--text-muted)] ml-1">
-            ({fixedGrouped((thickness * width * length * 7.85) / 1_000_000, 2)} kg)
+            ({fixedGrouped((thickness * width * length * sheetDensity) / 1_000_000, 2)} kg)
           </span>
         </div>
       )}
