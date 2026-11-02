@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-// Termin płatności jako liczba dni od otrzymania faktury — widget przycisków dla domyślnego
+// Termin płatności jako liczba dni od dnia wystawienia faktury — widget przycisków dla domyślnego
 // terminu per-klient (app/admin/klienci, ClientPaymentTermsPanel.tsx); kalkulator tylko go
 // wyświetla. Zastępuje dawny zakres dat "od-do": handlowiec wybiera
 // gotowy próg albo wpisuje własną liczbę dni (0-365, ta sama granica co CHECK w migracji 023).

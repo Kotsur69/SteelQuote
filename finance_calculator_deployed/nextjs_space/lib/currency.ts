@@ -39,7 +39,7 @@ export interface AppSettings {
   // Złom (migracja 022) — % ceny wsadu (pglBase + sumaHuta) doliczany w sumie SSC.
   // Dawniej stała kwota (SCRAP_CONSTANT = 10 €/t), teraz konfigurowalny przez admina.
   scrapPct: number;
-  // Domyślny termin płatności w dniach (migracja 023/034), liczony od otrzymania faktury.
+  // Domyślny termin płatności w dniach (migracja 023/034), liczony od dnia wystawienia faktury.
   // Klient może mieć własny termin (clients.payment_term_days) — ten tutaj jest fallbackiem,
   // gdy klient go nie ma. Konfigurowalny przez admina, tak jak scrapPct/minMarginPct.
   paymentTermDays: number;

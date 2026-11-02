@@ -285,7 +285,7 @@ export default function Calculator() {
   const [validFrom, setValidFrom] = useState('');
   const [validTo, setValidTo] = useState('');
 
-  // Payment term in days from invoice receipt — not editable per offer: taken from the
+  // Payment term in days from the invoice issue date — not editable per offer: taken from the
   // selected client (clients.payment_term_days, edited in Klienci / senior panel) or the
   // global default from Ustawienia. Frozen with the offer once saved.
   const [paymentTermDays, setPaymentTermDays] = useState<number | null>(null);
