@@ -892,7 +892,7 @@ export const pl: Translations = {
     calculator: 'Kalkulator',
     myOffers: 'Moje Oferty',
     panelAdmin: 'Panel Admina',
-    panelSenior: 'Panel Seniora',
+    panelSenior: 'Panel Menedżera',
   },
 
   sort: {
@@ -908,7 +908,7 @@ export const pl: Translations = {
   },
 
   senior: {
-    panelTitle: 'Panel Starszego Konsultanta',
+    panelTitle: 'Panel Menedżera',
     subtitle: 'weryfikacja ofert',
     pendingOffers: 'Oferty do weryfikacji',
     noOffersPending: 'Brak ofert oczekujących na weryfikację.',
@@ -1730,7 +1730,7 @@ export const en: Translations = {
     calculator: 'Calculator',
     myOffers: 'My Offers',
     panelAdmin: 'Admin Panel',
-    panelSenior: 'Senior Panel',
+    panelSenior: 'Manager Panel',
   },
 
   sort: {
@@ -1746,7 +1746,7 @@ export const en: Translations = {
   },
 
   senior: {
-    panelTitle: 'Senior Consultant Panel',
+    panelTitle: 'Manager Panel',
     subtitle: 'offer review',
     pendingOffers: 'Offers awaiting review',
     noOffersPending: 'No offers pending review.',
@@ -2567,7 +2567,7 @@ export const cs: Translations = {
     calculator: 'Kalkulačka',
     myOffers: 'Moje nabídky',
     panelAdmin: 'Panel administrátora',
-    panelSenior: 'Panel seniora',
+    panelSenior: 'Panel manažera',
   },
 
   sort: {
@@ -2583,7 +2583,7 @@ export const cs: Translations = {
   },
 
   senior: {
-    panelTitle: 'Panel staršího obchodníka',
+    panelTitle: 'Panel manažera',
     subtitle: 'kontrola nabídek',
     pendingOffers: 'Nabídky čekající na kontrolu',
     noOffersPending: 'Žádné nabídky nečekají na kontrolu.',
@@ -3404,7 +3404,7 @@ export const de: Translations = {
     calculator: 'Rechner',
     myOffers: 'Meine Angebote',
     panelAdmin: 'Admin-Bereich',
-    panelSenior: 'Senior-Bereich',
+    panelSenior: 'Manager-Bereich',
   },
 
   sort: {
@@ -3420,7 +3420,7 @@ export const de: Translations = {
   },
 
   senior: {
-    panelTitle: 'Bereich Senior-Vertriebsmitarbeiter',
+    panelTitle: 'Manager-Bereich',
     subtitle: 'Angebotsprüfung',
     pendingOffers: 'Angebote zur Prüfung',
     noOffersPending: 'Keine Angebote zur Prüfung vorhanden.',

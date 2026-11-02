@@ -72,6 +72,9 @@ export default function AdminSalespeoplePage() {
 
   // Formularz nowego konta
   const [form, setForm] = useState({ email: '', password: '', full_name: '', is_superuser: false });
+  // Role picked per flow for the new account (flowId -> roleId); a missing key = not in that flow.
+  // Two flows pass only for multi-flow roles - the API enforces it (assertSingleFlow).
+  const [newRoles, setNewRoles] = useState<Record<number, number>>({});
 
   const flash = (type: 'success' | 'error', text: string) => {
     setMessage({ type, text });
@@ -106,12 +109,17 @@ export default function AdminSalespeoplePage() {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          memberships: Object.entries(newRoles).map(([flowId, roleId]) => ({ flowId: Number(flowId), roleId })),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         flash('success', t.admin.userCreated);
         setForm({ email: '', password: '', full_name: '', is_superuser: false });
+        setNewRoles({});
+        fetchConfig();
         fetchUsers();
       } else {
         flash('error', data.error || t.admin.saveFailed);
@@ -238,6 +246,30 @@ export default function AdminSalespeoplePage() {
             {at.superuser}
           </label>
         </div>
+        {activeFlows.length > 0 && (
+          <fieldset className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <legend className="sr-only">{at.flows}</legend>
+            {activeFlows.map((flow) => (
+              <label key={flow.id} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                <span className="w-24 truncate" title={flow.name}>{flow.name}</span>
+                <select
+                  aria-label={`${flow.name} - ${at.role}`}
+                  className={inputCls}
+                  value={newRoles[flow.id] ?? ''}
+                  onChange={(e) => {
+                    const { [flow.id]: _dropped, ...rest } = newRoles;
+                    setNewRoles(e.target.value ? { ...rest, [flow.id]: Number(e.target.value) } : rest);
+                  }}
+                >
+                  <option value="">{at.none}</option>
+                  {rolesInFlow(flow.id).map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </fieldset>
+        )}
         <button
           type="submit" disabled={busy === 'new'}
           className="mt-4 px-4 py-2 bg-[var(--accent-cr)] text-white rounded-md text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
