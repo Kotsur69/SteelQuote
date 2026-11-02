@@ -114,7 +114,7 @@ export const KTS_HEADERS: string[] = [
   'Tolerancja płaskości',
   'Pakowanie',
   'Opis Pakowanie',
-  'Maks. waga paczki',
+  'Waga paczki',
   'Maks. sztuk/paczkę',
   'Towar Klienta',
   'Gatunek Klienta',
@@ -210,7 +210,7 @@ function buildRow(item: ExcelExportItem): (string | number)[] {
     flatTol,                         // Tolerancja płaskości
     pCode,                           // Pakowanie
     pDesc,                           // Opis Pakowanie
-    maxW,                            // Maks. waga paczki
+    maxW,                            // Waga paczki
     '',                              // Maks. sztuk/paczkę
     '',                              // Towar Klienta
     '',                              // Gatunek Klienta
