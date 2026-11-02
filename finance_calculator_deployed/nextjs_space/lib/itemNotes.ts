@@ -11,6 +11,7 @@ import {
   SSC_MAX_WEIGHT_OPTIONS,
   SSC_PACKING_OPTIONS,
   getHutaSscToggleOptions,
+  isIncoterm,
   ItemInputs,
   SteelType,
 } from './calculatorData';
@@ -29,7 +30,8 @@ export function buildItemNotes(
   type: SteelType,
   inputs: ItemInputs | undefined,
   t: Translations,
-  language: Language
+  language: Language,
+  route?: DeliveryRoute
 ): string[] {
   if (!inputs) return [];
 
@@ -38,6 +40,16 @@ export function buildItemNotes(
   const push = (label: string, opt: { label: string } | undefined) => {
     if (opt) lines.push(`${label}: ${opt.label}`);
   };
+
+  // Delivery terms first - the client must see per item whether it is delivered or collected.
+  // CPT / DAP name the offer's delivery address; FCA stays bare (place agreed with the client).
+  // Offer-wide self pickup = FCA for every item. Otherwise items saved before this field have
+  // no line rather than a guessed term.
+  const term = route?.selfPickup === true ? 'FCA' : inputs.incoterm;
+  if (isIncoterm(term)) {
+    const place = term === 'FCA' ? '' : route?.destAddress?.trim() ?? '';
+    lines.push(`${t.summary.delivery}: ${term}${place ? ` ${place}` : ''}`);
+  }
 
   const p = <T,>(group: OptionGroup, options: T[]) => pick(type, inputs, group, options);
 
@@ -95,13 +107,20 @@ export function buildItemNotes(
 // Współdzielone przez wszystkie miejsca eksportu PDF (kalkulator, lista ofert handlowca,
 // panel seniora, panel admina) — każde z nich woła downloadServerPdf z inną, luźno
 // otypowaną wersją zapisanego offer_data.zestawienie, ale kształt danych jest ten sam.
+/** The offer's saved transport route (offer_data.transportRoute), as far as the notes need it. */
+export interface DeliveryRoute {
+  destAddress?: string;
+  selfPickup?: boolean;
+}
+
 export function attachNotesToZestawienie<T extends { type?: string; inputs?: ItemInputs }>(
   zestawienie: T[],
   t: Translations,
-  language: Language
+  language: Language,
+  route?: DeliveryRoute
 ): (T & { notes: string[] })[] {
   return zestawienie.map(item => ({
     ...item,
-    notes: buildItemNotes((item.type as SteelType) ?? 'HRS', item.inputs, t, language),
+    notes: buildItemNotes((item.type as SteelType) ?? 'HRS', item.inputs, t, language, route),
   }));
 }

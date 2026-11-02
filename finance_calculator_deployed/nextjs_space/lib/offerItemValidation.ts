@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { STEEL_TYPES } from '@/lib/pglQuarterly';
+import { INCOTERMS } from '@/lib/calculatorData';
 
 // Server-side guard for offer_data.zestawienie on create/update. The calculator always sends
 // complete, self-consistent items; this rejects anything else (hand-made API payloads, broken
@@ -33,6 +34,7 @@ const itemSchema = z
         marginPct: finite,
         extra: finite,
         transport: finite,
+        incoterm: z.enum(INCOTERMS).optional(),
       })
       .passthrough()
       .optional(),
@@ -52,6 +54,10 @@ function consistencyError(item: OfferItem): string | null {
     return 'totalValue does not equal finalPrice × tons';
   }
   if (!item.inputs) return null;
+  // FCA = collected by the client, so no transport may be charged on it.
+  if (item.inputs.incoterm === 'FCA' && !near(item.inputs.transport, 0)) {
+    return 'transport must be 0 for an FCA (self pickup) item';
+  }
   const cenaWsadu = item.pgl + item.sumaHuta;
   if (!near(item.marza, cenaWsadu * (item.inputs.marginPct / 100))) {
     return 'marza does not match (PGL + Σ Mill) × margin %';

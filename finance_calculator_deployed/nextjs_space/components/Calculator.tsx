@@ -32,6 +32,9 @@ import {
   SSC_MAX_WEIGHT_OPTIONS,
   SSC_PACKING_OPTIONS,
   getHutaSscToggleOptions,
+  DEFAULT_DELIVERY_INCOTERM,
+  isIncoterm,
+  type Incoterm,
 } from '@/lib/calculatorData';
 import { attachNotesToZestawienie } from '@/lib/itemNotes';
 import { offerNumberLabel } from '@/lib/offerVersions';
@@ -112,6 +115,9 @@ export interface ZestawienieItem {
   inputs?: ItemInputs;
 }
 
+/** Item collected by the client itself (FCA) - no transport in its price. */
+const isPickupItem = (inputs: ItemInputs | undefined) => inputs?.incoterm === 'FCA';
+
 // Clean-slate snapshot of a brand-new offer. Same shape collectOfferData() returns, built
 // from the initial useState values below, so restoreOfferData(INITIAL_OFFER_DATA) resets
 // the whole calculator in one call (used by the "Nowa oferta" button and the "Kalkulator"
@@ -130,6 +136,7 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
   ...optionSelectionFields(DEFAULT_PRICE_BOOK, 'HRS', defaultOptionSelection('HRS')),
   selectedCoating: 'Z275',
   pglBase: 645, marginPct: 7, extra: 0, extraComment: '', extraCommentInPdf: false, transport: 20, tons: 1,
+  incoterm: DEFAULT_DELIVERY_INCOTERM,
   validFrom: '', validTo: '', paymentTermDays: null, quoteValidityHours: null,
   zestawienie: [],
   clientInfo: EMPTY_CLIENT_INFO,
@@ -344,6 +351,13 @@ export default function Calculator() {
   const [extraCommentInPdf, setExtraCommentInPdf] = useState(false);
   const [transport, setTransport] = useState(20);
   const [tons, setTons] = useState(1);
+  // Delivery terms of the item being configured. FCA = the client collects it: transport 0 and
+  // its tons stay out of the tonnage the truck tariff is split over. null = a legacy item opened
+  // for edit without a stored term: it keeps no PDF line until the salesperson picks one.
+  const [incoterm, setIncoterm] = useState<Incoterm | null>(DEFAULT_DELIVERY_INCOTERM);
+  // Transport typed before switching the draft to FCA, brought back when delivery is re-enabled
+  // (in manual / oversize mode no route rate would overwrite the forced 0).
+  const lastDeliveredTransportRef = useRef(20);
 
   // Transport liczony z trasy. Trasa jest JEDNA na całą ofertę (towar jedzie jednym
   // kompletem ciężarówek), więc mieszka obok zestawienia, a nie w pozycji.
@@ -351,6 +365,10 @@ export default function Calculator() {
   const [transportPanelOpen, setTransportPanelOpen] = useState(false);
   const [transportLoading, setTransportLoading] = useState(false);
   const [transportError, setTransportError] = useState<string | null>(null);
+
+  // Offer-wide self pickup makes every item FCA. It is derived, never written into the items,
+  // so unticking it restores each item's own delivery terms and transport.
+  const draftIsPickup = transportRoute.selfPickup || incoterm === 'FCA';
 
   const patchTransportRoute = useCallback((patch: Partial<TransportRoute>) => {
     setTransportRoute(prev => ({ ...prev, ...patch }));
@@ -626,8 +644,10 @@ export default function Calculator() {
   // bieżący `tons`. Poza edycją doliczamy `tons` szkicu, bo to podgląd "co by było, gdyby
   // ją dodać" — świadomie liczy pozycję, której jeszcze nie ma w zestawieniu.
   const previewOfferTons = useMemo(
-    () => zestawienie.filter(i => i.id !== editingId).reduce((sum, i) => sum + i.tons, 0) + tons,
-    [zestawienie, editingId, tons]
+    () => zestawienie
+      .filter(i => i.id !== editingId && !isPickupItem(i.inputs))
+      .reduce((sum, i) => sum + i.tons, 0) + (draftIsPickup ? 0 : tons),
+    [zestawienie, editingId, tons, draftIsPickup]
   );
 
   // Tonaż FAKTYCZNIE dodanych pozycji (edytowana pozycja liczona z jej bieżącym `tons`,
@@ -636,9 +656,13 @@ export default function Calculator() {
   // samo wpisywanie ilości w formularzu nowej pozycji nie rozwadniało po cichu ceny
   // pozycji, które są już w zestawieniu (np. 1 pozycja w zestawieniu + domyślny szkic 1 t
   // dawały offerTons=2 i o połowę za niski transport na już dodanej pozycji).
+  // Items collected by the client (FCA) do not ride on the trucks, so they are left out.
   const committedOfferTons = useMemo(
-    () => zestawienie.reduce((sum, i) => sum + (i.id === editingId ? tons : i.tons), 0),
-    [zestawienie, editingId, tons]
+    () => zestawienie.reduce((sum, i) => {
+      if (i.id === editingId) return sum + (draftIsPickup ? 0 : tons);
+      return sum + (isPickupItem(i.inputs) ? 0 : i.tons);
+    }, 0),
+    [zestawienie, editingId, tons, draftIsPickup]
   );
 
   // null = handlowiec liczy transport sam (tryb ręczny, ponadgabaryt albo odbiór własny),
@@ -673,7 +697,7 @@ export default function Calculator() {
 
   // Przy odbiorze własnym transport jest wymuszony na 0 — klient sam odbiera towar spod
   // zakładu, więc nie ma tu żadnej trasy do policzenia.
-  const forcedTransportEur = transportRoute.selfPickup ? 0 : transportBreakdown?.eurPerTon ?? null;
+  const forcedTransportEur = draftIsPickup ? 0 : transportBreakdown?.eurPerTon ?? null;
   const committedForcedTransportEur = transportRoute.selfPickup ? 0 : committedTransportBreakdown?.eurPerTon ?? null;
 
   // Stawka podglądu wchodzi do pola Transport, czyli do ceny pozycji, którą właśnie się
@@ -690,28 +714,42 @@ export default function Calculator() {
   // Celowo NIE zależy od podglądu niedodanej pozycji (patrz previewOfferTons wyżej) — samo
   // wpisywanie ilości w formularzu nowej pozycji nie może po cichu przeliczyć ceny pozycji
   // już dodanych. Ta sama ścieżka obsługuje odbiór własny (perTon = 0).
+  // FCA items always keep transport 0 (offer-wide self pickup: every item).
   useEffect(() => {
     if (committedForcedTransportEur === null) return;
     const perTon = committedForcedTransportEur;
+    const allPickup = transportRoute.selfPickup;
 
     setZestawienie(prev => {
       let changed = false;
       const next = prev.map(item => {
         // Pozycja bez snapshotu .inputs (oferta sprzed v1.3) nie wie, ile miała transportu
         // — nie da się jej bezpiecznie przeliczyć, więc zostaje nietknięta.
-        if (!item.inputs || item.inputs.transport === perTon) return item;
+        if (!item.inputs) return item;
+        const target = allPickup || isPickupItem(item.inputs) ? 0 : perTon;
+        if (item.inputs.transport === target) return item;
         changed = true;
-        const finalPrice = item.finalPrice - item.inputs.transport + perTon;
+        const finalPrice = item.finalPrice - item.inputs.transport + target;
         return {
           ...item,
           finalPrice,
           totalValue: Math.round(finalPrice * item.tons * 100) / 100,
-          inputs: { ...item.inputs, transport: perTon },
+          inputs: { ...item.inputs, transport: target },
         };
       });
       return changed ? next : prev;
     });
-  }, [committedForcedTransportEur]);
+  }, [committedForcedTransportEur, transportRoute.selfPickup]);
+
+  const handleDeliveryToggle = (withDelivery: boolean) => {
+    if (!withDelivery) {
+      lastDeliveredTransportRef.current = transport;
+      setIncoterm('FCA');
+      return;
+    }
+    setIncoterm(DEFAULT_DELIVERY_INCOTERM);
+    setTransport(lastDeliveredTransportRef.current);
+  };
 
   const handleCalculateRoute = useCallback(async () => {
     const destAddress = transportRoute.destAddress.trim();
@@ -932,6 +970,7 @@ export default function Calculator() {
         selectedGrade: selectedGrade ? { name: selectedGrade.name, value: gradeValue } : null,
         selectedCoating,
         marginPct, extra, extraComment, extraCommentInPdf, transport,
+        incoterm: incoterm ?? undefined,
       },
     };
     
@@ -976,6 +1015,7 @@ export default function Calculator() {
       // Stare pozycje (sprzed dodania komentarza do dopłaty) nie mają tych pól.
       setExtraComment(inp.extraComment ?? '');
       setExtraCommentInPdf(inp.extraCommentInPdf ?? false);
+      setIncoterm(inp.incoterm ?? null);
     } else {
       // Stara pozycja bez snapshotu (oferta zapisana przed tą poprawką): najlepszy wysiłek —
       // odtwarzamy przynajmniej obiekt gatunku po nazwie, żeby dopłata gatunkowa się zgadzała.
@@ -1020,7 +1060,7 @@ export default function Calculator() {
     selectedGrade,
     ...optionSelectionFields(priceBook, currentType, optionIdx),
     selectedCoating,
-    pglBase, marginPct, extra, extraComment, extraCommentInPdf, transport, tons,
+    pglBase, marginPct, extra, extraComment, extraCommentInPdf, transport, tons, incoterm,
     // Okres ważności oferty — mrożony razem z resztą, tak jak pglBase/transport: po ponownym
     // otwarciu widać dokładnie te daty, na które oferta była wyceniona.
     validFrom, validTo,
@@ -1061,6 +1101,8 @@ export default function Calculator() {
     if (data.extraComment !== undefined) setExtraComment(data.extraComment);
     if (data.extraCommentInPdf !== undefined) setExtraCommentInPdf(data.extraCommentInPdf);
     if (data.transport !== undefined) setTransport(data.transport);
+    // Always reset: an offer saved before this field must not inherit the previous draft's term.
+    setIncoterm(isIncoterm(data.incoterm) ? data.incoterm : DEFAULT_DELIVERY_INCOTERM);
     if (data.tons !== undefined) setTons(data.tons);
     if (data.validFrom !== undefined) setValidFrom(data.validFrom);
     if (data.validTo !== undefined) setValidTo(data.validTo);
@@ -1116,7 +1158,7 @@ export default function Calculator() {
     try {
       // Uwagi w PDF odtwarzamy z zapisanych `inputs` pozycji, w bieżącym języku UI
       // (nie w języku, w którym pozycję dodano — użytkownik może przełączyć język przed eksportem).
-      const zestawienieWithNotes = attachNotesToZestawienie(zestawienie, t, language);
+      const zestawienieWithNotes = attachNotesToZestawienie(zestawienie, t, language, transportRoute);
       await downloadServerPdf({
         offerName: currentOfferName || saveOfferName || '',
         offerId: currentOfferId,
@@ -2686,6 +2728,48 @@ export default function Calculator() {
               </div>
             )}
 
+            {/* Delivery terms of this item: unchecked = FCA (client collects), checked = CPT / DAP. */}
+            <div className="px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
+              <div className="flex items-center gap-2">
+                <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.delivery}</span>
+                <label className="flex items-center gap-1.5 text-xs text-[var(--text-primary)] cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={!draftIsPickup}
+                    disabled={transportRoute.selfPickup}
+                    onChange={e => handleDeliveryToggle(e.target.checked)}
+                  />
+                  {t.summary.withDelivery}
+                </label>
+                {!draftIsPickup && (
+                  <div role="radiogroup" aria-label={t.summary.delivery} className="flex rounded border border-[var(--border)] overflow-hidden">
+                    {(['CPT', 'DAP'] as const).map(term => (
+                      <button
+                        key={term}
+                        type="button"
+                        role="radio"
+                        aria-checked={incoterm === term}
+                        onClick={() => setIncoterm(term)}
+                        className={`px-2 py-0.5 font-mono text-[11px] font-semibold transition-colors ${
+                          incoterm === term
+                            ? 'bg-[var(--accent-cr)] text-white'
+                            : 'text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.05)]'
+                        }`}
+                      >
+                        {term}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {draftIsPickup && (
+                <p className="mt-1 text-[10px] text-[var(--text-muted)]">{t.summary.deliveryPickupHint}</p>
+              )}
+              {incoterm === null && !transportRoute.selfPickup && (
+                <p className="mt-1 text-[10px] text-[#f59e0b]">{t.summary.deliveryChooseTerm}</p>
+              )}
+            </div>
+
             {/* Transport */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.transport}</span>
@@ -2693,7 +2777,7 @@ export default function Calculator() {
                   własnym), pole jest tylko do odczytu — ręczna edycja i tak zostałaby
                   nadpisana przy następnym przeliczeniu. Żeby wpisać kwotę samemu,
                   handlowiec włącza tryb ręczny w panelu niżej. */}
-              {transportBreakdown || transportRoute.selfPickup ? (
+              {transportBreakdown || draftIsPickup ? (
                 <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">
                   {money2(transport)}
                 </span>
@@ -2914,6 +2998,7 @@ export default function Calculator() {
                       moneyCeil={moneyCeil}
                       priceBook={priceBook}
                       minMarginPct={settings.minMarginPct}
+                      allPickup={transportRoute.selfPickup}
                       onEdit={editItem}
                       onDuplicate={dupItem}
                       onDelete={deleteItem}

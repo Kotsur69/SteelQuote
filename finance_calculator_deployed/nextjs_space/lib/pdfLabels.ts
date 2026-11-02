@@ -5,7 +5,6 @@
 import type { Language } from './translations';
 
 export interface PdfLabels {
-  companySub: string;
   defaultOfferTitle: string;
   dateLabel: string;
   preparedByLabel: string;
@@ -51,6 +50,8 @@ export interface PdfLabels {
   minQuantityNote: string;
   deliveryNote: string;
   toleranceNote: string;
+  // Sales terms clause. Provisional wording - replace with the exact text from the business.
+  salesTermsNote: string;
   signPreparedBy: string;
   signClientAcceptance: string;
 }
@@ -67,7 +68,6 @@ export const PDF_DATE_LOCALE: Record<Language, string> = {
 
 export const PDF_LABELS: Record<Language, PdfLabels> = {
   pl: {
-    companySub: 'Kalkulator Dopłat Stalowych',
     defaultOfferTitle: 'Oferta cenowa',
     dateLabel: 'Data: ',
     preparedByLabel: 'Sporządził: ',
@@ -107,11 +107,11 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     minQuantityNote: 'Minimalna ilość: 5 ton na pozycję.',
     deliveryNote: 'Termin dostawy: po potwierdzeniu dostępności materiału.',
     toleranceNote: 'Tolerancja wagowa +/- 10%.',
+    salesTermsNote: 'Sprzedaż odbywa się na podstawie Ogólnych Warunków Sprzedaży ArcelorMittal Distribution Solutions (OWS AMDS).',
     signPreparedBy: 'Sporządził',
     signClientAcceptance: 'Akceptacja klienta',
   },
   en: {
-    companySub: 'Steel Surcharge Calculator',
     defaultOfferTitle: 'Price Offer',
     dateLabel: 'Date: ',
     preparedByLabel: 'Prepared by: ',
@@ -151,11 +151,11 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     minQuantityNote: 'Minimum quantity: 5 tons per item.',
     deliveryNote: 'Delivery time: upon confirmation of material availability.',
     toleranceNote: 'Weight tolerance +/- 10%.',
+    salesTermsNote: 'The sale is subject to the General Terms and Conditions of Sale of ArcelorMittal Distribution Solutions (AMDS GTCS).',
     signPreparedBy: 'Prepared by',
     signClientAcceptance: 'Client acceptance',
   },
   cs: {
-    companySub: 'Kalkulátor příplatků za ocel',
     defaultOfferTitle: 'Cenová nabídka',
     dateLabel: 'Datum: ',
     preparedByLabel: 'Vypracoval: ',
@@ -195,11 +195,11 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     minQuantityNote: 'Minimální množství: 5 tun na položku.',
     deliveryNote: 'Termín dodání: po potvrzení dostupnosti materiálu.',
     toleranceNote: 'Hmotnostní tolerance +/- 10 %.',
+    salesTermsNote: 'Prodej se řídí Všeobecnými prodejními podmínkami ArcelorMittal Distribution Solutions (VPP AMDS).',
     signPreparedBy: 'Vypracoval',
     signClientAcceptance: 'Akceptace klienta',
   },
   de: {
-    companySub: 'Stahl-Zuschlagsrechner',
     defaultOfferTitle: 'Preisangebot',
     dateLabel: 'Datum: ',
     preparedByLabel: 'Erstellt von: ',
@@ -239,6 +239,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     minQuantityNote: 'Mindestmenge: 5 Tonnen pro Position.',
     deliveryNote: 'Liefertermin: nach Bestätigung der Materialverfügbarkeit.',
     toleranceNote: 'Gewichtstoleranz +/- 10%.',
+    salesTermsNote: 'Der Verkauf erfolgt auf Grundlage der Allgemeinen Verkaufsbedingungen von ArcelorMittal Distribution Solutions (AVB AMDS).',
     signPreparedBy: 'Erstellt von',
     signClientAcceptance: 'Kundenakzeptanz',
   },

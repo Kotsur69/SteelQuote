@@ -70,4 +70,25 @@ describe('validateOfferItems', () => {
   test('tolerates one cent of float noise', () => {
     expect(validateOfferItems(withItem({ totalValue: 814.375 }))).toBeNull();
   });
+
+  // Same item collected by the client (FCA): transport 20 -> 0, so 814.37 - 20 = 794.37 €/t.
+  test('accepts an FCA item without transport', () => {
+    expect(validateOfferItems(withItem({
+      finalPrice: 794.37,
+      totalValue: 794.37,
+      inputs: { marginPct: 7, extra: 0, transport: 0, incoterm: 'FCA' },
+    }))).toBeNull();
+  });
+
+  test('rejects an FCA item that still charges transport', () => {
+    expect(validateOfferItems(withItem({
+      inputs: { marginPct: 7, extra: 0, transport: 20, incoterm: 'FCA' },
+    }))).toMatch(/FCA/);
+  });
+
+  test('rejects an unknown delivery term', () => {
+    expect(validateOfferItems(withItem({
+      inputs: { marginPct: 7, extra: 0, transport: 20, incoterm: 'EXW' },
+    }))).not.toBeNull();
+  });
 });

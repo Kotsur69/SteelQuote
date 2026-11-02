@@ -8,7 +8,7 @@ import Navigation from '@/components/Navigation';
 import TeamEditor from '@/components/TeamEditor';
 import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
-import { attachNotesToZestawienie } from '@/lib/itemNotes';
+import { attachNotesToZestawienie, type DeliveryRoute } from '@/lib/itemNotes';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
 import { useHighContrast } from '@/lib/useHighContrast';
@@ -62,6 +62,8 @@ interface Offer {
       inputs?: ItemInputs;
     }>;
     clientInfo?: ClientInfo;
+    // Delivery address - the place named next to CPT / DAP in the PDF notes.
+    transportRoute?: DeliveryRoute;
     // Waluta wybrana przez handlowca + kurs z chwili zapisu. Starsze oferty ich nie mają -> EUR.
     displayCurrency?: Currency;
     eurPlnRate?: number;
@@ -244,7 +246,7 @@ export default function SeniorPage() {
         offerName: offer.display_name,
         offerId: offer.id,
         clientInfo: normalizeClientInfo(offer.offer_data.clientInfo),
-        zestawienie: attachNotesToZestawienie(offer.offer_data.zestawienie || [], t, language),
+        zestawienie: attachNotesToZestawienie(offer.offer_data.zestawienie || [], t, language, offer.offer_data.transportRoute),
         createdAt: offer.created_at,
         // Waluta i kurs z SAMEJ oferty - starszy widzi i wysyła dokładnie to, co wycenił handlowiec.
         currency: offerCurrency(offer.offer_data),

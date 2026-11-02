@@ -8,7 +8,7 @@ import Navigation from '@/components/Navigation';
 import Modal from '@/components/Modal';
 import { ClientInfo, normalizeClientInfo, hasRequiredCompanyDetails } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
-import { attachNotesToZestawienie } from '@/lib/itemNotes';
+import { attachNotesToZestawienie, type DeliveryRoute } from '@/lib/itemNotes';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
 import { useHighContrast } from '@/lib/useHighContrast';
@@ -43,6 +43,8 @@ import type { ChangeSummary } from '@/lib/offerVersionDiff';
 
 interface OfferData {
   currentType: string;
+  // Delivery address - the place named next to CPT / DAP in the PDF notes.
+  transportRoute?: DeliveryRoute;
   thickness: number;
   width: number;
   length: number;
@@ -359,7 +361,7 @@ export default function OffersPage() {
         offerName: offer.display_name,
         offerId: offer.id,
         clientInfo: normalizeClientInfo(offer.offer_data.clientInfo),
-        zestawienie: attachNotesToZestawienie(offer.offer_data.zestawienie || [], t, language),
+        zestawienie: attachNotesToZestawienie(offer.offer_data.zestawienie || [], t, language, offer.offer_data.transportRoute),
         createdAt: offer.created_at,
         // Waluta i kurs z SAMEJ oferty - PDF ma wyjść taki, jaki widział handlowiec,
         // niezależnie od tego, co admin ustawił później.

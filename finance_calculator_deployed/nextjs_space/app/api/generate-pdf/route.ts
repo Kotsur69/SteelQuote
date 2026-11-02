@@ -95,11 +95,11 @@ function notesFlowHtml(notes: string[]): string {
 
 // Offer PDF = Template 8 ("O_kompakt_pion_ciemny", Szablony PDF/Template 8): portrait, dense,
 // dark table header, gradient rule under the header. Content is the same as before - only layout
-// and branding changed.
+// and branding changed. The offer name is internal (salespeople use it to find the offer), so the
+// client-facing PDF never prints it.
 function buildHtml(
   items: OrderItem[],
   client: ClientInfo,
-  offerName: string,
   offerDate: string,
   userName: string,
   currency: Currency,
@@ -192,7 +192,6 @@ function buildHtml(
   .hd { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 8px; margin-bottom: 8px; position: relative; }
   .hd:after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--grad); border-radius: 2px; }
   .brand { text-align: right; } .brand .logo { height: 34px; display: block; margin-left: auto; }
-  .brand .sub { font-size: 7.5pt; color: var(--mut); margin-top: 4px; }
   .meta .title { font-size: 16pt; font-weight: 600; line-height: 1.15; }
   .mr { font-size: 7.8pt; color: var(--mut); margin-top: 1px; } .mr b { color: var(--ink); font-weight: 600; }
   .info { display: flex; gap: 10px; margin-bottom: 8px; }
@@ -228,13 +227,12 @@ function buildHtml(
 <body>
   <div class="hd">
     <div class="meta">
-      <div class="title">${escapeHtml(offerName) || L.defaultOfferTitle}</div>
+      <div class="title">${L.defaultOfferTitle}</div>
       <div class="mr">${L.dateLabel} <b>${escapeHtml(offerDate)}</b></div>
       <div class="mr">${L.preparedByLabel} <b>${escapeHtml(userName) || '-'}</b></div>
     </div>
     <div class="brand">
       ${logo ? `<img class="logo" src="${logo}" alt="ArcelorMittal">` : '<div class="title">ArcelorMittal</div>'}
-      <div class="sub">${L.companySub}</div>
     </div>
   </div>
 
@@ -297,6 +295,7 @@ function buildHtml(
       <li>${L.minQuantityNote}</li>
       <li>${L.deliveryNote}</li>
       <li>${L.toleranceNote}</li>
+      <li>${L.salesTermsNote}</li>
     </ul>
     <div class="sg">
       <div><div class="sn">${escapeHtml(userName)}</div><div class="sl">${L.signPreparedBy}</div></div>
@@ -325,7 +324,7 @@ export async function POST(request: Request) {
     }
     const session = auth.ctx;
 
-    const { items, clientInfo, offerName, offerDate, currency, eurPlnRate, language, validFrom, validTo, paymentTermDays, quoteValidityHours, offerId } = await request.json();
+    const { items, clientInfo, offerDate, currency, eurPlnRate, language, validFrom, validTo, paymentTermDays, quoteValidityHours, offerId } = await request.json();
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'No items provided' }, { status: 400 });
     }
@@ -360,7 +359,7 @@ export async function POST(request: Request) {
     const quoteValidityHoursNum: number | undefined =
       sanitizeQuoteValidityHours(resolveQuoteValidityHours({ quoteValidityHours, paymentTermDays: paymentTermDaysNum }));
 
-    const html_content = buildHtml(items, client, offerName || '', date, userName, pdfCurrency, pdfRate, pdfLanguage, validFromStr, validToStr, paymentTermDaysNum, quoteValidityHoursNum);
+    const html_content = buildHtml(items, client, date, userName, pdfCurrency, pdfRate, pdfLanguage, validFromStr, validToStr, paymentTermDaysNum, quoteValidityHoursNum);
 
     // Step 1: Create PDF request
     const createResponse = await fetch('https://apps.abacus.ai/api/createConvertHtmlToPdfRequest', {

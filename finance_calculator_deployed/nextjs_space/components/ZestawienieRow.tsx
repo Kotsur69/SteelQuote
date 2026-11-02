@@ -20,6 +20,8 @@ interface ZestawienieRowProps {
   priceBook: PriceBook;
   /** Settings threshold; a lower item margin gets the same warning as the margin input. */
   minMarginPct: number;
+  /** Offer-wide self pickup: every item is effectively FCA. */
+  allPickup: boolean;
   onEdit: (id: number) => void;
   onDuplicate: (id: number) => void;
   onDelete: (id: number) => void;
@@ -37,6 +39,7 @@ export default function ZestawienieRow({
   moneyCeil,
   priceBook,
   minMarginPct,
+  allPickup,
   onEdit,
   onDuplicate,
   onDelete,
@@ -104,6 +107,15 @@ export default function ZestawienieRow({
         <div className="text-[10px] text-[var(--text-secondary)] mt-0.5">
           {item.thickness} × {item.width}{item.isCoil ? '' : ` × ${item.length}`} mm
           {item.isCoil && <span className="ml-1.5 text-[9px] font-semibold text-[#a855f7] bg-[rgba(168,85,247,0.12)] px-1.5 py-0.5 rounded">{t.inputs.coilMode}</span>}
+          {/* Delivery terms of the item (FCA = collected by the client); legacy items have none. */}
+          {item.inputs && (allPickup || item.inputs.incoterm) && (
+            <span
+              title={t.summary.delivery}
+              className="ml-1.5 font-mono text-[9px] font-semibold text-[var(--text-secondary)] border border-[var(--border)] px-1.5 py-0.5 rounded"
+            >
+              {allPickup ? 'FCA' : item.inputs.incoterm}
+            </span>
+          )}
         </div>
       </td>
       <td className="px-2 sm:px-3.5 py-2 text-center">

@@ -6,7 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
 import { downloadServerPdf } from '@/lib/serverPdf';
-import { attachNotesToZestawienie } from '@/lib/itemNotes';
+import { attachNotesToZestawienie, type DeliveryRoute } from '@/lib/itemNotes';
 import type { ItemInputs } from '@/lib/calculatorData';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useOfferSearch } from '@/lib/useOfferSearch';
@@ -35,6 +35,8 @@ interface AdminOffer {
   offer_data: {
     zestawienie?: OfferPreviewItem[];
     clientInfo?: ClientInfo;
+    // Delivery address - the place named next to CPT / DAP in the PDF notes.
+    transportRoute?: DeliveryRoute;
     displayCurrency?: Currency;
     eurPlnRate?: number;
   };
@@ -323,7 +325,7 @@ function AdminOffersContent() {
         clientInfo: normalizeClientInfo(o.offer_data.clientInfo),
         // offer_data.zestawienie jest tu celowo słabo otypowane (tylko totalValue) — resztę
         // pól (w tym `inputs` do budowy Uwagi) dostarcza faktyczny JSON z bazy w runtime.
-        zestawienie: (attachNotesToZestawienie((o.offer_data.zestawienie || []) as { type?: string; inputs?: ItemInputs }[], t, language) as never),
+        zestawienie: (attachNotesToZestawienie((o.offer_data.zestawienie || []) as { type?: string; inputs?: ItemInputs }[], t, language, o.offer_data.transportRoute) as never),
         createdAt: o.created_at,
         // Waluta i kurs z SAMEJ oferty, nie z bieżących ustawień.
         currency: offerCurrency(o.offer_data),

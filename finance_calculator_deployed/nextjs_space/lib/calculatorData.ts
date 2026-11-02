@@ -1105,6 +1105,14 @@ export const YIELD_GRADES = [
 ];
 
 export type SteelType = 'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | 'ZM';
+
+// Delivery terms of one item (Incoterms). FCA = the client collects it (no transport in the
+// price); CPT / DAP = we deliver. Per item, because one offer can mix both.
+export const INCOTERMS = ['FCA', 'CPT', 'DAP'] as const;
+export type Incoterm = (typeof INCOTERMS)[number];
+export const DEFAULT_DELIVERY_INCOTERM: Exclude<Incoterm, 'FCA'> = 'DAP';
+export const isIncoterm = (value: unknown): value is Incoterm =>
+  typeof value === 'string' && (INCOTERMS as readonly string[]).includes(value);
 export type Grade = { name: string; value: number };
 
 // Pełny zestaw wejść (przełączników dopłat) dla pojedynczej pozycji zestawienia.
@@ -1152,6 +1160,8 @@ export interface ItemInputs {
   extraComment?: string;
   extraCommentInPdf?: boolean;
   transport: number;
+  // Delivery terms; optional so items saved before it stay unchanged (no line in the PDF).
+  incoterm?: Incoterm;
   // Selected option index per surcharge group. Option prices live in the editable price book
   // (lib/priceBook.ts), so matching a stored value back to its option breaks once a price
   // changes; the index does not. Optional: items saved before the price book lack them and
