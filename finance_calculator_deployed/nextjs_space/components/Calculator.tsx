@@ -782,8 +782,11 @@ export default function Calculator() {
   const filteredGrades = useMemo(() => {
     const q = gradeInput.toLowerCase().trim();
     if (q.length === 0) return activeGradeTable;
+    // Input still shows the picked grade -> offer the full list so it can be changed,
+    // instead of a one-item list containing only the current choice.
+    if (selectedGrade && q === selectedGrade.name.toLowerCase()) return activeGradeTable;
     return activeGradeTable.filter(g => g.name.toLowerCase().includes(q));
-  }, [gradeInput, activeGradeTable]);
+  }, [gradeInput, activeGradeTable, selectedGrade]);
   
   // Gatunek jednorazowy: wybrany gatunek, którego NIE ma w cenniku danego typu. Stan
   // wyliczany, nie zapisywany — dzięki temu nie zmienia się kształt Grade/ItemInputs ani
@@ -2136,6 +2139,7 @@ export default function Calculator() {
             onChange={e => {
               const next = e.target.value;
               setGradeInput(next);
+              setShowGradeDropdown(true);
               // A fully typed price-book name counts as a selection. Before, typing
               // "P355GH" and tabbing away left selectedGrade null -> grade surcharge 0.
               const exact = activeGradeTable.find(
@@ -2154,7 +2158,10 @@ export default function Calculator() {
                   : null
               );
             }}
+            // The list keeps focus in the input after a pick, so onFocus alone never fires
+            // again - reopen on click and while typing too.
             onFocus={() => setShowGradeDropdown(true)}
+            onClick={() => setShowGradeDropdown(true)}
             onBlur={() => setTimeout(() => setShowGradeDropdown(false), 150)}
             placeholder={t.inputs.searchGrade}
             autoComplete="off"
