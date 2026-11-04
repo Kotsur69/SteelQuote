@@ -232,6 +232,50 @@ describe('confirmed routing decisions', () => {
   });
 });
 
+describe('KAM / Head of Projects lowering the base PGL (Mati 2026-11-02)', () => {
+  // Worked example: base PGL 645 €/t, item PGL lowered to 600 €/t (-45 €/t, -6.98 %), margin
+  // at target 4.5 %, value 100 € -> only the base_price_change rule fires -> NPR (Head of Projects).
+  const HOP1: Creator = { isSuperuser: false, flowRole: FLOW1_ROLES[4] };
+  const HOP2: Creator = { isSuperuser: false, flowRole: FLOW2_ROLES[2] };
+  const KAM2: Creator = { isSuperuser: false, flowRole: FLOW2_ROLES[1] };
+  const autoCodes = (p: { autoSatisfied: { level: HierarchyLevel }[] }) => p.autoSatisfied.map((s) => s.level.code);
+
+  it('the cut alone fires the NPR rule', () => {
+    const { evaluation } = run(FLOW2, FLOW2_ROLES, KAM2, { pgl: 600 });
+    expect(evaluation.requiredParallelLevels.map((l) => l.code)).toEqual(['NPR']);
+  });
+
+  it('KAM lowers PGL -> Head of Projects NPR step is required', () => {
+    const { plan } = run(FLOW2, FLOW2_ROLES, KAM2, { pgl: 600 });
+    expect(stepCodes(plan)).toEqual(['NPR']);
+    expect(plan.noValidationReason).toBeNull();
+  });
+
+  it('HoP lowers PGL -> no NPR step (no self-approval), in both flows', () => {
+    for (const [flowId, roles, hop] of [[FLOW2, FLOW2_ROLES, HOP2], [FLOW1, FLOW1_ROLES, HOP1]] as const) {
+      const { plan } = run(flowId, roles, hop, { pgl: 600 });
+      expect(plan.steps).toEqual([]);
+      expect(autoCodes(plan)).toEqual(['NPR']);
+      expect(plan.noValidationReason).toBe('self_validating');
+      expect(plan.blocked).toBe(false);
+    }
+  });
+
+  it('HoP lowers PGL on an offer that also needs CEO (N+3) -> only the CEO step remains', () => {
+    const ceoForValue = [rule(FLOW1, 'offer_value_eur', '>', 50, L.N3)];
+    const { plan } = run(FLOW1, FLOW1_ROLES, HOP1, { pgl: 600, value: 100 }, ceoForValue);
+    expect(stepCodes(plan)).toEqual(['N+3']);
+    expect(autoCodes(plan)).toEqual(['NPR']);
+    expect(plan.noValidationReason).toBeNull();
+  });
+
+  it('IFO lowering PGL with the same CEO rule needs both NPR and N+3', () => {
+    const ceoForValue = [rule(FLOW1, 'offer_value_eur', '>', 50, L.N3)];
+    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { pgl: 600, value: 100 }, ceoForValue);
+    expect(stepCodes(plan).sort()).toEqual(['N+3', 'NPR']);
+  });
+});
+
 describe('stale approval steps (rules or data changed after submit)', () => {
   // Worked example: submitted at margin 4.0 % -> N+1 step stored. The offer now has 2.0 %
   // -> N+2. ASM (N+1) must not sign that off.

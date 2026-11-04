@@ -95,6 +95,30 @@ describe('only the creator sends (2.7)', () => {
   });
 });
 
+describe('self-validating creator with a step above them (Mati 2026-11-02)', () => {
+  it('HoP (approve, no submit permission) can submit an offer that still needs CEO N+3', () => {
+    const hop = ctx(OWNER, L.NPR);
+    const hopNoSubmit: AccessContext = {
+      ...hop,
+      memberships: hop.memberships.map((m) => ({ ...m, permissions: { ...m.permissions, canSubmitToValidation: false } })),
+    };
+    const draft = { userId: OWNER, flowId: FLOW, status: 'draft' as const, isLatest: true };
+    const actions = offerActions(hopNoSubmit, draft, [], plan(L.N3), POLICY);
+    expect(actions.canSubmit).toBe(true);
+    expect(actions.canSend).toBe(false);
+  });
+
+  it('a seller without submit and approve permissions still cannot submit', () => {
+    const seller = ctx(OWNER, L.N0, false);
+    const noSubmit: AccessContext = {
+      ...seller,
+      memberships: seller.memberships.map((m) => ({ ...m, permissions: { ...m.permissions, canSubmitToValidation: false } })),
+    };
+    const draft = { userId: OWNER, flowId: FLOW, status: 'draft' as const, isLatest: true };
+    expect(offerActions(noSubmit, draft, [], plan(L.N1), POLICY).canSubmit).toBe(false);
+  });
+});
+
 describe('approval validity and rule changes (2.9 / 2.10)', () => {
   it('is valid for 48 h after the last approval', () => {
     const state = approvalState('approved', [step(L.N1, 'approved', 47)], plan(L.N1), POLICY);

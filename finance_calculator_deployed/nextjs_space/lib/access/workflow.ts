@@ -444,7 +444,10 @@ export function offerActions(
       (live && offer.status !== 'sent' &&
         (su || reviewer || (isOwner && editableByOwner && perms?.canEditOwnBeforeSubmit === true))) ||
       (renegotiable && (su || (isOwner && ownerMayCreate))),
-    canSubmit: live && isOwner && (open || revalidate) && validation && (su || perms?.canSubmitToValidation === true),
+    // An approver without the submit permission (HoP, CEO) self-validates up to their level, so
+    // a remaining step is one above them (HoP + CEO N+3) - they must be able to send it there.
+    canSubmit: live && isOwner && (open || revalidate) && validation &&
+      (su || perms?.canSubmitToValidation === true || perms?.canApproveReject === true),
     canSend: ownerSends || approvedSends,
     canReview: reviewer,
     reviewAsStandIn: reviewer && decidesAsStandIn(ctx, steps, offer.flowId, offer.userId),

@@ -3,7 +3,8 @@
 //   - only the required level approves (no walk N+1 -> N+2)
 //   - a parallel level (NPR) is an extra step, approved independently of the chain step
 //   - steps at or below the creator's own level are auto-satisfied
-//   - a creator who may approve but not submit (HoP, CEO) validates their own offers
+//   - a creator who may approve but not submit (HoP, CEO) validates their own offers up to
+//     their level (no self-approval step); a chain level above them still has to approve
 //   - a parallel level stands in for chain levels up to its coversChainRank (Head of Projects
 //     = N+1 and N+2): a chain level the flow has no approver for goes there, and a chain step
 //     it covers is folded into its own step (one approval)
@@ -180,13 +181,18 @@ export function planApproval(
   if (creator.isSuperuser) {
     return { steps: [], autoSatisfied: demanded, conflicts, blocked: false, noValidationReason: 'superuser' };
   }
-  const perms = creator.flowRole?.permissions;
-  if (perms && perms.canApproveReject && !perms.canSubmitToValidation) {
-    return { steps: [], autoSatisfied: demanded, conflicts, blocked: false, noValidationReason: 'self_validating' };
-  }
+  const flowRole = creator.flowRole;
+  const perms = flowRole?.permissions;
+  const selfValidating = perms !== undefined && perms.canApproveReject && !perms.canSubmitToValidation;
+  // A self-validating creator (HoP, CEO) never approves their own offer as a separate step:
+  // parallel steps (NPR - e.g. HoP lowering the base PGL) and chain steps their level stands in
+  // for are theirs. A chain step above them (HoP + CEO N+3) still goes to that level.
+  const covered = (s: PlannedStep) =>
+    coveredByCreator(s, flowRole) || (selfValidating && s.level.kind === 'parallel');
 
-  const steps = demanded.filter((s) => !coveredByCreator(s, creator.flowRole));
-  const autoSatisfied = demanded.filter((s) => coveredByCreator(s, creator.flowRole));
-  const noValidationReason = steps.length === 0 && !unresolved ? 'creator_level' : null;
+  const steps = demanded.filter((s) => !covered(s));
+  const autoSatisfied = demanded.filter(covered);
+  const noValidationReason =
+    steps.length === 0 && !unresolved ? (selfValidating ? 'self_validating' : 'creator_level') : null;
   return { steps, autoSatisfied, conflicts, blocked: unresolved, noValidationReason };
 }
