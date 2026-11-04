@@ -1,5 +1,5 @@
 // Klient: generowanie oferty PDF przez serwerowy endpoint /api/generate-pdf
-// (bogaty render HTML -> PDF przez usluge Abacusa). Zastepuje klientowy jsPDF.
+// (bogaty render HTML -> PDF, silnik wg PDF_RENDERER). Zastepuje klientowy jsPDF.
 
 import type { Currency } from '@/lib/currency';
 import type { Language } from '@/lib/translations';

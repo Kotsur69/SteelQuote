@@ -7,6 +7,8 @@ const nextConfig = {
   productionBrowserSourceMaps: false,
   experimental: {
     outputFileTracingRoot: path.join(__dirname, '../'),
+    // Loaded from node_modules at runtime; bundling it breaks its internal dynamic imports.
+    serverComponentsExternalPackages: ['puppeteer-core'],
   },
   eslint: {
     ignoreDuringBuilds: true,

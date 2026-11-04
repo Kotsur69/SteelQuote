@@ -1,4 +1,4 @@
-// Etykiety statycznego szablonu PDF (app/api/generate-pdf/route.ts) w każdym
+// Etykiety statycznego szablonu PDF (lib/pdf/offerHtml.ts) w każdym
 // wspieranym języku UI. Osobne od lib/translations.ts (interfejs Translations UI),
 // bo PDF renderuje się po stronie serwera z surowego HTML-a, nie przez komponenty React.
 
