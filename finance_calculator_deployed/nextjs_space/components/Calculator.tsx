@@ -2969,9 +2969,38 @@ export default function Calculator() {
             </>
             )}
 
+            {/* Sheets, two-way linked with tons. Sheet forms only; the count never reaches the PDF. */}
+            {!isCoilMode && (
+              <label
+                className="flex items-center px-4 py-2 mx-3.5 mt-2"
+                onFocus={() => { quantityAtFocusRef.current = quantity; }}
+              >
+                <span className="flex-1 text-xs font-semibold text-[var(--text-secondary)]">{t.summary.quantitySheets}</span>
+                <NumericField
+                  value={sheets}
+                  onChange={value => setQuantity({
+                    source: 'sheets',
+                    sheets: value,
+                    tons: pricingEngine.tonsFromSheets(value, sheetWeight),
+                  })}
+                  onRevert={() => setQuantity(quantityAtFocusRef.current)}
+                  parse={raw => Math.max(0, parseInt(raw, 10))}
+                  normalizeOnBlur
+                  clearOnFocus
+                  disabled={sheetWeight <= 0}
+                  title={sheetWeight <= 0 ? t.summary.quantitySheetsNeedsDimensions : undefined}
+                  min="0"
+                  step="1"
+                  className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
+                    ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                />
+                <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.summary.sheetsUnit}</span>
+              </label>
+            )}
+
             {/* Tons */}
             <div
-              className="flex flex-wrap items-center px-4 py-2 mx-3.5 mt-2 [container-type:inline-size]"
+              className={`flex flex-wrap items-center px-4 py-2 mx-3.5 [container-type:inline-size] ${isCoilMode ? 'mt-2' : ''}`}
               onFocus={() => { quantityAtFocusRef.current = quantity; }}
             >
               <label htmlFor="quantity-tons" className="shrink-0 mr-auto text-xs font-semibold text-[var(--text-secondary)]">{t.summary.quantity}</label>
@@ -3003,35 +3032,6 @@ export default function Calculator() {
               />
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.tons}</span>
             </div>
-
-            {/* Sheets, two-way linked with tons. Sheet forms only; the count never reaches the PDF. */}
-            {!isCoilMode && (
-              <label
-                className="flex items-center px-4 py-2 mx-3.5"
-                onFocus={() => { quantityAtFocusRef.current = quantity; }}
-              >
-                <span className="flex-1 text-xs font-semibold text-[var(--text-secondary)]">{t.summary.quantitySheets}</span>
-                <NumericField
-                  value={sheets}
-                  onChange={value => setQuantity({
-                    source: 'sheets',
-                    sheets: value,
-                    tons: pricingEngine.tonsFromSheets(value, sheetWeight),
-                  })}
-                  onRevert={() => setQuantity(quantityAtFocusRef.current)}
-                  parse={raw => Math.max(0, parseInt(raw, 10))}
-                  normalizeOnBlur
-                  clearOnFocus
-                  disabled={sheetWeight <= 0}
-                  title={sheetWeight <= 0 ? t.summary.quantitySheetsNeedsDimensions : undefined}
-                  min="0"
-                  step="1"
-                  className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
-                    ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-                />
-                <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.summary.sheetsUnit}</span>
-              </label>
-            )}
 
             {/* Add Button */}
             <div className="px-3.5 pt-2.5 pb-1.5">
