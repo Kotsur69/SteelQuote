@@ -79,9 +79,9 @@ const RULES: ApprovalRule[] = [
   rule(FLOW2, 'price_validity_quarters', '>=', 1, L.NPR),
   rule(FLOW1, 'offer_value_eur', '>', 1_000_000, L.N2),
   rule(FLOW2, 'offer_value_eur', '>', 1_000_000, L.NPR),
-  // Migration 036: value rule to the CEO, threshold left for the business to fill in.
-  rule(FLOW1, 'offer_value_eur', '>', null, L.N3),
-  rule(FLOW2, 'offer_value_eur', '>', null, L.N3),
+  // Migration 036: value rule to the CEO.
+  rule(FLOW1, 'offer_value_eur', '>', 1_000_000, L.N3),
+  rule(FLOW2, 'offer_value_eur', '>', 1_000_000, L.N3),
 ];
 
 const rulesFor = (flowId: number, extra: ApprovalRule[] = []) =>
@@ -144,9 +144,9 @@ describe('spec test cases (SYMULATOR)', () => {
     expect(stepCodes(plan)).toEqual(['N+2']);
   });
 
-  it('T4: value above 1000K EUR -> N+2, and MAX over rules with a margin N+1', () => {
+  it('T4: value above 1000K EUR -> N+3 (N+2 until migration 036), and MAX over rules with a margin N+1', () => {
     const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { value: 1_500_000, margin: 4.0 });
-    expect(stepCodes(plan)).toEqual(['N+2']);
+    expect(stepCodes(plan)).toEqual(['N+3']);
   });
 
   it('T5: a Flow 2 rule to N+2 (nobody on N+2) goes to Head of Projects, not a conflict', () => {
@@ -311,50 +311,50 @@ describe('KAM / Head of Projects lowering the base PGL (Mati 2026-11-02)', () =>
 });
 
 describe('offer value rule to the CEO (migration 036, Mati 2026-11-04)', () => {
-  // Worked example: the business fills in 2 000 000 €. A 2 500 000 € offer is over it, a
-  // 1 500 000 € offer is only over the existing 1 000 000 € rule (Flow 2: NPR, Flow 1: N+2).
-  const FILLED = 2_000_000;
-  const filled = (flowId: number) => [rule(flowId, 'offer_value_eur', '>', FILLED, L.N3)];
+  // Worked example: threshold 1 000 000 €, the same as the existing value rules. A 1 500 000 €
+  // offer is over all of them; 1 000 000 € exactly and 900 000 € are over none ("over", not "from").
   const HOP1: Creator = { isSuperuser: false, flowRole: FLOW1_ROLES[4] };
   const HOP2: Creator = { isSuperuser: false, flowRole: FLOW2_ROLES[2] };
   const KAM2: Creator = { isSuperuser: false, flowRole: FLOW2_ROLES[1] };
 
-  it('with the threshold empty it cannot fire and is listed as to fill in, in both flows', () => {
+  it('has a threshold, so it is not listed as to fill in', () => {
     for (const flowId of [FLOW1, FLOW2]) {
       const missing = unconfiguredRules(rulesFor(flowId)).filter((r) => r.criterion === 'offer_value_eur');
-      expect(missing.map((r) => r.targetLevelId)).toEqual([L.N3.id]);
+      expect(missing).toEqual([]);
     }
-    expect(stepCodes(run(FLOW2, FLOW2_ROLES, KAM2, { value: 2_500_000 }).plan)).toEqual(['NPR']);
-    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { value: 2_500_000 }).plan)).toEqual(['N+2']);
-    expect(run(FLOW2, FLOW2_ROLES, HOP2, { value: 2_500_000 }).plan.steps).toEqual([]);
   });
 
-  it('filled in: a Flow 2 KAM offer over it needs Head of Projects and the CEO', () => {
-    const { plan } = run(FLOW2, FLOW2_ROLES, KAM2, { value: 2_500_000 }, filled(FLOW2));
+  it('a Flow 2 KAM offer over it needs Head of Projects and the CEO', () => {
+    const { plan } = run(FLOW2, FLOW2_ROLES, KAM2, { value: 1_500_000 });
     expect(stepCodes(plan).sort()).toEqual(['N+3', 'NPR']);
   });
 
-  it('filled in: a Head of Projects offer over it waits for the CEO, in both flows', () => {
+  it('a Head of Projects offer over it waits for the CEO alone, in both flows', () => {
     for (const [flowId, roles, hop] of [[FLOW2, FLOW2_ROLES, HOP2], [FLOW1, FLOW1_ROLES, HOP1]] as const) {
-      const { plan } = run(flowId, roles, hop, { value: 2_500_000 }, filled(flowId));
+      const { plan } = run(flowId, roles, hop, { value: 1_500_000 });
       expect(stepCodes(plan)).toEqual(['N+3']);
       expect(plan.blocked).toBe(false);
     }
   });
 
-  it('filled in: a Flow 1 seller offer over it goes to the CEO alone, the highest level wins', () => {
-    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { value: 2_500_000 }, filled(FLOW1));
+  it('a Flow 1 seller offer over it goes to the CEO alone, the highest level wins over N+2', () => {
+    const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { value: 1_500_000 });
     expect(stepCodes(plan)).toEqual(['N+3']);
   });
 
-  it('filled in: an offer under it does not reach the CEO', () => {
-    expect(stepCodes(run(FLOW2, FLOW2_ROLES, KAM2, { value: 1_500_000 }, filled(FLOW2)).plan)).toEqual(['NPR']);
-    expect(run(FLOW2, FLOW2_ROLES, HOP2, { value: 1_500_000 }, filled(FLOW2)).plan.steps).toEqual([]);
-    expect(stepCodes(run(FLOW1, FLOW1_ROLES, IFO1, { value: 1_500_000 }, filled(FLOW1)).plan)).toEqual(['N+2']);
+  it('an offer at or under the threshold reaches neither the CEO nor the other value rules', () => {
+    for (const value of [1_000_000, 900_000]) {
+      expect(run(FLOW2, FLOW2_ROLES, KAM2, { value }).plan.steps).toEqual([]);
+      expect(run(FLOW2, FLOW2_ROLES, HOP2, { value }).plan.steps).toEqual([]);
+      expect(run(FLOW1, FLOW1_ROLES, IFO1, { value }).plan.steps).toEqual([]);
+    }
   });
 
-  it('an offer exactly at the threshold does not reach the CEO (rule is "over")', () => {
-    expect(stepCodes(run(FLOW2, FLOW2_ROLES, KAM2, { value: FILLED }, filled(FLOW2)).plan)).toEqual(['NPR']);
+  it('an offer already approved over it no longer covers the CEO step, so it returns to validation', () => {
+    const flow1 = run(FLOW1, FLOW1_ROLES, IFO1, { value: 1_500_000 }).plan;
+    const flow2 = run(FLOW2, FLOW2_ROLES, KAM2, { value: 1_500_000 }).plan;
+    expect(uncoveredSteps(flow1, [L.N2]).map((s) => s.level.code)).toEqual(['N+3']);
+    expect(uncoveredSteps(flow2, [L.NPR]).map((s) => s.level.code)).toEqual(['N+3']);
   });
 });
 
