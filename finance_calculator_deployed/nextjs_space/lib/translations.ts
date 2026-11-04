@@ -335,6 +335,11 @@ export interface Translations {
     clearAll: string;
     confirmClear: string;
     transportCost: string;
+    sortBy: string;
+    sortedViewChip: string;
+    sortedViewNote: string;
+    clearSort: string;
+    reorderDisabledHint: string;
   };
 
   // Toggle options
@@ -1179,6 +1184,11 @@ export const pl: Translations = {
     clearAll: 'Wyczyść wszystko',
     confirmClear: 'Czy na pewno chcesz usunąć wszystkie pozycje zestawienia?',
     transportCost: 'Koszt transportu',
+    sortBy: 'Sortuj według',
+    sortedViewChip: 'Tylko widok - PDF bez zmian',
+    sortedViewNote: 'To sortowanie zmienia tylko widok. PDF, Excel i zapisana oferta zachowują kolejność z kolumny Lp.',
+    clearSort: 'Wyczyść sortowanie',
+    reorderDisabledHint: 'Wyczyść sortowanie, aby przeciągać pozycje',
   },
   
   toggles: {
@@ -2020,6 +2030,11 @@ export const en: Translations = {
     clearAll: 'Clear all',
     confirmClear: 'Are you sure you want to delete all items from the list?',
     transportCost: 'Transport cost',
+    sortBy: 'Sort by',
+    sortedViewChip: 'View only - PDF unchanged',
+    sortedViewNote: 'This sort changes only the view. The PDF, Excel and the saved offer keep the order of the No. column.',
+    clearSort: 'Clear sort',
+    reorderDisabledHint: 'Clear the sort to drag items',
   },
   
   toggles: {
@@ -2860,6 +2875,11 @@ export const cs: Translations = {
     clearAll: 'Vymazat vše',
     confirmClear: 'Opravdu chcete smazat všechny položky ze seznamu?',
     transportCost: 'Náklady na dopravu',
+    sortBy: 'Řadit podle',
+    sortedViewChip: 'Pouze zobrazení - PDF beze změny',
+    sortedViewNote: 'Toto řazení mění pouze zobrazení. PDF, Excel a uložená nabídka zachovají pořadí podle sloupce s číslem.',
+    clearSort: 'Zrušit řazení',
+    reorderDisabledHint: 'Pro přetahování položek zrušte řazení',
   },
 
   toggles: {
@@ -3700,6 +3720,11 @@ export const de: Translations = {
     clearAll: 'Alles löschen',
     confirmClear: 'Möchten Sie wirklich alle Positionen aus der Liste löschen?',
     transportCost: 'Transportkosten',
+    sortBy: 'Sortieren nach',
+    sortedViewChip: 'Nur Ansicht - PDF unverändert',
+    sortedViewNote: 'Diese Sortierung ändert nur die Ansicht. PDF, Excel und das gespeicherte Angebot behalten die Reihenfolge der Nummernspalte.',
+    clearSort: 'Sortierung aufheben',
+    reorderDisabledHint: 'Sortierung aufheben, um Positionen zu verschieben',
   },
 
   toggles: {

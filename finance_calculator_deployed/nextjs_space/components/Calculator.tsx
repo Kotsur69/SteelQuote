@@ -3,9 +3,12 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Reorder } from 'framer-motion';
+import { X } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import NumericField from '@/components/NumericField';
 import ZestawienieRow from '@/components/ZestawienieRow';
+import ItemSortButton, { ariaSortFor } from '@/components/ItemSortButton';
+import { nextItemSort, sortItems, type ItemSort, type ItemSortKey } from '@/lib/itemSort';
 import TransportPanel, { EMPTY_TRANSPORT_ROUTE, type TransportRoute } from '@/components/TransportPanel';
 import QuoteValidityPicker from '@/components/QuoteValidityPicker';
 import { DEFAULT_QUOTE_VALIDITY_HOURS, resolveQuoteValidityHours } from '@/lib/quoteValidity';
@@ -388,6 +391,8 @@ export default function Calculator() {
   
   // Zestawienie
   const [zestawienie, setZestawienie] = useState<ZestawienieItem[]>([]);
+  // View-only table order: never saved, and PDF/Excel/totals keep reading `zestawienie`.
+  const [itemSort, setItemSort] = useState<ItemSort | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   // true gdy edytowana pozycja nie ma zapisanego snapshotu .inputs (oferta sprzed v1.3) —
   // przełączniki dopłat NIE zostały odtworzone, tylko zostawione takie, jakie były w
@@ -1097,6 +1102,7 @@ export default function Calculator() {
     if (zestawienie.length === 0) return;
     if (!confirm(t.zestawienie.confirmClear)) return;
     setZestawienie([]);
+    setItemSort(null);
     setEditingId(null);
   };
   
@@ -1170,7 +1176,11 @@ export default function Calculator() {
     if (data.quoteValidityHours !== undefined || data.paymentTermDays !== undefined) {
       setQuoteValidityHours(resolveQuoteValidityHours(data));
     }
-    if (data.zestawienie !== undefined) setZestawienie(data.zestawienie);
+    if (data.zestawienie !== undefined) {
+      setZestawienie(data.zestawienie);
+      // Another offer opens in its own order, not under the previous offer's sort.
+      setItemSort(null);
+    }
     // normalizeClientInfo, a nie surowe przypisanie: oferta zapisana przed dodaniem
     // SAP_ID nie ma tego pola, a niekontrolowany input to ostrzeżenie Reacta i pole,
     // którego nie da się edytować.
@@ -1603,6 +1613,12 @@ export default function Calculator() {
   };
 
   // Calculate zestawienie totals
+  const displayedItems = sortItems(zestawienie, itemSort);
+  const sortButtonProps = {
+    sort: itemSort,
+    sortByLabel: t.zestawienie.sortBy,
+    onSort: (key: ItemSortKey) => setItemSort((current) => nextItemSort(current, key)),
+  };
   const zestTotal = zestawienie.reduce((s, i) => s + i.totalValue, 0);
   const zestTons = zestawienie.reduce((s, i) => s + i.tons, 0);
   // Suma transportu tylko dla pozycji w zestawieniu: każda pozycja liczona po
@@ -2967,7 +2983,7 @@ export default function Calculator() {
       <div className="mt-6">
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
           {/* Header */}
-          <div className="flex items-center gap-3 px-5 py-3 border-b border-[var(--border)]">
+          <div className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-[var(--border)]">
             <span className="w-2 h-2 rounded-full bg-[var(--accent-hrs)]" />
             <span className="text-xs font-semibold tracking-widest uppercase">{t.zestawienie.title}</span>
             <span className="text-[10px] font-mono text-[var(--text-secondary)] ml-1">
@@ -2978,6 +2994,18 @@ export default function Calculator() {
                 <span className="text-[10px] font-bold tracking-widest uppercase text-[var(--accent-sum)]">{t.zestawienie.transportCost}</span>
                 <span className="font-mono text-xs font-bold text-[var(--accent-sum)]">{moneyCeil(zestTransportTotal)} {currencyUnit}</span>
               </span>
+            )}
+            {itemSort && (
+              <button
+                type="button"
+                onClick={() => setItemSort(null)}
+                title={t.zestawienie.sortedViewNote}
+                aria-label={`${t.zestawienie.sortedViewChip}. ${t.zestawienie.clearSort}`}
+                className="inline-flex items-center gap-1.5 rounded border border-[var(--accent-cr)] bg-[rgba(59,142,245,0.1)] px-2.5 py-1 font-mono text-[10px] font-semibold text-[var(--accent-cr)] transition-colors hover:bg-[rgba(59,142,245,0.2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent-cr)]"
+              >
+                {t.zestawienie.sortedViewChip}
+                <X aria-hidden className="h-3 w-3 shrink-0" />
+              </button>
             )}
             <div className="ml-auto flex gap-2">
               <button
@@ -3038,14 +3066,24 @@ export default function Calculator() {
                 <tr className={`border-b border-[var(--border)] ${isDark ? 'bg-[var(--bg-panel)]' : 'bg-[var(--bg-panel)]'}`}>
                   <th className="w-10 px-1.5 sm:px-2 py-2" aria-label={language === 'pl' ? 'Zmiana kolejności' : 'Reorder'} />
                   <th className="px-1.5 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{language === 'pl' ? 'Lp.' : 'No.'}</th>
-                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-left tracking-wide uppercase whitespace-nowrap min-w-[130px] sm:min-w-[180px]">{language === 'pl' ? 'Opis (Gatunek / Wymiary)' : 'Desc (Grade / Dimensions)'}</th>
-                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-center tracking-wide uppercase whitespace-nowrap">{t.zestawienie.type}</th>
+                  <th aria-sort={ariaSortFor(itemSort, 'grade', 'dimension')} className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-left tracking-wide uppercase whitespace-nowrap min-w-[130px] sm:min-w-[180px]">
+                    <ItemSortButton sortKey="grade" label={t.zestawienie.grade} {...sortButtonProps} />
+                    <span aria-hidden className="mx-1.5 opacity-50">/</span>
+                    <ItemSortButton sortKey="dimension" label={t.zestawienie.dimensions} {...sortButtonProps} />
+                  </th>
+                  <th aria-sort={ariaSortFor(itemSort, 'type')} className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-center tracking-wide uppercase whitespace-nowrap">
+                    <ItemSortButton sortKey="type" label={t.zestawienie.type} {...sortButtonProps} />
+                  </th>
                   <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">PGL</th>
                   <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">Σ {t.zestawienie.mill}</th>
                   <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">Σ {t.zestawienie.ssc}</th>
                   <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.margin}</th>
-                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.price}</th>
-                  <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.tons}</th>
+                  <th aria-sort={ariaSortFor(itemSort, 'price')} className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">
+                    <ItemSortButton sortKey="price" label={t.zestawienie.price} {...sortButtonProps} />
+                  </th>
+                  <th aria-sort={ariaSortFor(itemSort, 'tons')} className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">
+                    <ItemSortButton sortKey="tons" label={t.zestawienie.tons} {...sortButtonProps} />
+                  </th>
                   <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.value}</th>
                   <th className="px-2 sm:px-3.5 py-2 font-mono text-[11px] text-[var(--text-secondary)] text-right tracking-wide uppercase whitespace-nowrap">{t.zestawienie.actions}</th>
                 </tr>
@@ -3062,14 +3100,17 @@ export default function Calculator() {
                 <Reorder.Group
                   as="tbody"
                   axis="y"
-                  values={zestawienie}
-                  onReorder={setZestawienie}
+                  values={displayedItems}
+                  onReorder={(next) => {
+                    // Under a sort `next` is in sorted order; saving it would rewrite the PDF order.
+                    if (!itemSort) setZestawienie(next);
+                  }}
                 >
-                  {zestawienie.map((item, idx) => (
+                  {displayedItems.map((item) => (
                     <ZestawienieRow
                       key={item.id}
                       item={item}
-                      idx={idx}
+                      idx={zestawienie.indexOf(item)}
                       t={t}
                       language={language}
                       isDark={isDark}
@@ -3080,6 +3121,7 @@ export default function Calculator() {
                       priceBook={priceBook}
                       minMarginPct={settings.minMarginPct}
                       allPickup={transportRoute.selfPickup}
+                      isReorderDisabled={itemSort !== null}
                       onEdit={editItem}
                       onDuplicate={dupItem}
                       onDelete={deleteItem}

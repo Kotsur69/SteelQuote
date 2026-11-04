@@ -22,6 +22,8 @@ interface ZestawienieRowProps {
   minMarginPct: number;
   /** Offer-wide self pickup: every item is effectively FCA. */
   allPickup: boolean;
+  /** A view-only sort is active: a drag would save the sorted order into the offer. */
+  isReorderDisabled: boolean;
   onEdit: (id: number) => void;
   onDuplicate: (id: number) => void;
   onDelete: (id: number) => void;
@@ -40,6 +42,7 @@ export default function ZestawienieRow({
   priceBook,
   minMarginPct,
   allPickup,
+  isReorderDisabled,
   onEdit,
   onDuplicate,
   onDelete,
@@ -74,17 +77,17 @@ export default function ZestawienieRow({
       className={`cursor-pointer border-b border-[rgba(42,48,72,0.4)] ${isDark ? 'hover:bg-[rgba(255,255,255,0.025)]' : 'hover:bg-[rgba(0,0,0,0.025)]'}`}
     >
       <td
-        className="px-1.5 sm:px-2 py-2 text-center cursor-grab select-none active:cursor-grabbing"
+        className={`px-1.5 sm:px-2 py-2 text-center select-none ${isReorderDisabled ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
         onClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => dragControls.start(e)}
-        title={language === 'pl' ? 'Przeciągnij, aby zmienić kolejność' : 'Drag to reorder'}
-        style={{ touchAction: 'none', WebkitTouchCallout: 'none' }}
+        onPointerDown={isReorderDisabled ? undefined : (e) => dragControls.start(e)}
+        title={isReorderDisabled ? t.zestawienie.reorderDisabledHint : language === 'pl' ? 'Przeciągnij, aby zmienić kolejność' : 'Drag to reorder'}
+        style={{ touchAction: isReorderDisabled ? undefined : 'none', WebkitTouchCallout: 'none' }}
       >
         {/* touchAction: none stops iOS/Android from starting a page-scroll gesture here instead
             of the drag — Reorder.Item only sets that CSS itself when dragListener is the
             default true, and we use a custom handle with dragListener={false}. The whole <td>
             (not just the icon) is the touch/click target, kept comfortably sized for fingers. */}
-        <GripVertical className="inline-block h-4 w-4 text-[var(--text-muted)]" />
+        <GripVertical className={`inline-block h-4 w-4 text-[var(--text-muted)] ${isReorderDisabled ? 'opacity-30' : ''}`} />
       </td>
       <td className="px-1.5 sm:px-3.5 py-2 font-mono text-xs text-[var(--text-value)] text-right">{idx + 1}</td>
       <td className="px-2 sm:px-3.5 py-2 text-left">
