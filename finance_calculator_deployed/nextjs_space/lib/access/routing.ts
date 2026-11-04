@@ -186,13 +186,16 @@ export function planApproval(
   const selfValidating = perms !== undefined && perms.canApproveReject && !perms.canSubmitToValidation;
   // A self-validating creator (HoP, CEO) never approves their own offer as a separate step:
   // parallel steps (NPR - e.g. HoP lowering the base PGL) and chain steps their level stands in
-  // for are theirs. A chain step above them (HoP + CEO N+3) still goes to that level.
+  // for are theirs. A chain step above them (HoP + CEO N+3) still goes to that level. A level
+  // nobody can approve never stops them (Mati 2026-11-04): the conflict stays on the plan, but
+  // the offer is not blocked.
   const covered = (s: PlannedStep) =>
     coveredByCreator(s, flowRole) || (selfValidating && s.level.kind === 'parallel');
 
   const steps = demanded.filter((s) => !covered(s));
   const autoSatisfied = demanded.filter(covered);
+  const blocked = unresolved && !selfValidating;
   const noValidationReason =
-    steps.length === 0 && !unresolved ? (selfValidating ? 'self_validating' : 'creator_level') : null;
-  return { steps, autoSatisfied, conflicts, blocked: unresolved, noValidationReason };
+    steps.length === 0 && !blocked ? (selfValidating ? 'self_validating' : 'creator_level') : null;
+  return { steps, autoSatisfied, conflicts, blocked, noValidationReason };
 }

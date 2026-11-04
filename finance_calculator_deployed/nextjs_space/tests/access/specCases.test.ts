@@ -274,6 +274,37 @@ describe('KAM / Head of Projects lowering the base PGL (Mati 2026-11-02)', () =>
     const { plan } = run(FLOW1, FLOW1_ROLES, IFO1, { pgl: 600, value: 100 }, ceoForValue);
     expect(stepCodes(plan).sort()).toEqual(['N+3', 'NPR']);
   });
+
+  // Mati 2026-11-04: the CEO may not have time for this every day, so a level nobody can approve
+  // never stops Head of Projects. Worked example: Flow 2 with no CEO assigned, rule "value > 50"
+  // demands N+3, HoP only stands in up to N+2, no chain approver is left to escalate to.
+  describe('a level nobody can approve (Flow 2 without a CEO)', () => {
+    const noCeo = FLOW2_ROLES.filter((r) => r.roleCode !== 'CEO');
+    const ceoForValue = [rule(FLOW2, 'offer_value_eur', '>', 50, L.N3)];
+
+    it('never blocks a HoP offer: no steps, validates directly', () => {
+      const { plan } = run(FLOW2, noCeo, HOP2, { value: 100 }, ceoForValue);
+      expect(plan.blocked).toBe(false);
+      expect(plan.steps).toEqual([]);
+      expect(plan.noValidationReason).toBe('self_validating');
+    });
+
+    it('still reports the conflict on the HoP plan, so the gap stays visible', () => {
+      const { plan } = run(FLOW2, noCeo, HOP2, { value: 100 }, ceoForValue);
+      expect(plan.conflicts.map((c) => c.requiredLevel.code)).toEqual(['N+3']);
+    });
+
+    it('does not block HoP under the admin "block" policy either', () => {
+      const { plan } = run(FLOW2, noCeo, HOP2, { value: 100 }, ceoForValue, 'block');
+      expect(plan.blocked).toBe(false);
+    });
+
+    it('still blocks a KAM offer in the same setup', () => {
+      const { plan } = run(FLOW2, noCeo, KAM2, { value: 100 }, ceoForValue);
+      expect(plan.blocked).toBe(true);
+      expect(plan.noValidationReason).toBeNull();
+    });
+  });
 });
 
 describe('stale approval steps (rules or data changed after submit)', () => {
