@@ -232,7 +232,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     colNo: 'Č.',
     colDesc: 'Jakost / Popis',
     colType: 'Typ',
-    colThickness: 'Tloušťka mm',
+    colThickness: 'Tl. mm',
     colWidth: 'Šířka mm',
     colLength: 'Délka mm',
     colQty: 'Množ. t',
