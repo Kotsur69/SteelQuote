@@ -91,8 +91,9 @@ export function offerTermKeys(items: readonly TermItem[], route?: DeliveryRoute)
     cert: dominantValue(keys.map((k) => k.cert), certFallback),
     packing: dominantValue(keys.map((k) => k.packing), packingFallback),
     incoterm,
-    // FCA = the client collects; the place is agreed separately, so no address.
-    destAddress: incoterm && incoterm !== 'FCA' && destAddress ? destAddress : undefined,
+    // Only DAP names the address. FCA = the client collects (place agreed separately); CPT prints
+    // the bare code until its description is agreed.
+    destAddress: incoterm === 'DAP' && destAddress ? destAddress : undefined,
   };
 }
 

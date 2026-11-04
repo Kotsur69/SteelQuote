@@ -34,6 +34,7 @@ import {
   getHutaSscToggleOptions,
   DEFAULT_DELIVERY_INCOTERM,
   isIncoterm,
+  isTransportFreeIncoterm,
   type Incoterm,
 } from '@/lib/calculatorData';
 import { attachNotesToZestawienie } from '@/lib/itemNotes';
@@ -121,8 +122,8 @@ export interface ZestawienieItem {
   inputs?: ItemInputs;
 }
 
-/** Item collected by the client itself (FCA) - no transport in its price. */
-const isPickupItem = (inputs: ItemInputs | undefined) => inputs?.incoterm === 'FCA';
+/** Item with no transport in its price (FCA = client collects; CPT works the same way). */
+const isPickupItem = (inputs: ItemInputs | undefined) => isTransportFreeIncoterm(inputs?.incoterm);
 
 // How long the add/update button shows its "added" confirmation.
 const ADD_FEEDBACK_MS = 1800;
@@ -377,7 +378,8 @@ export default function Calculator() {
 
   // Offer-wide self pickup makes every item FCA. It is derived, never written into the items,
   // so unticking it restores each item's own delivery terms and transport.
-  const draftIsPickup = transportRoute.selfPickup || incoterm === 'FCA';
+  // CPT carries no transport either, so it takes the same path as FCA.
+  const draftIsPickup = transportRoute.selfPickup || isTransportFreeIncoterm(incoterm);
 
   const patchTransportRoute = useCallback((patch: Partial<TransportRoute>) => {
     setTransportRoute(prev => ({ ...prev, ...patch }));
@@ -764,15 +766,14 @@ export default function Calculator() {
   }, [committedForcedTransportEur, transportRoute.selfPickup]);
 
   // Two mutually exclusive tick boxes: "with delivery" = DAP, "CPT" = CPT, neither = FCA.
+  // FCA and CPT force transport 0; the amount typed before is kept and restored on DAP.
   const handleDeliveryTermToggle = (term: Exclude<Incoterm, 'FCA'>, checked: boolean) => {
-    if (!checked) {
-      lastDeliveredTransportRef.current = transport;
-      setIncoterm('FCA');
-      return;
-    }
-    // Coming back from FCA: restore the transport typed before (DAP <-> CPT keeps it as is).
-    if (incoterm === 'FCA') setTransport(lastDeliveredTransportRef.current);
-    setIncoterm(term);
+    const next: Incoterm = checked ? term : 'FCA';
+    const wasFree = isTransportFreeIncoterm(incoterm);
+    const isFree = isTransportFreeIncoterm(next);
+    if (!wasFree && isFree) lastDeliveredTransportRef.current = transport;
+    if (wasFree && !isFree) setTransport(lastDeliveredTransportRef.current);
+    setIncoterm(next);
   };
 
   const handleCalculateRoute = useCallback(async () => {
@@ -2825,7 +2826,11 @@ export default function Calculator() {
                 ))}
               </div>
               {draftIsPickup && (
-                <p className="mt-1 text-[10px] text-[var(--text-muted)]">{t.summary.deliveryPickupHint}</p>
+                <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+                  {!transportRoute.selfPickup && incoterm === 'CPT'
+                    ? t.summary.deliveryCptHint
+                    : t.summary.deliveryPickupHint}
+                </p>
               )}
               {incoterm === null && !transportRoute.selfPickup && (
                 <p className="mt-1 text-[10px] text-[#f59e0b]">{t.summary.deliveryChooseTerm}</p>

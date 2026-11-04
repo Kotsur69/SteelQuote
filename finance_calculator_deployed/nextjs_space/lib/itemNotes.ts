@@ -53,12 +53,13 @@ export function buildItemNotes(
     if (opt) lines.push(`${label}: ${opt.label}`);
   };
 
-  // Delivery terms first, but only when they differ from the offer's terms. CPT / DAP name the
-  // offer's delivery address; FCA stays bare (place agreed with the client). Offer-wide self
-  // pickup = FCA for every item. Items saved before this field have no line.
+  // Delivery terms first, but only when they differ from the offer's terms. DAP names the
+  // offer's delivery address; FCA (place agreed with the client) and CPT (description still to
+  // come) stay bare. Offer-wide self pickup = FCA for every item. Items saved before this field
+  // have no line.
   const term = own.incoterm;
   if (term && term !== offerTerms.incoterm) {
-    const place = term === 'FCA' ? '' : route?.destAddress?.trim() ?? '';
+    const place = term === 'DAP' ? route?.destAddress?.trim() ?? '' : '';
     lines.push(`${t.summary.delivery}: ${term}${place ? ` ${place}` : ''}`);
   }
 

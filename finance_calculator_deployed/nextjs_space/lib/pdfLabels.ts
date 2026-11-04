@@ -49,7 +49,8 @@ export interface PdfLabels {
   // Quote validity picked per offer in days, stored as hours (lib/quoteValidity.ts). Legacy
   // offers without the field fall back to payment days x 24.
   priceValidityNote: (hours: number) => string;
-  // Dominant delivery term of the offer; CPT / DAP add the offer's delivery address.
+  // Dominant delivery term of the offer; DAP adds the offer's delivery address. CPT prints the
+  // bare code for now (description still to come from the business side).
   deliveryTermsNote: (term: Incoterm, place: string) => string;
   // Payment term in days from the client's settings. 0 days = prepayment; none = individual.
   paymentTermDaysNote: (days: number) => string;
@@ -124,7 +125,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     validityRangeNote: (from, to) => `Ważność oferty: ${from} – ${to}`,
     priceValidityNote: (hours) => `Cena obowiązuje dla dostaw w okresie: ${formatValidityPeriod(hours, 'pl')} od daty wystawienia oferty`,
     deliveryTermsNote: (term, place) =>
-      `Warunki dostawy: ${term} (${term === 'FCA' ? 'odbiór własny' : 'z dostawą'})${withPlace(place)}`,
+      term === 'CPT' ? 'Warunki dostawy: CPT' : `Warunki dostawy: ${term} (${term === 'FCA' ? 'odbiór własny' : 'z dostawą'})${withPlace(place)}`,
     paymentTermDaysNote: (days) => `Warunki płatności: ${days} dni od dnia wystawienia faktury`,
     paymentPrepaymentNote: 'Warunki płatności: przedpłata',
     paymentNote: 'Warunki płatności: wg ustaleń indywidualnych',
@@ -185,7 +186,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     validityRangeNote: (from, to) => `Offer validity: ${from} – ${to}`,
     priceValidityNote: (hours) => `Price valid for deliveries within: ${formatValidityPeriod(hours, 'en')} from the offer issue date`,
     deliveryTermsNote: (term, place) =>
-      `Delivery terms: ${term} (${term === 'FCA' ? 'own collection' : 'delivered'})${withPlace(place)}`,
+      term === 'CPT' ? 'Delivery terms: CPT' : `Delivery terms: ${term} (${term === 'FCA' ? 'own collection' : 'delivered'})${withPlace(place)}`,
     paymentTermDaysNote: (days) => `Payment terms: ${days} days from the invoice issue date`,
     paymentPrepaymentNote: 'Payment terms: prepayment',
     paymentNote: 'Payment terms: as individually agreed',
@@ -246,7 +247,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     validityRangeNote: (from, to) => `Platnost nabídky: ${from} – ${to}`,
     priceValidityNote: (hours) => `Cena platí pro dodávky v období: ${formatValidityPeriod(hours, 'cs')} od data vystavení nabídky`,
     deliveryTermsNote: (term, place) =>
-      `Dodací podmínky: ${term} (${term === 'FCA' ? 'vlastní odběr' : 's dodávkou'})${withPlace(place)}`,
+      term === 'CPT' ? 'Dodací podmínky: CPT' : `Dodací podmínky: ${term} (${term === 'FCA' ? 'vlastní odběr' : 's dodávkou'})${withPlace(place)}`,
     paymentTermDaysNote: (days) => `Platební podmínky: ${days} dní ode dne vystavení faktury`,
     paymentPrepaymentNote: 'Platební podmínky: platba předem',
     paymentNote: 'Platební podmínky: dle individuální dohody',
@@ -307,7 +308,7 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     validityRangeNote: (from, to) => `Angebotsgültigkeit: ${from} – ${to}`,
     priceValidityNote: (hours) => `Der Preis gilt für Lieferungen im Zeitraum: ${formatValidityPeriod(hours, 'de')} ab Angebotsdatum`,
     deliveryTermsNote: (term, place) =>
-      `Lieferbedingungen: ${term} (${term === 'FCA' ? 'Selbstabholung' : 'mit Lieferung'})${withPlace(place)}`,
+      term === 'CPT' ? 'Lieferbedingungen: CPT' : `Lieferbedingungen: ${term} (${term === 'FCA' ? 'Selbstabholung' : 'mit Lieferung'})${withPlace(place)}`,
     paymentTermDaysNote: (days) => `Zahlungsbedingungen: ${days} Tage ab Rechnungsdatum`,
     paymentPrepaymentNote: 'Zahlungsbedingungen: Vorkasse',
     paymentNote: 'Zahlungsbedingungen: nach individueller Vereinbarung',

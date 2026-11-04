@@ -295,6 +295,7 @@ export interface Translations {
     delivery: string;
     withDelivery: string;
     deliveryPickupHint: string;
+    deliveryCptHint: string;
     deliveryChooseTerm: string;
     transportOversizeLong: string;
     transportOversizeManual: string;
@@ -1139,6 +1140,7 @@ export const pl: Translations = {
     delivery: 'Dostawa',
     withDelivery: 'z dostawą',
     deliveryPickupHint: 'FCA - klient odbiera tę pozycję sam, transport = 0.',
+    deliveryCptHint: 'CPT - transport = 0.',
     deliveryChooseTerm: 'Pozycja sprzed tej funkcji - zaznacz "z dostawą" albo CPT (bez zaznaczenia = FCA), inaczej PDF nie pokaże warunków dostawy.',
     transportOversizeLong: 'Elementy 13,6–15,1 m (+{price} zł/kurs)',
     transportOversizeManual: 'Ponadgabaryt: >15,1 m lub >2,4 m',
@@ -1979,6 +1981,7 @@ export const en: Translations = {
     delivery: 'Delivery',
     withDelivery: 'with delivery',
     deliveryPickupHint: 'FCA - the client collects this item, transport = 0.',
+    deliveryCptHint: 'CPT - transport = 0.',
     deliveryChooseTerm: 'Item saved before this feature - tick "with delivery" or CPT (neither = FCA), otherwise the PDF shows no delivery terms.',
     transportOversizeLong: 'Elements 13.6-15.1 m (+{price} PLN/truck)',
     transportOversizeManual: 'Oversize: >15.1 m or >2.4 m',
@@ -2818,6 +2821,7 @@ export const cs: Translations = {
     delivery: 'Dodání',
     withDelivery: 's dopravou',
     deliveryPickupHint: 'FCA - klient si tuto položku vyzvedne sám, doprava = 0.',
+    deliveryCptHint: 'CPT - doprava = 0.',
     deliveryChooseTerm: 'Položka z doby před touto funkcí - zaškrtněte "s dopravou" nebo CPT (nic = FCA), jinak PDF nezobrazí dodací podmínky.',
     transportOversizeLong: 'Prvky 13,6-15,1 m (+{price} zł/jízda)',
     transportOversizeManual: 'Nadrozměr: >15,1 m nebo >2,4 m',
@@ -3657,6 +3661,7 @@ export const de: Translations = {
     delivery: 'Lieferung',
     withDelivery: 'mit Lieferung',
     deliveryPickupHint: 'FCA - der Kunde holt diese Position selbst ab, Transport = 0.',
+    deliveryCptHint: 'CPT - Transport = 0.',
     deliveryChooseTerm: 'Position aus der Zeit vor dieser Funktion - "mit Lieferung" oder CPT ankreuzen (nichts = FCA), sonst zeigt das PDF keine Lieferbedingungen.',
     transportOversizeLong: 'Elemente 13,6-15,1 m (+{price} PLN/Fahrt)',
     transportOversizeManual: 'Übergröße: >15,1 m oder >2,4 m',

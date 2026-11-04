@@ -19,6 +19,10 @@ describe('buildItemNotes - delivery terms', () => {
     expect(notes[0]).toBe('Delivery: CPT');
   });
 
+  test('CPT prints the bare code even when the offer has an address', () => {
+    expect(buildItemNotes('HRS', inputs({ incoterm: 'CPT' }), pl, 'pl', route)[0]).toBe('Dostawa: CPT');
+  });
+
   test('FCA never prints the delivery address', () => {
     expect(buildItemNotes('HRS', inputs({ incoterm: 'FCA' }), pl, 'pl', route)[0]).toBe('Dostawa: FCA');
   });

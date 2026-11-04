@@ -86,6 +86,27 @@ describe('validateOfferItems', () => {
     }))).toMatch(/FCA/);
   });
 
+  // CPT works like FCA on price: freight is not in our price, so 814.37 - 20 = 794.37 €/t.
+  test('accepts a CPT item without transport', () => {
+    expect(validateOfferItems(withItem({
+      finalPrice: 794.37,
+      totalValue: 794.37,
+      inputs: { marginPct: 7, extra: 0, transport: 0, incoterm: 'CPT' },
+    }))).toBeNull();
+  });
+
+  test('rejects a CPT item that still charges transport', () => {
+    expect(validateOfferItems(withItem({
+      inputs: { marginPct: 7, extra: 0, transport: 20, incoterm: 'CPT' },
+    }))).toMatch(/CPT/);
+  });
+
+  test('still accepts a DAP item with transport', () => {
+    expect(validateOfferItems(withItem({
+      inputs: { marginPct: 7, extra: 0, transport: 20, incoterm: 'DAP' },
+    }))).toBeNull();
+  });
+
   test('rejects an unknown delivery term', () => {
     expect(validateOfferItems(withItem({
       inputs: { marginPct: 7, extra: 0, transport: 20, incoterm: 'EXW' },
