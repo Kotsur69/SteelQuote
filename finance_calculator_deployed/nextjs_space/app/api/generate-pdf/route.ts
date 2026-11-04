@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireAccess, requireSuperuser } from '@/lib/access/context';
 import { loadVisibleOffer } from '@/lib/access/offerAccess';
+import { offerNumberLabel } from '@/lib/offerVersions';
 import type { AccessContext } from '@/lib/access/types';
 import { isCurrency, sanitizeRate, DEFAULT_CURRENCY, type Currency } from '@/lib/currency';
-import { isLanguage, type Language } from '@/lib/translations';
-import { PDF_LABELS, PDF_DATE_LOCALE } from '@/lib/pdfLabels';
+import { isLanguage, translations, type Language } from '@/lib/translations';
+import { PDF_LABELS, PDF_DATE_LOCALE, OWS_URL, ESTEEL_URL, type PdfLabels } from '@/lib/pdfLabels';
 import { fixedGrouped } from '@/lib/numberFormat';
 import { resolveQuoteValidityHours, sanitizeQuoteValidityHours } from '@/lib/quoteValidity';
+import { certificateText, packagingDescription, sanitizeOfferTermKeys, type OfferTermKeys } from '@/lib/offerTerms';
 import fs from 'fs';
 import path from 'path';
 
@@ -93,22 +95,73 @@ function notesFlowHtml(notes: string[]): string {
   return `<div class="nf">${parts.map((p) => `<span class="nfi">${p}</span>`).join(' ')}</div>`;
 }
 
+/** Offer-level inputs of the sales terms block. Missing values leave their line out. */
+interface PdfTermsInput {
+  validFrom?: string;
+  validTo?: string;
+  paymentTermDays?: number;
+  quoteValidityHours?: number;
+  offerTerms: OfferTermKeys;
+}
+
+const linkHtml = (url: string, text: string) => `<a href="${escapeHtml(url)}">${escapeHtml(text)}</a>`;
+
+function paymentLine(L: PdfLabels, days: number | undefined): string {
+  if (days === undefined) return L.paymentNote;
+  return days === 0 ? L.paymentPrepaymentNote : L.paymentTermDaysNote(days);
+}
+
+// Sales terms in the order of the text from sales: "Warunki" list, "Pozostałe warunki" (OWS),
+// then the e-steel line. Every interpolated value is escaped; links are built here.
+function termsHtml(L: PdfLabels, language: Language, terms: PdfTermsInput): string {
+  const { cert, packing, incoterm, destAddress } = terms.offerTerms;
+  const packingText = packing === undefined ? undefined : packagingDescription(translations[language], packing);
+  const certText = cert === undefined ? undefined : certificateText(cert);
+  const lines = [
+    L.invoiceNote,
+    packingText ? L.packagingNote(packingText) : '',
+    terms.validFrom && terms.validTo ? L.validityRangeNote(terms.validFrom, terms.validTo) : '',
+    terms.quoteValidityHours !== undefined ? L.priceValidityNote(terms.quoteValidityHours) : '',
+    incoterm ? L.deliveryTermsNote(incoterm, destAddress ?? '') : '',
+    paymentLine(L, terms.paymentTermDays),
+    L.minQuantityNote,
+    L.toleranceNote,
+    certText ? L.certificateNote(certText) : '',
+    L.orderDetailsNote,
+  ].filter(Boolean);
+
+  const owsLink = linkHtml(OWS_URL, OWS_URL);
+  const otherTerms = [...L.otherTerms.map(escapeHtml), L.personalDataNote(owsLink)];
+  return `
+    <div class="fs">
+      <div class="ibt">${L.termsTitle}</div>
+      <ul>${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>
+    </div>
+    <div class="fs">
+      <div class="ibt">${L.otherTermsTitle}</div>
+      <p>${L.owsIntro(owsLink)}</p>
+      <p>${escapeHtml(L.owsAcceptance)}</p>
+      <ol>${otherTerms.map((term) => `<li>${term}</li>`).join('')}</ol>
+    </div>
+    <div class="fs">
+      <div class="ibt">${L.orderOnlineTitle}</div>
+      <p>${L.orderOnlineNote(`<b>${linkHtml(ESTEEL_URL, 'e-steel.arcelormittal.com')}</b>`)}</p>
+    </div>`;
+}
+
 // Offer PDF = Template 8 ("O_kompakt_pion_ciemny", Szablony PDF/Template 8): portrait, dense,
-// dark table header, gradient rule under the header. Content is the same as before - only layout
-// and branding changed. The offer name is internal (salespeople use it to find the offer), so the
-// client-facing PDF never prints it.
+// dark table header, gradient rule under the header. The offer name is internal (salespeople use
+// it to find the offer), so the client-facing PDF never prints it.
 function buildHtml(
   items: OrderItem[],
   client: ClientInfo,
   offerDate: string,
   userName: string,
+  offerNumber: string | null,
   currency: Currency,
   eurPlnRate: number,
   language: Language,
-  validFrom?: string,
-  validTo?: string,
-  paymentTermDays?: number,
-  quoteValidityHours?: number
+  terms: PdfTermsInput
 ): string {
   const logo = readAsDataUri('brand/logo-color.svg', 'image/svg+xml');
   const L = PDF_LABELS[language];
@@ -210,16 +263,20 @@ function buildHtml(
   .ds { font-size: 7.2pt; color: var(--mut); }
   .tb { display: inline-block; padding: 1px 5px; border-radius: 3px; color: #fff; font-size: 6.6pt; font-weight: 600; letter-spacing: .3px; white-space: nowrap; }
   .nt { font-size: 6.8pt; line-height: 1.35; color: var(--mut); }
-  .nf b { color: var(--ink); font-weight: 600; } .nfi { white-space: nowrap; } .nfi:not(:last-child):after { content: ' ·'; color: #c9c2bb; }
+  .nf b { color: var(--ink); font-weight: 600; white-space: normal; } .nfi { white-space: nowrap; } .nfi:not(:last-child):after { content: ' ·'; color: #c9c2bb; }
   .tot { break-inside: avoid; page-break-inside: avoid; border-collapse: separate; border-spacing: 0; }
   .tot td { padding: 6px 4px; font-weight: 600; white-space: nowrap; background: var(--soft); }
   .tot td:first-child { border-radius: 0 0 0 5px; } .tot td:last-child { border-radius: 0 0 5px 0; }
   .tl { font-size: 7pt; letter-spacing: 1px; text-transform: uppercase; }
   .bt { display: inline-block; padding: 2px 9px; border-radius: 3px; background: var(--or); color: #fff; font-size: 9.5pt; }
-  .ft { margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 20px; break-inside: avoid; page-break-inside: avoid; }
-  .ft ul { flex: 1; list-style: none; font-size: 7.4pt; color: var(--mut); line-height: 1.55; columns: 2; column-gap: 16px; }
+  .ft { margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 7.4pt; color: var(--mut); line-height: 1.5; }
+  .fs { margin-bottom: 7px; break-inside: avoid; page-break-inside: avoid; }
+  .ft ul { list-style: none; columns: 2; column-gap: 16px; }
   .ft ul li { break-inside: avoid; }
-  .sg { display: flex; gap: 22px; align-items: flex-end; } .sg > div { width: 150px; text-align: center; }
+  .ft ol { padding-left: 14px; } .ft p { margin-bottom: 2px; }
+  .ft a { color: var(--ink); text-decoration: underline; }
+  .sg { display: flex; justify-content: flex-end; gap: 22px; align-items: flex-end; break-inside: avoid; page-break-inside: avoid; }
+  .sg > div { width: 150px; text-align: center; }
   .sn { font-weight: 600; font-size: 8pt; }
   .sl { border-top: 1px solid #b8b1ab; margin-top: 28px; padding-top: 3px; font-size: 7.2pt; color: var(--mut); }
 </style>
@@ -228,6 +285,7 @@ function buildHtml(
   <div class="hd">
     <div class="meta">
       <div class="title">${L.defaultOfferTitle}</div>
+      ${offerNumber ? `<div class="mr">${L.offerNumberLabel} <b>${escapeHtml(offerNumber)}</b></div>` : ''}
       <div class="mr">${L.dateLabel} <b>${escapeHtml(offerDate)}</b></div>
       <div class="mr">${L.preparedByLabel} <b>${escapeHtml(userName) || '-'}</b></div>
     </div>
@@ -279,24 +337,7 @@ function buildHtml(
   </table>
 
   <div class="ft">
-    <ul>
-      <li>${L.pricesNote(isPln ? 'PLN' : 'EUR')}</li>
-      ${isPln ? `<li>${L.rateNote(eurPlnRate.toFixed(4).replace(/0+$/, '').replace(/\.$/, ''))}</li>` : ''}
-      <li>${L.invoiceNote}</li>
-      ${validFrom && validTo ? `<li>${escapeHtml(L.validityRangeNote(validFrom, validTo))}</li>` : ''}
-      ${quoteValidityHours !== undefined ? `<li>${escapeHtml(L.validityHoursNote(quoteValidityHours))}</li>` : ''}
-      <li>${
-        typeof paymentTermDays === 'number'
-          ? paymentTermDays === 0
-            ? L.paymentPrepaymentNote
-            : escapeHtml(L.paymentTermDaysNote(paymentTermDays))
-          : L.paymentNote
-      }</li>
-      <li>${L.minQuantityNote}</li>
-      <li>${L.deliveryNote}</li>
-      <li>${L.toleranceNote}</li>
-      <li>${L.salesTermsNote}</li>
-    </ul>
+    ${termsHtml(L, language, terms)}
     <div class="sg">
       <div><div class="sn">${escapeHtml(userName)}</div><div class="sl">${L.signPreparedBy}</div></div>
       <div><div class="sn">&nbsp;</div><div class="sl">${L.signClientAcceptance}</div></div>
@@ -306,14 +347,24 @@ function buildHtml(
 </html>`;
 }
 
-/** Email of the offer's creator when the caller may see that offer, else null. */
-async function offerCreatorEmail(ctx: AccessContext, offerId: unknown): Promise<string | null> {
+interface SavedOfferMeta {
+  creatorEmail: string | null;
+  // "offer_30.2" - the number the client quotes when ordering (terms, point 2).
+  numberLabel: string | null;
+}
+
+/** Creator email and offer number of a saved offer the caller may see; nulls otherwise. */
+async function savedOfferMeta(ctx: AccessContext, offerId: unknown): Promise<SavedOfferMeta> {
+  const none: SavedOfferMeta = { creatorEmail: null, numberLabel: null };
   const id = typeof offerId === 'number' ? offerId : Number.NaN;
-  if (!Number.isInteger(id) || id <= 0) return null;
+  if (!Number.isInteger(id) || id <= 0) return none;
   const offer = await loadVisibleOffer(ctx, id);
-  if (!offer || offer.user_id === null) return null;
+  if (!offer) return none;
+  const numberLabel = offerNumberLabel(offer);
+  if (offer.user_id === null) return { creatorEmail: null, numberLabel };
   const owner = await pool.query(`SELECT email FROM users WHERE id = $1`, [offer.user_id]);
-  return typeof owner.rows[0]?.email === 'string' ? owner.rows[0].email : null;
+  const creatorEmail = typeof owner.rows[0]?.email === 'string' ? owner.rows[0].email : null;
+  return { creatorEmail, numberLabel };
 }
 
 export async function POST(request: Request) {
@@ -324,7 +375,7 @@ export async function POST(request: Request) {
     }
     const session = auth.ctx;
 
-    const { items, clientInfo, offerDate, currency, eurPlnRate, language, validFrom, validTo, paymentTermDays, quoteValidityHours, offerId } = await request.json();
+    const { items, clientInfo, offerDate, currency, eurPlnRate, language, validFrom, validTo, paymentTermDays, quoteValidityHours, offerTerms, offerId } = await request.json();
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'No items provided' }, { status: 400 });
     }
@@ -332,7 +383,8 @@ export async function POST(request: Request) {
     const client: ClientInfo = clientInfo || { firstName: '', lastName: '', company: '', address: '', nip: '', sapId: '', phone: '', email: '' };
     // A saved offer is always signed by its creator - an approver or admin downloading it must
     // not appear as the author (the offer and its client contact belong to the salesperson).
-    const userName = (await offerCreatorEmail(session, offerId)) ?? session.email ?? '';
+    const savedMeta = await savedOfferMeta(session, offerId);
+    const userName = savedMeta.creatorEmail ?? session.email ?? '';
     // Brak/nieznany język (stare wywołanie) => polski, tak jak dotąd zachowywał się PDF.
     const pdfLanguage: Language = isLanguage(language) ? language : 'pl';
     const date = offerDate || new Date().toLocaleDateString(PDF_DATE_LOCALE[pdfLanguage]);
@@ -359,7 +411,13 @@ export async function POST(request: Request) {
     const quoteValidityHoursNum: number | undefined =
       sanitizeQuoteValidityHours(resolveQuoteValidityHours({ quoteValidityHours, paymentTermDays: paymentTermDaysNum }));
 
-    const html_content = buildHtml(items, client, date, userName, pdfCurrency, pdfRate, pdfLanguage, validFromStr, validToStr, paymentTermDaysNum, quoteValidityHoursNum);
+    const html_content = buildHtml(items, client, date, userName, savedMeta.numberLabel, pdfCurrency, pdfRate, pdfLanguage, {
+      validFrom: validFromStr,
+      validTo: validToStr,
+      paymentTermDays: paymentTermDaysNum,
+      quoteValidityHours: quoteValidityHoursNum,
+      offerTerms: sanitizeOfferTermKeys(offerTerms),
+    });
 
     // Step 1: Create PDF request
     const createResponse = await fetch('https://apps.abacus.ai/api/createConvertHtmlToPdfRequest', {

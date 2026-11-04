@@ -37,6 +37,7 @@ import {
   type Incoterm,
 } from '@/lib/calculatorData';
 import { attachNotesToZestawienie } from '@/lib/itemNotes';
+import { offerTermKeys } from '@/lib/offerTerms';
 import { offerNumberLabel } from '@/lib/offerVersions';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
@@ -758,14 +759,16 @@ export default function Calculator() {
     });
   }, [committedForcedTransportEur, transportRoute.selfPickup]);
 
-  const handleDeliveryToggle = (withDelivery: boolean) => {
-    if (!withDelivery) {
+  // Two mutually exclusive tick boxes: "with delivery" = DAP, "CPT" = CPT, neither = FCA.
+  const handleDeliveryTermToggle = (term: Exclude<Incoterm, 'FCA'>, checked: boolean) => {
+    if (!checked) {
       lastDeliveredTransportRef.current = transport;
       setIncoterm('FCA');
       return;
     }
-    setIncoterm(DEFAULT_DELIVERY_INCOTERM);
-    setTransport(lastDeliveredTransportRef.current);
+    // Coming back from FCA: restore the transport typed before (DAP <-> CPT keeps it as is).
+    if (incoterm === 'FCA') setTransport(lastDeliveredTransportRef.current);
+    setIncoterm(term);
   };
 
   const handleCalculateRoute = useCallback(async () => {
@@ -1192,6 +1195,7 @@ export default function Calculator() {
       // (nie w języku, w którym pozycję dodano — użytkownik może przełączyć język przed eksportem).
       const zestawienieWithNotes = attachNotesToZestawienie(zestawienie, t, language, transportRoute);
       await downloadServerPdf({
+        offerTerms: offerTermKeys(zestawienie, transportRoute),
         offerName: currentOfferName || saveOfferName || '',
         offerId: currentOfferId,
         clientInfo,
@@ -2772,39 +2776,30 @@ export default function Calculator() {
               </div>
             )}
 
-            {/* Delivery terms of this item: unchecked = FCA (client collects), checked = CPT / DAP. */}
+            {/* Delivery terms of this item: "with delivery" = DAP, "CPT" = CPT, neither ticked = FCA
+                (client collects). The two boxes are mutually exclusive. */}
             <div className="px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.delivery}</span>
-                <label className="flex items-center gap-1.5 text-xs text-[var(--text-primary)] cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={!draftIsPickup}
-                    disabled={transportRoute.selfPickup}
-                    onChange={e => handleDeliveryToggle(e.target.checked)}
-                  />
-                  {t.summary.withDelivery}
-                </label>
-                {!draftIsPickup && (
-                  <div role="radiogroup" aria-label={t.summary.delivery} className="flex rounded border border-[var(--border)] overflow-hidden">
-                    {(['CPT', 'DAP'] as const).map(term => (
-                      <button
-                        key={term}
-                        type="button"
-                        role="radio"
-                        aria-checked={incoterm === term}
-                        onClick={() => setIncoterm(term)}
-                        className={`px-2 py-0.5 font-mono text-[11px] font-semibold transition-colors ${
-                          incoterm === term
-                            ? 'bg-[var(--accent-cr)] text-white'
-                            : 'text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.05)]'
-                        }`}
-                      >
-                        {term}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {([
+                  { term: 'DAP', label: t.summary.withDelivery },
+                  { term: 'CPT', label: 'CPT' },
+                ] as const).map(({ term, label }) => (
+                  <label
+                    key={term}
+                    className={`flex items-center gap-1.5 text-xs text-[var(--text-primary)] select-none ${
+                      transportRoute.selfPickup ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!transportRoute.selfPickup && incoterm === term}
+                      disabled={transportRoute.selfPickup}
+                      onChange={e => handleDeliveryTermToggle(term, e.target.checked)}
+                    />
+                    {label}
+                  </label>
+                ))}
               </div>
               {draftIsPickup && (
                 <p className="mt-1 text-[10px] text-[var(--text-muted)]">{t.summary.deliveryPickupHint}</p>

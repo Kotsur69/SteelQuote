@@ -7,7 +7,8 @@ import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import Navigation from '@/components/Navigation';
 import Modal from '@/components/Modal';
 import { ClientInfo, normalizeClientInfo, hasRequiredCompanyDetails } from '@/lib/pdfGenerator';
-import { downloadServerPdf } from '@/lib/serverPdf';
+import { downloadServerPdf, savedOfferTermsFields } from '@/lib/serverPdf';
+import { offerTermKeys } from '@/lib/offerTerms';
 import { attachNotesToZestawienie, type DeliveryRoute } from '@/lib/itemNotes';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
@@ -362,6 +363,8 @@ export default function OffersPage() {
         offerId: offer.id,
         clientInfo: normalizeClientInfo(offer.offer_data.clientInfo),
         zestawienie: attachNotesToZestawienie(offer.offer_data.zestawienie || [], t, language, offer.offer_data.transportRoute),
+        offerTerms: offerTermKeys(offer.offer_data.zestawienie || [], offer.offer_data.transportRoute),
+        ...savedOfferTermsFields(offer.offer_data),
         createdAt: offer.created_at,
         // Waluta i kurs z SAMEJ oferty - PDF ma wyjść taki, jaki widział handlowiec,
         // niezależnie od tego, co admin ustawił później.

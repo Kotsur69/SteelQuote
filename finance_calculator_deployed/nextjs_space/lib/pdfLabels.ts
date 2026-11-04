@@ -3,10 +3,16 @@
 // bo PDF renderuje się po stronie serwera z surowego HTML-a, nie przez komponenty React.
 
 import type { Language } from './translations';
+import type { Incoterm } from './calculatorData';
 import { formatValidityPeriod } from './quoteValidity';
 
+// Sales terms ("Warunki" / OWS block) follow the text Lukasz (sales) sent on 2026-11-04. PL is his
+// wording; EN / CZ / DE are our translations and still need his review. Functions taking `link`
+// receive ready, already-escaped <a> HTML from the template - the label text itself is static.
 export interface PdfLabels {
   defaultOfferTitle: string;
+  // Saved offers only ("offer_30.2"); the client quotes it when ordering (terms, point 2).
+  offerNumberLabel: string;
   dateLabel: string;
   preparedByLabel: string;
   recipientTitle: string;
@@ -34,26 +40,33 @@ export interface PdfLabels {
   colNotes: string;
   coilSuffix: string;
   totalRowLabel: string;
-  pricesNote: (currencyCode: string) => string;
-  rateNote: (rate: string) => string;
+  termsTitle: string;
   invoiceNote: string;
-  // Zakres dat "okresu ważności oferty" (od-do) wybranego w kalkulatorze — opcjonalna
-  // dodatkowa linijka. Renderowana tylko gdy obie daty przyszły.
+  // Dominant SSC packaging of the offer, as its description (S01 -> "Kantówki"), not the code.
+  packagingNote: (description: string) => string;
+  // Period picked in the calculator (quarter / month / custom). Shown only when both dates came.
   validityRangeNote: (from: string, to: string) => string;
-  // "Ważność oferty: N dni od daty wystawienia" — picked per offer in days (1/2/5/7/custom),
-  // stored as hours (lib/quoteValidity.ts). Legacy offers without the field fall back to
-  // payment days x 24; legacy non-whole-day values still print as hours.
-  validityHoursNote: (hours: number) => string;
-  paymentNote: string;
-  // Payment term in days from the invoice issue date (from the client's settings) — replaces
-  // paymentNote when set. 0 days = paymentPrepaymentNote instead, not "0 dni".
+  // Quote validity picked per offer in days, stored as hours (lib/quoteValidity.ts). Legacy
+  // offers without the field fall back to payment days x 24.
+  priceValidityNote: (hours: number) => string;
+  // Dominant delivery term of the offer; CPT / DAP add the offer's delivery address.
+  deliveryTermsNote: (term: Incoterm, place: string) => string;
+  // Payment term in days from the client's settings. 0 days = prepayment; none = individual.
   paymentTermDaysNote: (days: number) => string;
   paymentPrepaymentNote: string;
+  paymentNote: string;
   minQuantityNote: string;
-  deliveryNote: string;
   toleranceNote: string;
-  // Sales terms clause. Provisional wording - replace with the exact text from the business.
-  salesTermsNote: string;
+  // Dominant certificate of the offer, e.g. "3.1 EN 10204".
+  certificateNote: (certificate: string) => string;
+  orderDetailsNote: string;
+  otherTermsTitle: string;
+  owsIntro: (link: string) => string;
+  owsAcceptance: string;
+  otherTerms: readonly string[];
+  personalDataNote: (link: string) => string;
+  orderOnlineTitle: string;
+  orderOnlineNote: (link: string) => string;
   signPreparedBy: string;
   signClientAcceptance: string;
 }
@@ -68,9 +81,16 @@ export const PDF_DATE_LOCALE: Record<Language, string> = {
   de: 'de-DE',
 };
 
+// The same pages for every PDF language (only the PL pages were given).
+export const OWS_URL = 'https://distribution.arcelormittal.com/pl-PL/pobierz';
+export const ESTEEL_URL = 'https://e-steel.arcelormittal.com';
+
+const withPlace = (place: string) => (place ? `, ${place}` : '');
+
 export const PDF_LABELS: Record<Language, PdfLabels> = {
   pl: {
     defaultOfferTitle: 'Oferta cenowa',
+    offerNumberLabel: 'Nr oferty: ',
     dateLabel: 'Data: ',
     preparedByLabel: 'Sporządził: ',
     recipientTitle: 'Odbiorca',
@@ -98,23 +118,40 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     colNotes: 'Uwagi',
     coilSuffix: '(KRĄG)',
     totalRowLabel: 'RAZEM:',
-    pricesNote: (currencyCode) => `Ceny w ${currencyCode}/t, bez podatku VAT.`,
-    rateNote: (rate) => `Kurs przeliczeniowy: 1 EUR = ${rate} PLN (kurs z dnia wyceny).`,
-    invoiceNote: 'Faktura wystawiana na podstawie wagi brutto.',
-    validityRangeNote: (from, to) => `Okres ważności oferty: ${from} – ${to}.`,
-    validityHoursNote: (hours) => `Ważność oferty: ${formatValidityPeriod(hours, 'pl')} od daty wystawienia.`,
-    paymentNote: 'Warunki płatności: wg ustaleń indywidualnych.',
-    paymentTermDaysNote: (days) => `Termin płatności: ${days} dni od dnia wystawienia faktury.`,
-    paymentPrepaymentNote: 'Warunki płatności: przedpłata.',
-    minQuantityNote: 'Minimalna ilość: 5 ton na pozycję.',
-    deliveryNote: 'Termin dostawy: po potwierdzeniu dostępności materiału.',
-    toleranceNote: 'Tolerancja wagowa +/- 10%.',
-    salesTermsNote: 'Sprzedaż odbywa się na podstawie Ogólnych Warunków Sprzedaży ArcelorMittal Distribution Solutions (OWS AMDS).',
+    termsTitle: 'Warunki',
+    invoiceNote: 'Faktura wystawiana wg wagi brutto',
+    packagingNote: (description) => `Pakowanie: ${description}`,
+    validityRangeNote: (from, to) => `Ważność oferty: ${from} – ${to}`,
+    priceValidityNote: (hours) => `Cena obowiązuje dla dostaw w okresie: ${formatValidityPeriod(hours, 'pl')} od daty wystawienia oferty`,
+    deliveryTermsNote: (term, place) =>
+      `Warunki dostawy: ${term} (${term === 'FCA' ? 'odbiór własny' : 'z dostawą'})${withPlace(place)}`,
+    paymentTermDaysNote: (days) => `Warunki płatności: ${days} dni od dnia wystawienia faktury`,
+    paymentPrepaymentNote: 'Warunki płatności: przedpłata',
+    paymentNote: 'Warunki płatności: wg ustaleń indywidualnych',
+    minQuantityNote: 'Minimalna wielkość zamówienia: 3 tony na pozycję lub wg odrębnych ustaleń',
+    toleranceNote: 'Tolerancja wykonania zamówień +/- 10%',
+    certificateNote: (certificate) => `Atest: ${certificate}`,
+    orderDetailsNote: 'Dokładne ilości, terminy i warunki realizacji zamówienia na podstawie dodatkowych ustaleń',
+    otherTermsTitle: 'Pozostałe warunki',
+    owsIntro: (link) => `Integralną część oferty stanowią Ogólne Warunki Sprzedaży (OWS) dostępne na stronie ${link}`,
+    owsAcceptance:
+      'Klient oświadcza, że zapoznał się z OWS i nie wnosi do ich postanowień żadnych zastrzeżeń. Złożenie zamówienia przez Klienta jest równoznaczne z akceptacją OWS',
+    otherTerms: [
+      'W/w oferta jest ważna tylko w przypadku akceptacji oferty w całości.',
+      'W przypadku złożenia zamówienia prosimy o powołanie się na numer niniejszej oferty.',
+      'Złożone zamówienie, aby było wiążące, musi zostać potwierdzone pod względem ceny, dostępności materiału oraz terminu realizacji.',
+      'Powyższa oferta nie powoduje rezerwacji materiału.',
+      'Warunkiem realizacji niniejszej oferty jest spłata całości wymaganych wierzytelności wobec ArcelorMittal Distribution Solutions Poland Sp. z o.o.',
+    ],
+    personalDataNote: (link) => `Zasady przetwarzania danych osobowych znajdują się na stronie ${link}`,
+    orderOnlineTitle: 'Zamawiaj online 24/7',
+    orderOnlineNote: (link) => `Sprawdź naszą pełną ofertę i zyskaj czas dzięki szybkim zamówieniom na ${link}`,
     signPreparedBy: 'Sporządził',
     signClientAcceptance: 'Akceptacja klienta',
   },
   en: {
     defaultOfferTitle: 'Price Offer',
+    offerNumberLabel: 'Offer no.: ',
     dateLabel: 'Date: ',
     preparedByLabel: 'Prepared by: ',
     recipientTitle: 'Recipient',
@@ -142,23 +179,40 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     colNotes: 'Notes',
     coilSuffix: '(COIL)',
     totalRowLabel: 'TOTAL:',
-    pricesNote: (currencyCode) => `Prices in ${currencyCode}/t, excluding VAT.`,
-    rateNote: (rate) => `Exchange rate: 1 EUR = ${rate} PLN (rate as of valuation date).`,
-    invoiceNote: 'Invoice issued based on gross weight.',
-    validityRangeNote: (from, to) => `Offer validity period: ${from} – ${to}.`,
-    validityHoursNote: (hours) => `Offer validity: ${formatValidityPeriod(hours, 'en')} from issue date.`,
-    paymentNote: 'Payment terms: as individually agreed.',
-    paymentTermDaysNote: (days) => `Payment term: ${days} days from the invoice issue date.`,
-    paymentPrepaymentNote: 'Payment terms: prepayment.',
-    minQuantityNote: 'Minimum quantity: 5 tons per item.',
-    deliveryNote: 'Delivery time: upon confirmation of material availability.',
-    toleranceNote: 'Weight tolerance +/- 10%.',
-    salesTermsNote: 'The sale is subject to the General Terms and Conditions of Sale of ArcelorMittal Distribution Solutions (AMDS GTCS).',
+    termsTitle: 'Terms',
+    invoiceNote: 'Invoice issued based on gross weight',
+    packagingNote: (description) => `Packaging: ${description}`,
+    validityRangeNote: (from, to) => `Offer validity: ${from} – ${to}`,
+    priceValidityNote: (hours) => `Price valid for deliveries within: ${formatValidityPeriod(hours, 'en')} from the offer issue date`,
+    deliveryTermsNote: (term, place) =>
+      `Delivery terms: ${term} (${term === 'FCA' ? 'own collection' : 'delivered'})${withPlace(place)}`,
+    paymentTermDaysNote: (days) => `Payment terms: ${days} days from the invoice issue date`,
+    paymentPrepaymentNote: 'Payment terms: prepayment',
+    paymentNote: 'Payment terms: as individually agreed',
+    minQuantityNote: 'Minimum order quantity: 3 tonnes per item or as separately agreed',
+    toleranceNote: 'Order fulfilment tolerance +/- 10%',
+    certificateNote: (certificate) => `Inspection certificate: ${certificate}`,
+    orderDetailsNote: 'Exact quantities, dates and terms of order fulfilment subject to further agreement',
+    otherTermsTitle: 'Other terms',
+    owsIntro: (link) => `The General Terms and Conditions of Sale (GTCS), available at ${link}, form an integral part of this offer`,
+    owsAcceptance:
+      'The Client declares that they have read the GTCS and raise no objections to their provisions. Placing an order by the Client constitutes acceptance of the GTCS',
+    otherTerms: [
+      'The above offer is valid only if accepted in its entirety.',
+      'When placing an order, please refer to the number of this offer.',
+      'To be binding, a placed order must be confirmed with regard to price, material availability and delivery date.',
+      'This offer does not constitute a reservation of material.',
+      'This offer is conditional upon payment in full of all receivables due to ArcelorMittal Distribution Solutions Poland Sp. z o.o.',
+    ],
+    personalDataNote: (link) => `The rules for processing personal data are available at ${link}`,
+    orderOnlineTitle: 'Order online 24/7',
+    orderOnlineNote: (link) => `Browse our full range and save time with fast ordering at ${link}`,
     signPreparedBy: 'Prepared by',
     signClientAcceptance: 'Client acceptance',
   },
   cs: {
     defaultOfferTitle: 'Cenová nabídka',
+    offerNumberLabel: 'Číslo nabídky: ',
     dateLabel: 'Datum: ',
     preparedByLabel: 'Vypracoval: ',
     recipientTitle: 'Odběratel',
@@ -186,23 +240,40 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     colNotes: 'Poznámky',
     coilSuffix: '(SVITEK)',
     totalRowLabel: 'CELKEM:',
-    pricesNote: (currencyCode) => `Ceny v ${currencyCode}/t, bez DPH.`,
-    rateNote: (rate) => `Směnný kurz: 1 EUR = ${rate} PLN (kurz ke dni ocenění).`,
-    invoiceNote: 'Faktura vystavena na základě hrubé hmotnosti.',
-    validityRangeNote: (from, to) => `Doba platnosti nabídky: ${from} – ${to}.`,
-    validityHoursNote: (hours) => `Platnost nabídky: ${formatValidityPeriod(hours, 'cs')} od data vystavení.`,
-    paymentNote: 'Platební podmínky: dle individuální dohody.',
-    paymentTermDaysNote: (days) => `Splatnost: ${days} dní ode dne vystavení faktury.`,
-    paymentPrepaymentNote: 'Platební podmínky: platba předem.',
-    minQuantityNote: 'Minimální množství: 5 tun na položku.',
-    deliveryNote: 'Termín dodání: po potvrzení dostupnosti materiálu.',
-    toleranceNote: 'Hmotnostní tolerance +/- 10 %.',
-    salesTermsNote: 'Prodej se řídí Všeobecnými prodejními podmínkami ArcelorMittal Distribution Solutions (VPP AMDS).',
+    termsTitle: 'Podmínky',
+    invoiceNote: 'Faktura vystavena na základě hrubé hmotnosti',
+    packagingNote: (description) => `Balení: ${description}`,
+    validityRangeNote: (from, to) => `Platnost nabídky: ${from} – ${to}`,
+    priceValidityNote: (hours) => `Cena platí pro dodávky v období: ${formatValidityPeriod(hours, 'cs')} od data vystavení nabídky`,
+    deliveryTermsNote: (term, place) =>
+      `Dodací podmínky: ${term} (${term === 'FCA' ? 'vlastní odběr' : 's dodávkou'})${withPlace(place)}`,
+    paymentTermDaysNote: (days) => `Platební podmínky: ${days} dní ode dne vystavení faktury`,
+    paymentPrepaymentNote: 'Platební podmínky: platba předem',
+    paymentNote: 'Platební podmínky: dle individuální dohody',
+    minQuantityNote: 'Minimální velikost objednávky: 3 tuny na položku nebo dle samostatné dohody',
+    toleranceNote: 'Tolerance plnění objednávek +/- 10 %',
+    certificateNote: (certificate) => `Inspekční certifikát: ${certificate}`,
+    orderDetailsNote: 'Přesná množství, termíny a podmínky plnění objednávky na základě dodatečné dohody',
+    otherTermsTitle: 'Ostatní podmínky',
+    owsIntro: (link) => `Nedílnou součástí nabídky jsou Všeobecné prodejní podmínky (VPP) dostupné na stránce ${link}`,
+    owsAcceptance:
+      'Zákazník prohlašuje, že se s VPP seznámil a nemá k jejich ustanovením žádné výhrady. Podání objednávky Zákazníkem je rovnocenné s přijetím VPP',
+    otherTerms: [
+      'Výše uvedená nabídka je platná pouze v případě přijetí nabídky v celém rozsahu.',
+      'Při podání objednávky prosíme o uvedení čísla této nabídky.',
+      'Podaná objednávka je závazná až po potvrzení ceny, dostupnosti materiálu a termínu plnění.',
+      'Tato nabídka nezakládá rezervaci materiálu.',
+      'Podmínkou realizace této nabídky je úhrada všech splatných pohledávek vůči ArcelorMittal Distribution Solutions Poland Sp. z o.o.',
+    ],
+    personalDataNote: (link) => `Zásady zpracování osobních údajů jsou k dispozici na stránce ${link}`,
+    orderOnlineTitle: 'Objednávejte online 24/7',
+    orderOnlineNote: (link) => `Prohlédněte si naši kompletní nabídku a ušetřete čas díky rychlým objednávkám na ${link}`,
     signPreparedBy: 'Vypracoval',
     signClientAcceptance: 'Akceptace klienta',
   },
   de: {
     defaultOfferTitle: 'Preisangebot',
+    offerNumberLabel: 'Angebotsnr.: ',
     dateLabel: 'Datum: ',
     preparedByLabel: 'Erstellt von: ',
     recipientTitle: 'Empfänger',
@@ -230,18 +301,34 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     colNotes: 'Hinweise',
     coilSuffix: '(COIL)',
     totalRowLabel: 'GESAMT:',
-    pricesNote: (currencyCode) => `Preise in ${currencyCode}/t, ohne MwSt.`,
-    rateNote: (rate) => `Wechselkurs: 1 EUR = ${rate} PLN (Kurs zum Bewertungsdatum).`,
-    invoiceNote: 'Rechnungsstellung auf Basis des Bruttogewichts.',
-    validityRangeNote: (from, to) => `Gültigkeitszeitraum des Angebots: ${from} – ${to}.`,
-    validityHoursNote: (hours) => `Angebotsgültigkeit: ${formatValidityPeriod(hours, 'de')} ab Ausstellungsdatum.`,
-    paymentNote: 'Zahlungsbedingungen: nach individueller Vereinbarung.',
-    paymentTermDaysNote: (days) => `Zahlungsziel: ${days} Tage ab Rechnungsdatum.`,
-    paymentPrepaymentNote: 'Zahlungsbedingungen: Vorkasse.',
-    minQuantityNote: 'Mindestmenge: 5 Tonnen pro Position.',
-    deliveryNote: 'Liefertermin: nach Bestätigung der Materialverfügbarkeit.',
-    toleranceNote: 'Gewichtstoleranz +/- 10%.',
-    salesTermsNote: 'Der Verkauf erfolgt auf Grundlage der Allgemeinen Verkaufsbedingungen von ArcelorMittal Distribution Solutions (AVB AMDS).',
+    termsTitle: 'Bedingungen',
+    invoiceNote: 'Rechnungsstellung auf Basis des Bruttogewichts',
+    packagingNote: (description) => `Verpackung: ${description}`,
+    validityRangeNote: (from, to) => `Angebotsgültigkeit: ${from} – ${to}`,
+    priceValidityNote: (hours) => `Der Preis gilt für Lieferungen im Zeitraum: ${formatValidityPeriod(hours, 'de')} ab Angebotsdatum`,
+    deliveryTermsNote: (term, place) =>
+      `Lieferbedingungen: ${term} (${term === 'FCA' ? 'Selbstabholung' : 'mit Lieferung'})${withPlace(place)}`,
+    paymentTermDaysNote: (days) => `Zahlungsbedingungen: ${days} Tage ab Rechnungsdatum`,
+    paymentPrepaymentNote: 'Zahlungsbedingungen: Vorkasse',
+    paymentNote: 'Zahlungsbedingungen: nach individueller Vereinbarung',
+    minQuantityNote: 'Mindestbestellmenge: 3 Tonnen pro Position oder nach gesonderter Vereinbarung',
+    toleranceNote: 'Toleranz der Auftragsausführung +/- 10 %',
+    certificateNote: (certificate) => `Prüfbescheinigung: ${certificate}`,
+    orderDetailsNote: 'Genaue Mengen, Termine und Bedingungen der Auftragsausführung nach gesonderter Vereinbarung',
+    otherTermsTitle: 'Weitere Bedingungen',
+    owsIntro: (link) => `Integraler Bestandteil des Angebots sind die Allgemeinen Verkaufsbedingungen (AVB), abrufbar unter ${link}`,
+    owsAcceptance:
+      'Der Kunde erklärt, dass er die AVB zur Kenntnis genommen hat und keine Einwände gegen deren Bestimmungen erhebt. Die Erteilung einer Bestellung durch den Kunden gilt als Annahme der AVB',
+    otherTerms: [
+      'Das obige Angebot gilt nur bei Annahme des gesamten Angebots.',
+      'Bitte beziehen Sie sich bei Ihrer Bestellung auf die Nummer dieses Angebots.',
+      'Eine erteilte Bestellung ist erst nach Bestätigung von Preis, Materialverfügbarkeit und Liefertermin verbindlich.',
+      'Dieses Angebot stellt keine Materialreservierung dar.',
+      'Voraussetzung für die Ausführung dieses Angebots ist die vollständige Begleichung aller fälligen Forderungen gegenüber ArcelorMittal Distribution Solutions Poland Sp. z o.o.',
+    ],
+    personalDataNote: (link) => `Die Grundsätze der Verarbeitung personenbezogener Daten finden Sie unter ${link}`,
+    orderOnlineTitle: 'Online bestellen 24/7',
+    orderOnlineNote: (link) => `Entdecken Sie unser gesamtes Angebot und sparen Sie Zeit mit schnellen Bestellungen auf ${link}`,
     signPreparedBy: 'Erstellt von',
     signClientAcceptance: 'Kundenakzeptanz',
   },

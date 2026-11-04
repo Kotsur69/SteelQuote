@@ -4,6 +4,7 @@
 import type { Currency } from '@/lib/currency';
 import type { Language } from '@/lib/translations';
 import { PDF_DATE_LOCALE } from '@/lib/pdfLabels';
+import type { OfferTermKeys } from '@/lib/offerTerms';
 
 interface ClientInfoLike {
   firstName: string;
@@ -54,6 +55,28 @@ export interface ServerPdfInput {
   paymentTermDays?: number | null;
   // Offer validity in hours (24h / 48h / custom). Missing = server falls back to days x 24.
   quoteValidityHours?: number | null;
+  // Offer-level certificate / SSC packaging / delivery term (lib/offerTerms.ts offerTermKeys) -
+  // printed once in the PDF terms; the item notes then list only the items that differ.
+  offerTerms?: OfferTermKeys;
+}
+
+/**
+ * Terms fields of a SAVED offer (offer_data), so a PDF downloaded from an offer list prints the
+ * same validity / payment lines as one generated in the calculator.
+ */
+export function savedOfferTermsFields(data: object | null | undefined): Pick<
+  ServerPdfInput,
+  'validFrom' | 'validTo' | 'paymentTermDays' | 'quoteValidityHours'
+> {
+  const d = (data ?? {}) as Readonly<Record<string, unknown>>;
+  const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  return {
+    validFrom: str(d.validFrom),
+    validTo: str(d.validTo),
+    paymentTermDays: num(d.paymentTermDays),
+    quoteValidityHours: num(d.quoteValidityHours),
+  };
 }
 
 /**
@@ -113,6 +136,7 @@ export async function downloadServerPdf(input: ServerPdfInput): Promise<void> {
       validTo,
       paymentTermDays: input.paymentTermDays,
       quoteValidityHours: input.quoteValidityHours,
+      offerTerms: input.offerTerms,
       // Saved offer: the server prints its creator as "prepared by", whoever downloads it.
       offerId: input.offerId ?? null,
     }),

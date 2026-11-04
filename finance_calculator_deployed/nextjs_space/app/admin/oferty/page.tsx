@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import AdminLayout from '@/components/AdminLayout';
 import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
-import { downloadServerPdf } from '@/lib/serverPdf';
+import { downloadServerPdf, savedOfferTermsFields } from '@/lib/serverPdf';
+import { offerTermKeys } from '@/lib/offerTerms';
 import { attachNotesToZestawienie, type DeliveryRoute } from '@/lib/itemNotes';
 import type { ItemInputs } from '@/lib/calculatorData';
 import { exportOfferToExcel } from '@/lib/excelExport';
@@ -308,6 +309,8 @@ function AdminOffersContent() {
         // offer_data.zestawienie jest tu celowo słabo otypowane (tylko totalValue) — resztę
         // pól (w tym `inputs` do budowy Uwagi) dostarcza faktyczny JSON z bazy w runtime.
         zestawienie: (attachNotesToZestawienie((o.offer_data.zestawienie || []) as { type?: string; inputs?: ItemInputs }[], t, language, o.offer_data.transportRoute) as never),
+        offerTerms: offerTermKeys((o.offer_data.zestawienie || []) as { type?: string; inputs?: ItemInputs }[], o.offer_data.transportRoute),
+        ...savedOfferTermsFields(o.offer_data),
         createdAt: o.created_at,
         // Waluta i kurs z SAMEJ oferty, nie z bieżących ustawień.
         currency: offerCurrency(o.offer_data),

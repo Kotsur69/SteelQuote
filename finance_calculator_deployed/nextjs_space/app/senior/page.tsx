@@ -7,7 +7,8 @@ import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import Navigation from '@/components/Navigation';
 import TeamEditor from '@/components/TeamEditor';
 import { ClientInfo, normalizeClientInfo } from '@/lib/pdfGenerator';
-import { downloadServerPdf } from '@/lib/serverPdf';
+import { downloadServerPdf, savedOfferTermsFields } from '@/lib/serverPdf';
+import { offerTermKeys } from '@/lib/offerTerms';
 import { attachNotesToZestawienie, type DeliveryRoute } from '@/lib/itemNotes';
 import { exportOfferToExcel } from '@/lib/excelExport';
 import { useDarkMode } from '@/lib/useDarkMode';
@@ -247,6 +248,8 @@ export default function SeniorPage() {
         offerId: offer.id,
         clientInfo: normalizeClientInfo(offer.offer_data.clientInfo),
         zestawienie: attachNotesToZestawienie(offer.offer_data.zestawienie || [], t, language, offer.offer_data.transportRoute),
+        offerTerms: offerTermKeys(offer.offer_data.zestawienie || [], offer.offer_data.transportRoute),
+        ...savedOfferTermsFields(offer.offer_data),
         createdAt: offer.created_at,
         // Waluta i kurs z SAMEJ oferty - starszy widzi i wysyła dokładnie to, co wycenił handlowiec.
         currency: offerCurrency(offer.offer_data),

@@ -9,13 +9,21 @@ import {
   HDG_PROTECTION_OPTIONS,
   ZM_PROTECTION_OPTIONS,
   SSC_MAX_WEIGHT_OPTIONS,
-  SSC_PACKING_OPTIONS,
   getHutaSscToggleOptions,
-  isIncoterm,
   ItemInputs,
   SteelType,
 } from './calculatorData';
 import { OPTION_GROUP_SPECS, resolveOptionIdx, type OptionGroup } from './priceBook';
+import {
+  asSteelType,
+  itemTermKeys,
+  offerTermKeys,
+  packagingDescription,
+  type DeliveryRoute,
+  type ItemTermKeys,
+} from './offerTerms';
+
+export type { DeliveryRoute } from './offerTerms';
 
 // Labels only - prices never appear in the notes. The option is picked by its stored index;
 // items saved before the price book are matched by value against the CODE DEFAULTS, never the
@@ -31,22 +39,25 @@ export function buildItemNotes(
   inputs: ItemInputs | undefined,
   t: Translations,
   language: Language,
-  route?: DeliveryRoute
+  route?: DeliveryRoute,
+  // Offer-level terms printed once in the PDF terms block (lib/offerTerms.ts). An item whose
+  // certificate / SSC packaging / delivery term equals it leaves that line out of its notes.
+  offerTerms: ItemTermKeys = {}
 ): string[] {
   if (!inputs) return [];
 
   const opts = getHutaSscToggleOptions(t, language);
+  const own = itemTermKeys(type, inputs, route);
   const lines: string[] = [];
   const push = (label: string, opt: { label: string } | undefined) => {
     if (opt) lines.push(`${label}: ${opt.label}`);
   };
 
-  // Delivery terms first - the client must see per item whether it is delivered or collected.
-  // CPT / DAP name the offer's delivery address; FCA stays bare (place agreed with the client).
-  // Offer-wide self pickup = FCA for every item. Otherwise items saved before this field have
-  // no line rather than a guessed term.
-  const term = route?.selfPickup === true ? 'FCA' : inputs.incoterm;
-  if (isIncoterm(term)) {
+  // Delivery terms first, but only when they differ from the offer's terms. CPT / DAP name the
+  // offer's delivery address; FCA stays bare (place agreed with the client). Offer-wide self
+  // pickup = FCA for every item. Items saved before this field have no line.
+  const term = own.incoterm;
+  if (term && term !== offerTerms.incoterm) {
     const place = term === 'FCA' ? '' : route?.destAddress?.trim() ?? '';
     lines.push(`${t.summary.delivery}: ${term}${place ? ` ${place}` : ''}`);
   }
@@ -55,7 +66,7 @@ export function buildItemNotes(
 
   // Huta (mill) — wspólne dla wszystkich typów
   push(t.huta.thicknessTolerance, p('tolerance', TOL_THICK_OPTIONS[type]));
-  push(t.huta.certificate, p('cert', CERT_OPTIONS));
+  if (own.cert !== offerTerms.cert) push(t.huta.certificate, p('cert', CERT_OPTIONS));
 
   if ((type === 'HDG' || type === 'ZM') && inputs.selectedCoating) {
     lines.push(`${t.huta.coating}: ${inputs.selectedCoating}`);
@@ -92,7 +103,9 @@ export function buildItemNotes(
   push(t.ssc.maxPackWeight, p('sscMaxWeight', SSC_MAX_WEIGHT_OPTIONS));
   push(t.ssc.marking, p('sscMarking', opts.marking));
   push(t.ssc.edging, p('sscEdging', opts.edging));
-  push(t.ssc.packaging, p('sscPacking', SSC_PACKING_OPTIONS));
+  // Packaging prints its description (the UI hover text), not the S01..SB3 code.
+  const packing = own.packing === undefined ? undefined : packagingDescription(t, own.packing);
+  if (packing && own.packing !== offerTerms.packing) lines.push(`${t.ssc.packaging}: ${packing}`);
   push(t.ssc.labels, p('sscLabels', opts.labels));
 
   // Komentarz do dopłaty dodatkowej — tylko gdy handlowiec jawnie zaznaczył, że ma
@@ -107,20 +120,16 @@ export function buildItemNotes(
 // Współdzielone przez wszystkie miejsca eksportu PDF (kalkulator, lista ofert handlowca,
 // panel seniora, panel admina) — każde z nich woła downloadServerPdf z inną, luźno
 // otypowaną wersją zapisanego offer_data.zestawienie, ale kształt danych jest ten sam.
-/** The offer's saved transport route (offer_data.transportRoute), as far as the notes need it. */
-export interface DeliveryRoute {
-  destAddress?: string;
-  selfPickup?: boolean;
-}
-
+// The offer-level terms are computed from the same items, so the notes only list exceptions.
 export function attachNotesToZestawienie<T extends { type?: string; inputs?: ItemInputs }>(
   zestawienie: T[],
   t: Translations,
   language: Language,
   route?: DeliveryRoute
 ): (T & { notes: string[] })[] {
+  const offerTerms = offerTermKeys(zestawienie, route);
   return zestawienie.map(item => ({
     ...item,
-    notes: buildItemNotes((item.type as SteelType) ?? 'HRS', item.inputs, t, language, route),
+    notes: buildItemNotes(asSteelType(item.type), item.inputs, t, language, route, offerTerms),
   }));
 }
