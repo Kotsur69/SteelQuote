@@ -780,16 +780,22 @@ export default function Calculator() {
     });
   }, [committedForcedTransportEur, transportRoute.selfPickup]);
 
-  // Two mutually exclusive tick boxes: "with delivery" = DAP, "CPT" = CPT, neither = FCA.
-  // FCA and CPT force transport 0; the amount typed before is kept and restored on DAP.
-  const handleDeliveryTermToggle = (term: Exclude<Incoterm, 'FCA'>, checked: boolean) => {
-    const next: Incoterm = checked ? term : 'FCA';
+  // Three mutually exclusive tick boxes: "with delivery" = DAP, CPT, FCA. Exactly one stays
+  // selected, so clicking the ticked box changes nothing. FCA and CPT force transport 0; the
+  // amount typed before is kept and restored on DAP.
+  const handleDeliveryTermSelect = (next: Incoterm) => {
+    if (next === incoterm) return;
     const wasFree = isTransportFreeIncoterm(incoterm);
     const isFree = isTransportFreeIncoterm(next);
     if (!wasFree && isFree) lastDeliveredTransportRef.current = transport;
     if (wasFree && !isFree) setTransport(lastDeliveredTransportRef.current);
     setIncoterm(next);
   };
+
+  // Transport is only relevant to a delivered item. Two cases stay visible on purpose: a legacy
+  // item with no saved term still carries transport in its price, and the offer-wide self pickup
+  // switch lives inside the panel and locks the tick boxes, so hiding it would leave no way back.
+  const showTransport = !isTransportFreeIncoterm(incoterm) || transportRoute.selfPickup;
 
   const handleCalculateRoute = useCallback(async () => {
     const destAddress = transportRoute.destAddress.trim();
@@ -2836,14 +2842,24 @@ export default function Calculator() {
               </div>
             )}
 
-            {/* Delivery terms of this item: "with delivery" = DAP, "CPT" = CPT, neither ticked = FCA
-                (client collects). The two boxes are mutually exclusive. */}
+            {/* SSC Echo */}
+            {!isCoilMode && (
+            <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
+              <span className="flex-1 text-xs text-[var(--text-secondary)]">Σ SSC Processing</span>
+              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money2(sumaSSC)}</span>
+              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
+            </div>
+            )}
+
+            {/* Delivery terms of this item: "with delivery" = DAP, CPT, or FCA (client collects).
+                The boxes are mutually exclusive. Offer-wide self pickup makes every item FCA. */}
             <div className="px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <div className="flex items-center gap-3">
                 <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.delivery}</span>
                 {([
                   { term: 'DAP', label: t.summary.withDelivery },
                   { term: 'CPT', label: 'CPT' },
+                  { term: 'FCA', label: 'FCA' },
                 ] as const).map(({ term, label }) => (
                   <label
                     key={term}
@@ -2853,9 +2869,9 @@ export default function Calculator() {
                   >
                     <input
                       type="checkbox"
-                      checked={!transportRoute.selfPickup && incoterm === term}
+                      checked={transportRoute.selfPickup ? term === 'FCA' : incoterm === term}
                       disabled={transportRoute.selfPickup}
-                      onChange={e => handleDeliveryTermToggle(term, e.target.checked)}
+                      onChange={() => handleDeliveryTermSelect(term)}
                     />
                     {label}
                   </label>
@@ -2873,6 +2889,8 @@ export default function Calculator() {
               )}
             </div>
 
+            {showTransport && (
+            <>
             {/* Transport */}
             <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
               <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.transport}</span>
@@ -2924,25 +2942,11 @@ export default function Calculator() {
               isDark={isDark}
               highContrast={highContrast}
             />
-            
+
             <div className="h-px bg-[var(--border)] mx-4 my-1" />
-            
-            {/* SSC Echo */}
-            {!isCoilMode && (
-            <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
-              <span className="flex-1 text-xs text-[var(--text-secondary)]">Σ SSC {language === 'pl' ? 'Processing' : 'Processing'}</span>
-              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">{money2(sumaSSC)}</span>
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
-            </div>
+            </>
             )}
-            
-            {/* Final Price */}
-            <div className="flex items-center px-4 py-2 mx-3.5 my-2 rounded bg-[rgba(245,71,90,0.08)] border border-[rgba(245,71,90,0.25)]">
-              <span className="flex-1 text-xs text-[var(--text-primary)] font-semibold">{t.summary.finalPrice.toUpperCase()}</span>
-              <span className="font-mono text-base font-bold text-[var(--accent-sum)] min-w-[64px] text-right">{moneyCeil(cenaKoncowa)}</span>
-              <span className="text-[10px] text-[var(--accent-sum)] font-mono ml-1 w-[22px]">{symbol}</span>
-            </div>
-            
+
             {/* Tons */}
             <div
               className="flex flex-wrap items-center px-4 py-2 mx-3.5 mt-2 [container-type:inline-size]"
@@ -3034,7 +3038,7 @@ export default function Calculator() {
           
           {/* Sum Final */}
           <div className={`flex items-center px-4 py-3 border-t-[1.5px] border-[var(--border-hi)] mt-auto ${isDark ? 'bg-[rgba(0,0,0,0.18)]' : 'bg-[rgba(0,0,0,0.04)]'}`}>
-            <span className="flex-1 text-[11px] font-bold tracking-widest uppercase text-[var(--accent-sum)]">{isCoilMode ? (language === 'pl' ? 'Suma (Marża)' : 'Total (Margin)') : (language === 'pl' ? 'Suma (Marża + SSC)' : 'Total (Margin + SSC)')}</span>
+            <span className="flex-1 text-[11px] font-bold tracking-widest uppercase text-[var(--accent-sum)]">{t.summary.finalPrice}</span>
             <span className="font-mono text-lg font-semibold text-[var(--accent-sum)]">{moneyCeil(cenaKoncowa)}</span>
             <span className="text-[11px] text-[var(--text-secondary)] font-mono ml-1.5">{symbol}</span>
           </div>
