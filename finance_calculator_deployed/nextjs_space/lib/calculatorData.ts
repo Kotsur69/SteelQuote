@@ -1167,6 +1167,11 @@ export interface ItemInputs {
   transport: number;
   // Delivery terms; optional so items saved before it stay unchanged (no line in the PDF).
   incoterm?: Incoterm;
+  // Sheet items only, and never printed on the PDF: which quantity field was typed last and the
+  // sheet count, so a reopened item keeps recalculating from the same field. Optional: older
+  // items and coils lack them and stay tons-driven.
+  quantitySource?: 'tons' | 'sheets';
+  sheetCount?: number;
   // Selected option index per surcharge group. Option prices live in the editable price book
   // (lib/priceBook.ts), so matching a stored value back to its option breaks once a price
   // changes; the index does not. Optional: items saved before the price book lack them and

@@ -3,7 +3,7 @@
 import { ChevronRight, Truck } from 'lucide-react';
 import type { Translations } from '@/lib/translations';
 import type { TransportBreakdown } from '@/lib/transportTariff';
-import { fixedGrouped } from '@/lib/numberFormat';
+import { fixedGrouped, tonDecimals } from '@/lib/numberFormat';
 
 // Rozwijany panel transportu w karcie Podsumowania.
 //
@@ -284,7 +284,7 @@ export default function TransportPanel({
             <div className="rounded border border-[rgba(59,142,245,0.25)] bg-[rgba(59,142,245,0.08)] px-2.5 py-2 space-y-1">
               <p className="text-[10px] text-[var(--text-secondary)]">
                 {s.transportRecalcNotice
-                  .replace('{tons}', fixedGrouped(offerTons, 2))
+                  .replace('{tons}', fixedGrouped(offerTons, tonDecimals(offerTons)))
                   .replace('{trucks}', String(breakdown.trucks))}
               </p>
               <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">

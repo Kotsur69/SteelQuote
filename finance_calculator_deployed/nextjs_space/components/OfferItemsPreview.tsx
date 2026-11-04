@@ -9,7 +9,7 @@ import {
   offerTotalUnit,
   type OfferCurrencyMeta,
 } from '@/lib/currency';
-import { fixedGrouped } from '@/lib/numberFormat';
+import { fixedGrouped, tonDecimals } from '@/lib/numberFormat';
 
 // Minimal item shape the read-only offer previews need (/offers, /senior, /admin/oferty).
 export interface OfferPreviewItem {
@@ -137,7 +137,7 @@ export default function OfferItemsPreview({ items, offerData, isExpanded, onExpa
                 <td className={`${td} text-right text-[var(--text-value)]`}>
                   {formatOfferMoneyCeil(item.finalPrice, offerData)} {perTon}
                 </td>
-                <td className={`${td} text-right text-[var(--text-value)]`}>{fixedGrouped(item.tons, 2)}</td>
+                <td className={`${td} text-right text-[var(--text-value)]`}>{fixedGrouped(item.tons, tonDecimals(item.tons))}</td>
                 <td className={`${td} text-right text-[var(--accent-hrs)] font-semibold`}>
                   {formatOfferMoneyCeil(item.totalValue, offerData)} {totalUnit}
                 </td>

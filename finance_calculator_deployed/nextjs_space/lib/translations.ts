@@ -308,6 +308,9 @@ export interface Translations {
     sscSurcharges: string;
     finalPrice: string;
     quantity: string;
+    quantitySheets: string;
+    sheetsUnit: string;
+    quantitySheetsNeedsDimensions: string;
     totalValue: string;
     addToList: string;
     addedToList: string;
@@ -1158,6 +1161,9 @@ export const pl: Translations = {
     sscSurcharges: 'Dopłaty SSC',
     finalPrice: 'Cena końcowa',
     quantity: 'Ilość (tony)',
+    quantitySheets: 'Ilość (arkusze)',
+    sheetsUnit: 'szt',
+    quantitySheetsNeedsDimensions: 'Podaj grubość, szerokość i długość, aby liczyć w arkuszach',
     totalValue: 'Wartość całkowita',
     addToList: 'Dodaj do zestawienia',
     addedToList: 'Dodano do zestawienia',
@@ -2004,6 +2010,9 @@ export const en: Translations = {
     sscSurcharges: 'SSC surcharges',
     finalPrice: 'Final price',
     quantity: 'Quantity (tons)',
+    quantitySheets: 'Quantity (sheets)',
+    sheetsUnit: 'pcs',
+    quantitySheetsNeedsDimensions: 'Enter thickness, width and length to quote in sheets',
     totalValue: 'Total value',
     addToList: 'Add to list',
     addedToList: 'Added to list',
@@ -2849,6 +2858,9 @@ export const cs: Translations = {
     sscSurcharges: 'Příplatky SSC',
     finalPrice: 'Konečná cena',
     quantity: 'Množství (tuny)',
+    quantitySheets: 'Množství (tabule)',
+    sheetsUnit: 'ks',
+    quantitySheetsNeedsDimensions: 'Zadejte tloušťku, šířku a délku pro výpočet v tabulích',
     totalValue: 'Celková hodnota',
     addToList: 'Přidat do seznamu',
     addedToList: 'Přidáno do seznamu',
@@ -3694,6 +3706,9 @@ export const de: Translations = {
     sscSurcharges: 'SSC-Zuschläge',
     finalPrice: 'Endpreis',
     quantity: 'Menge (Tonnen)',
+    quantitySheets: 'Menge (Tafeln)',
+    sheetsUnit: 'Stk',
+    quantitySheetsNeedsDimensions: 'Dicke, Breite und Länge eingeben, um in Tafeln zu rechnen',
     totalValue: 'Gesamtwert',
     addToList: 'Zur Liste hinzufügen',
     addedToList: 'Zur Liste hinzugefügt',

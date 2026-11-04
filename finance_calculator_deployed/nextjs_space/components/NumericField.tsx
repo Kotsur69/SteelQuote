@@ -18,6 +18,13 @@ interface NumericFieldProps {
    * a valid number is typed; leaving the field empty restores it.
    */
   clearOnFocus?: boolean;
+  /**
+   * Replaces the onChange(previous) call when an abandoned edit rolls back, for callers where
+   * committing a value has side effects (the sheets field would otherwise snap typed tons).
+   */
+  onRevert?: () => void;
+  /** Show the committed value on blur, so "3.5" under an integer parse does not stay on screen. */
+  normalizeOnBlur?: boolean;
 }
 
 // Kontrolowany <input type="number"> w Reakcie, który przy pustym polu od razu
@@ -35,6 +42,8 @@ export default function NumericField({
   disabled,
   title,
   clearOnFocus = false,
+  onRevert,
+  normalizeOnBlur = false,
 }: NumericFieldProps) {
   const [text, setText] = useState(String(value));
   const inputRef = useRef<HTMLInputElement>(null);
@@ -78,7 +87,10 @@ export default function NumericField({
           // value the field had before this edit, not the last keystroke.
           const previous = valueAtFocusRef.current;
           setText(String(previous));
-          if (previous !== value) onChange(previous);
+          if (onRevert) onRevert();
+          else if (previous !== value) onChange(previous);
+        } else if (normalizeOnBlur) {
+          setText(String(value));
         }
       }}
     />

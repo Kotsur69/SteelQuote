@@ -49,7 +49,7 @@ import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
 import { useUnsavedGuard } from '@/lib/unsavedGuard';
 import { pglBaseForType, type AppSettings } from '@/lib/currency';
-import { fixedGrouped, groupThousands } from '@/lib/numberFormat';
+import { fixedGrouped, groupThousands, tonDecimals } from '@/lib/numberFormat';
 import { quarterOfDateString, quarterOf, thisMonthValidityRange, type Quarter } from '@/lib/quarterUtils';
 import { addDaysToDateString, todayDateString, daysBetweenDateStrings } from '@/lib/dateUtils';
 import * as pricingEngine from '@/lib/pricingEngine';
@@ -149,6 +149,7 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
   ...optionSelectionFields(DEFAULT_PRICE_BOOK, 'HRS', defaultOptionSelection('HRS')),
   selectedCoating: 'Z275',
   pglBase: 645, marginPct: 7, extra: 0, extraComment: '', extraCommentInPdf: false, transport: 20, tons: 1,
+  quantitySource: 'tons', sheetCount: 0,
   incoterm: DEFAULT_DELIVERY_INCOTERM,
   validFrom: '', validTo: '', paymentTermDays: null, quoteValidityHours: null,
   zestawienie: [],
@@ -363,7 +364,12 @@ export default function Calculator() {
   const [extraComment, setExtraComment] = useState('');
   const [extraCommentInPdf, setExtraCommentInPdf] = useState(false);
   const [transport, setTransport] = useState(20);
-  const [tons, setTons] = useState(1);
+  // Tons or sheets, whichever was typed last. `tons` and `sheets` are derived below, so a
+  // dimension, grade or density change recalculates the other field from this one.
+  const [quantity, setQuantity] = useState<pricingEngine.QuantityDraft>({ source: 'tons', tons: 1, sheets: 0 });
+  // Taken when a quantity field gains focus; an abandoned edit restores it, so erasing a typed
+  // value in the sheets field cannot snap hand-typed tons to whole sheets.
+  const quantityAtFocusRef = useRef(quantity);
   // Delivery terms of the item being configured. FCA = the client collects it: transport 0 and
   // its tons stay out of the tonnage the truck tariff is split over. null = a legacy item opened
   // for edit without a stored term: it keeps no PDF line until the salesperson picks one.
@@ -619,6 +625,9 @@ export default function Calculator() {
 
   // Sheet weight density [g/cm3]. TEARDROP uses 8.25 to account for the raised pattern.
   const sheetDensity = currentType === 'TEARDROP' ? TEARDROP_SHEET_DENSITY : STEEL_SHEET_DENSITY;
+  // 0 for coils and incomplete dimensions: the quantity is then tons only.
+  const sheetWeight = isCoilMode ? 0 : pricingEngine.sheetWeightTons(thickness, width, length, sheetDensity);
+  const { tons, sheets } = pricingEngine.resolveQuantity(quantity, sheetWeight);
 
   // Calculate base surcharge
   const baseSurchargeRaw = isCoilMode
@@ -1024,6 +1033,7 @@ export default function Calculator() {
         selectedCoating,
         marginPct, extra, extraComment, extraCommentInPdf, transport,
         incoterm: incoterm ?? undefined,
+        ...(isCoilMode ? {} : { quantitySource: quantity.source, sheetCount: sheets }),
       },
     };
     
@@ -1055,7 +1065,7 @@ export default function Calculator() {
     setLength(item.length);
     setGradeInput(item.grade);
     setPglBase(item.pgl);
-    setTons(item.tons);
+    setQuantity(pricingEngine.restoreQuantity(item.tons, item.inputs?.quantitySource, item.inputs?.sheetCount));
     setIsCoilMode(item.isCoil || false);
 
     const inp = item.inputs;
@@ -1118,6 +1128,8 @@ export default function Calculator() {
     ...optionSelectionFields(priceBook, currentType, optionIdx),
     selectedCoating,
     pglBase, marginPct, extra, extraComment, extraCommentInPdf, transport, tons, incoterm,
+    quantitySource: quantity.source,
+    sheetCount: sheets,
     // Okres ważności oferty — mrożony razem z resztą, tak jak pglBase/transport: po ponownym
     // otwarciu widać dokładnie te daty, na które oferta była wyceniona.
     validFrom, validTo,
@@ -1160,7 +1172,7 @@ export default function Calculator() {
     if (data.transport !== undefined) setTransport(data.transport);
     // Always reset: an offer saved before this field must not inherit the previous draft's term.
     setIncoterm(isIncoterm(data.incoterm) ? data.incoterm : DEFAULT_DELIVERY_INCOTERM);
-    if (data.tons !== undefined) setTons(data.tons);
+    if (data.tons !== undefined) setQuantity(pricingEngine.restoreQuantity(data.tons, data.quantitySource, data.sheetCount));
     if (data.validFrom !== undefined) setValidFrom(data.validFrom);
     if (data.validTo !== undefined) setValidTo(data.validTo);
     // Oferty zapisane przed tą zmianą mają paymentTermFrom/paymentTermTo (stary zakres dat) —
@@ -2068,7 +2080,11 @@ export default function Calculator() {
       <div className="mb-4">
       <div className="flex items-center gap-3 flex-wrap">
         <button
-          onClick={() => setIsCoilMode(!isCoilMode)}
+          onClick={() => {
+            // Coils have no sheet weight: freeze the current tons instead of letting them jump.
+            if (!isCoilMode) setQuantity({ source: 'tons', tons, sheets: 0 });
+            setIsCoilMode(!isCoilMode);
+          }}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-md font-mono text-[12px] font-semibold tracking-wider border-[1.5px] transition-all
             ${isCoilMode
               ? 'bg-[rgba(168,85,247,0.12)] border-[#a855f7] text-[#a855f7] shadow-[0_0_12px_rgba(168,85,247,0.15)]'
@@ -2319,17 +2335,17 @@ export default function Calculator() {
       </div>
 
       {/* Sheet Weight */}
-      {!isCoilMode && thickness > 0 && width > 0 && length > 0 && (
+      {sheetWeight > 0 && (
         <div className="flex items-center gap-2 mb-4 px-4 py-2 bg-[var(--bg-input)] border border-[var(--border)] rounded-md">
           <span className="text-[10px] font-semibold tracking-widest uppercase text-[var(--text-muted)]">
             {t.inputs.sheetWeight}
           </span>
           <span className="font-mono text-[13px] font-bold text-[var(--accent)]">
-            {((thickness * width * length * sheetDensity) / 1_000_000_000).toFixed(4)}
+            {sheetWeight.toFixed(4)}
           </span>
           <span className="text-[10px] text-[var(--text-muted)]">t</span>
           <span className="text-[10px] text-[var(--text-muted)] ml-1">
-            ({fixedGrouped((thickness * width * length * sheetDensity) / 1_000_000, 2)} kg)
+            ({fixedGrouped(sheetWeight * 1000, 2)} kg)
           </span>
         </div>
       )}
@@ -2927,11 +2943,15 @@ export default function Calculator() {
             </div>
             
             {/* Tons */}
-            <div className="flex items-center px-4 py-2 mx-3.5 mt-2">
+            <label
+              className="flex items-center px-4 py-2 mx-3.5 mt-2"
+              onFocus={() => { quantityAtFocusRef.current = quantity; }}
+            >
               <span className="flex-1 text-xs font-semibold text-[var(--text-secondary)]">{t.summary.quantity}</span>
               <NumericField
                 value={tons}
-                onChange={setTons}
+                onChange={value => setQuantity({ source: 'tons', tons: value, sheets: 0 })}
+                onRevert={() => setQuantity(quantityAtFocusRef.current)}
                 clearOnFocus
                 min="0.01"
                 step="0.5"
@@ -2939,7 +2959,36 @@ export default function Calculator() {
                   ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
               />
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.tons}</span>
-            </div>
+            </label>
+
+            {/* Sheets, two-way linked with tons. Sheet forms only; the count never reaches the PDF. */}
+            {!isCoilMode && (
+              <label
+                className="flex items-center px-4 py-2 mx-3.5"
+                onFocus={() => { quantityAtFocusRef.current = quantity; }}
+              >
+                <span className="flex-1 text-xs font-semibold text-[var(--text-secondary)]">{t.summary.quantitySheets}</span>
+                <NumericField
+                  value={sheets}
+                  onChange={value => setQuantity({
+                    source: 'sheets',
+                    sheets: value,
+                    tons: pricingEngine.tonsFromSheets(value, sheetWeight),
+                  })}
+                  onRevert={() => setQuantity(quantityAtFocusRef.current)}
+                  parse={raw => Math.max(0, parseInt(raw, 10))}
+                  normalizeOnBlur
+                  clearOnFocus
+                  disabled={sheetWeight <= 0}
+                  title={sheetWeight <= 0 ? t.summary.quantitySheetsNeedsDimensions : undefined}
+                  min="0"
+                  step="1"
+                  className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
+                    ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                />
+                <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.summary.sheetsUnit}</span>
+              </label>
+            )}
             
             {/* Add Button */}
             <div className="px-3.5 pt-2.5 pb-1.5">
@@ -2987,7 +3036,7 @@ export default function Calculator() {
             <span className="w-2 h-2 rounded-full bg-[var(--accent-hrs)]" />
             <span className="text-xs font-semibold tracking-widest uppercase">{t.zestawienie.title}</span>
             <span className="text-[10px] font-mono text-[var(--text-secondary)] ml-1">
-              {zestawienie.length > 0 && `(${zestawienie.length} ${language === 'pl' ? (zestawienie.length === 1 ? 'pozycja' : zestawienie.length < 5 ? 'pozycje' : 'pozycji') : (zestawienie.length === 1 ? 'item' : 'items')} · ${fixedGrouped(zestTons, 2)} ${t.common.tons})`}
+              {zestawienie.length > 0 && `(${zestawienie.length} ${language === 'pl' ? (zestawienie.length === 1 ? 'pozycja' : zestawienie.length < 5 ? 'pozycje' : 'pozycji') : (zestawienie.length === 1 ? 'item' : 'items')} · ${fixedGrouped(zestTons, tonDecimals(zestTons))} ${t.common.tons})`}
             </span>
             {zestawienie.length > 0 && (
               <span className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[rgba(245,71,90,0.12)] border border-[rgba(245,71,90,0.35)]">
@@ -3136,7 +3185,7 @@ export default function Calculator() {
                     {t.zestawienie.total}
                   </td>
                   <td className="px-3.5 py-3.5 font-mono text-sm font-bold text-[var(--text-value)] text-right whitespace-nowrap">
-                    {fixedGrouped(zestTons, 2)} {t.common.tons}
+                    {fixedGrouped(zestTons, tonDecimals(zestTons))} {t.common.tons}
                   </td>
                   <td className="px-3.5 py-3.5 font-mono text-base font-bold text-[var(--accent-sum)] text-right whitespace-nowrap">
                     {moneyCeil(zestTotal)} {currencyUnit}

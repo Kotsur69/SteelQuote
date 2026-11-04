@@ -7,7 +7,7 @@ import type { AccessContext } from '@/lib/access/types';
 import { isCurrency, sanitizeRate, DEFAULT_CURRENCY, type Currency } from '@/lib/currency';
 import { isLanguage, translations, type Language } from '@/lib/translations';
 import { PDF_LABELS, PDF_DATE_LOCALE, OWS_URL, ESTEEL_URL, type PdfLabels } from '@/lib/pdfLabels';
-import { fixedGrouped } from '@/lib/numberFormat';
+import { fixedGrouped, tonDecimals } from '@/lib/numberFormat';
 import { resolveQuoteValidityHours, sanitizeQuoteValidityHours } from '@/lib/quoteValidity';
 import { certificateText, packagingDescription, sanitizeOfferTermKeys, type OfferTermKeys } from '@/lib/offerTerms';
 import fs from 'fs';
@@ -196,7 +196,7 @@ function buildHtml(
         <td class="r n">${item.thickness.toFixed(2)}</td>
         <td class="r n">${item.width.toFixed(0)}</td>
         <td class="r n">${item.isCoil ? '-' : item.length.toFixed(0)}</td>
-        <td class="r n">${num(item.quantity, 2)}</td>
+        <td class="r n">${num(item.quantity, tonDecimals(item.quantity))}</td>
         <td class="r n g">${ceilNum(item.pricePerTon * fx)}</td>
         <td class="r n">${ceilNum(item.pricePerTon * item.quantity * fx)}</td>
         <td class="nt">${notesFlowHtml(item.notes ?? [])}</td>
@@ -223,7 +223,7 @@ function buildHtml(
   ].join('');
   const summaryRows = [
     infoRow(L.itemsLabel, String(items.length)),
-    infoRow(L.totalTonsLabel, `<span class="n">${num(totalTons, 2)} t</span>`),
+    infoRow(L.totalTonsLabel, `<span class="n">${num(totalTons, tonDecimals(totalTons))} t</span>`),
     infoRow(L.valueLabel, `<span class="hlv n">${ceilNum(totalValue)} ${unit}</span>`),
     infoRow(L.typesLabel, escapeHtml([...new Set(items.map(i => i.steelType))].join(', '))),
   ].join('');
@@ -328,7 +328,7 @@ function buildHtml(
     <tbody>
       <tr>
         <td colspan="6" class="r tl">${L.totalRowLabel}</td>
-        <td class="r n">${num(totalTons, 2)} t</td>
+        <td class="r n">${num(totalTons, tonDecimals(totalTons))} t</td>
         <td></td>
         <td class="r"><span class="bt n">${ceilNum(totalValue)} ${unit}</span></td>
         <td></td>

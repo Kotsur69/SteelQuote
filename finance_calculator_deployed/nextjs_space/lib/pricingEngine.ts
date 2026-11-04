@@ -26,6 +26,57 @@ import {
   type PriceBook,
 } from './priceBook';
 
+// --- Quantity in sheets <-> tons (sheet forms only; coils have no sheet weight) ---------------
+
+/** The field the salesperson typed last; the other one is derived from it. */
+export type QuantitySource = 'tons' | 'sheets';
+
+export interface QuantityDraft {
+  source: QuantitySource;
+  /** Typed tons, or the last computed tons when sheets drive the quantity. */
+  tons: number;
+  /** Typed sheets; ignored when tons drive the quantity. */
+  sheets: number;
+}
+
+/** Theoretical weight of one sheet in tons; 0 until every dimension is filled in. */
+export function sheetWeightTons(thicknessMm: number, widthMm: number, lengthMm: number, density: number): number {
+  if (!(thicknessMm > 0 && widthMm > 0 && lengthMm > 0)) return 0;
+  return (thicknessMm * widthMm * lengthMm * density) / 1_000_000_000;
+}
+
+/**
+ * Tons for a typed sheet count, to the whole kilogram. The fraction stays (100 sheets = 7.065 t),
+ * and 3 decimals is what the list and the PDF print, so the printed tons are the priced tons.
+ */
+export function tonsFromSheets(sheets: number, sheetWeight: number): number {
+  return Math.round(sheets * sheetWeight * 1000) / 1000;
+}
+
+/** Sheets for typed tons: .01-.49 rounds down, .50-.99 rounds up. The 1e-6 trim removes float noise. */
+export function sheetsFromTons(tons: number, sheetWeight: number): number {
+  if (!(sheetWeight > 0)) return 0;
+  return Math.round(Number((tons / sheetWeight).toFixed(6)));
+}
+
+/** Both quantities for the current sheet weight. Pass weight 0 for coils: tons only. */
+export function resolveQuantity(draft: QuantityDraft, sheetWeight: number): { tons: number; sheets: number } {
+  if (!(sheetWeight > 0)) {
+    return { tons: draft.tons, sheets: draft.source === 'sheets' ? draft.sheets : 0 };
+  }
+  return draft.source === 'sheets'
+    ? { tons: tonsFromSheets(draft.sheets, sheetWeight), sheets: draft.sheets }
+    : { tons: draft.tons, sheets: sheetsFromTons(draft.tons, sheetWeight) };
+}
+
+/** Draft from saved data. Items saved before this field, or with a bad count, stay tons-driven. */
+export function restoreQuantity(tons: number, source: unknown, sheetCount: unknown): QuantityDraft {
+  if (source === 'sheets' && typeof sheetCount === 'number' && sheetCount > 0) {
+    return { source: 'sheets', tons, sheets: sheetCount };
+  }
+  return { source: 'tons', tons, sheets: 0 };
+}
+
 export function getDimensionSurcharge(book: PriceBook, type: SteelType, th: number, w: number): number | null {
   for (const band of DIMENSION_BANDS[type] ?? DIMENSION_BANDS.HRS) {
     if (th >= band.thicknessMin && th <= band.thicknessMax &&

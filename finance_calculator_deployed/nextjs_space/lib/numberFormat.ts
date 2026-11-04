@@ -21,3 +21,9 @@ export function groupThousands(formatted: string, sep: string = THOUSANDS_SEP): 
 export function fixedGrouped(value: number, decimals: number, sep: string = THOUSANDS_SEP): string {
   return groupThousands(value.toFixed(decimals), sep);
 }
+
+/** Decimals for printing tons: 2, or 3 when the third one carries a kilogram (7.065 t). */
+export function tonDecimals(tons: number): 2 | 3 {
+  const hundredths = tons * 100;
+  return Math.abs(hundredths - Math.round(hundredths)) < 1e-6 ? 2 : 3;
+}
