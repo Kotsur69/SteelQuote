@@ -2,6 +2,7 @@
 
 import { Reorder, useDragControls } from 'framer-motion';
 import { GripVertical } from 'lucide-react';
+import { INCOTERM_LABELS } from '@/lib/calculatorData';
 import { findGrade, type PriceBook } from '@/lib/priceBook';
 import { fixedGrouped, tonDecimals } from '@/lib/numberFormat';
 import type { Translations, Language } from '@/lib/translations';
@@ -20,8 +21,6 @@ interface ZestawienieRowProps {
   priceBook: PriceBook;
   /** Settings threshold; a lower item margin gets the same warning as the margin input. */
   minMarginPct: number;
-  /** Offer-wide self pickup: every item is effectively FCA. */
-  allPickup: boolean;
   /** A view-only sort is active: a drag would save the sorted order into the offer. */
   isReorderDisabled: boolean;
   onEdit: (id: number) => void;
@@ -41,7 +40,6 @@ export default function ZestawienieRow({
   moneyCeil,
   priceBook,
   minMarginPct,
-  allPickup,
   isReorderDisabled,
   onEdit,
   onDuplicate,
@@ -111,12 +109,12 @@ export default function ZestawienieRow({
           {item.thickness} × {item.width}{item.isCoil ? '' : ` × ${item.length}`} mm
           {item.isCoil && <span className="ml-1.5 text-[9px] font-semibold text-[#a855f7] bg-[rgba(168,85,247,0.12)] px-1.5 py-0.5 rounded">{t.inputs.coilMode}</span>}
           {/* Delivery terms of the item (FCA = collected by the client); legacy items have none. */}
-          {item.inputs && (allPickup || item.inputs.incoterm) && (
+          {item.inputs?.incoterm && (
             <span
               title={t.summary.delivery}
               className="ml-1.5 font-mono text-[9px] font-semibold text-[var(--text-secondary)] border border-[var(--border)] px-1.5 py-0.5 rounded"
             >
-              {allPickup ? 'FCA' : item.inputs.incoterm}
+              {INCOTERM_LABELS[item.inputs.incoterm]}
             </span>
           )}
         </div>

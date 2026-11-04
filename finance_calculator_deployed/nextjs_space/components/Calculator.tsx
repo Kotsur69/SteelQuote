@@ -35,12 +35,15 @@ import {
   SSC_MAX_WEIGHT_OPTIONS,
   SSC_PACKING_OPTIONS,
   getHutaSscToggleOptions,
-  isIncoterm,
+  INCOTERM_LABELS,
+  SELECTABLE_INCOTERMS,
+  editableIncoterm,
+  isDeliveredIncoterm,
   isTransportFreeIncoterm,
   type Incoterm,
 } from '@/lib/calculatorData';
 import { attachNotesToZestawienie } from '@/lib/itemNotes';
-import { offerTermKeys } from '@/lib/offerTerms';
+import { offerTermKeys, withoutOfferSelfPickup } from '@/lib/offerTerms';
 import { isGradeMissing } from '@/lib/gradeValidation';
 import { offerNumberLabel } from '@/lib/offerVersions';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
@@ -124,7 +127,7 @@ export interface ZestawienieItem {
   inputs?: ItemInputs;
 }
 
-/** Item with no transport in its price (FCA = client collects; CPT works the same way). */
+/** Item with no transport in its price (FCA or FCA Kraków = client collects). */
 const isPickupItem = (inputs: ItemInputs | undefined) => isTransportFreeIncoterm(inputs?.incoterm);
 
 // How long the add/update button shows its "added" confirmation.
@@ -387,10 +390,7 @@ export default function Calculator() {
   const [transportLoading, setTransportLoading] = useState(false);
   const [transportError, setTransportError] = useState<string | null>(null);
 
-  // Offer-wide self pickup makes every item FCA. It is derived, never written into the items,
-  // so unticking it restores each item's own delivery terms and transport.
-  // CPT carries no transport either, so it takes the same path as FCA.
-  const draftIsPickup = transportRoute.selfPickup || isTransportFreeIncoterm(incoterm);
+  const draftIsPickup = isTransportFreeIncoterm(incoterm);
 
   const patchTransportRoute = useCallback((patch: Partial<TransportRoute>) => {
     setTransportRoute(prev => ({ ...prev, ...patch }));
@@ -676,7 +676,7 @@ export default function Calculator() {
 
   // Calculate final values
   // A new item with no term chosen yet hides the transport row, so the price must not carry that
-  // hidden amount. The state keeps it and it returns on "with delivery". A legacy item being
+  // hidden amount. The state keeps it and it returns on CPT. A legacy item being
   // edited also has no term, but its transport stays visible and stays in its price.
   const isNewItemWithoutTerm = incoterm === null && editingId === null;
   const pricedTransport = isNewItemWithoutTerm ? 0 : transport;
@@ -711,10 +711,10 @@ export default function Calculator() {
     [zestawienie, editingId, tons, draftIsPickup]
   );
 
-  // null = handlowiec liczy transport sam (tryb ręczny, ponadgabaryt albo odbiór własny),
-  // nie ma jeszcze kilometrów, albo cennik nie ma stawki na tę odległość.
+  // null = the salesperson enters transport by hand (manual mode or oversize), there are no
+  // kilometres yet, or the tariff has no rate for this distance.
   const transportBreakdown = useMemo(() => {
-    if (transportRoute.selfPickup || transportRoute.manualMode || transportRoute.oversizeManual) return null;
+    if (transportRoute.manualMode || transportRoute.oversizeManual) return null;
     if (transportRoute.distanceKm === null) return null;
     return computeTransport({
       distanceKm: transportRoute.distanceKm,
@@ -728,7 +728,7 @@ export default function Calculator() {
   }, [transportRoute, previewOfferTons, settings, rate]);
 
   const committedTransportBreakdown = useMemo(() => {
-    if (transportRoute.selfPickup || transportRoute.manualMode || transportRoute.oversizeManual) return null;
+    if (transportRoute.manualMode || transportRoute.oversizeManual) return null;
     if (transportRoute.distanceKm === null) return null;
     return computeTransport({
       distanceKm: transportRoute.distanceKm,
@@ -741,10 +741,9 @@ export default function Calculator() {
     });
   }, [transportRoute, committedOfferTons, settings, rate]);
 
-  // Przy odbiorze własnym transport jest wymuszony na 0 — klient sam odbiera towar spod
-  // zakładu, więc nie ma tu żadnej trasy do policzenia.
+  // FCA terms force transport to 0: the client collects, so there is no route to price.
   const forcedTransportEur = draftIsPickup ? 0 : transportBreakdown?.eurPerTon ?? null;
-  const committedForcedTransportEur = transportRoute.selfPickup ? 0 : committedTransportBreakdown?.eurPerTon ?? null;
+  const committedForcedTransportEur = committedTransportBreakdown?.eurPerTon ?? null;
 
   // Stawka podglądu wchodzi do pola Transport, czyli do ceny pozycji, którą właśnie się
   // konfiguruje (jeszcze niedodanej albo edytowanej).
@@ -759,12 +758,11 @@ export default function Calculator() {
   // wcześniej muszą się przeliczyć, inaczej oferta zsumowałaby się z nieaktualnych stawek.
   // Celowo NIE zależy od podglądu niedodanej pozycji (patrz previewOfferTons wyżej) — samo
   // wpisywanie ilości w formularzu nowej pozycji nie może po cichu przeliczyć ceny pozycji
-  // już dodanych. Ta sama ścieżka obsługuje odbiór własny (perTon = 0).
-  // FCA items always keep transport 0 (offer-wide self pickup: every item).
+  // już dodanych.
+  // FCA items always keep transport 0.
   useEffect(() => {
     if (committedForcedTransportEur === null) return;
     const perTon = committedForcedTransportEur;
-    const allPickup = transportRoute.selfPickup;
 
     setZestawienie(prev => {
       let changed = false;
@@ -772,7 +770,7 @@ export default function Calculator() {
         // Pozycja bez snapshotu .inputs (oferta sprzed v1.3) nie wie, ile miała transportu
         // — nie da się jej bezpiecznie przeliczyć, więc zostaje nietknięta.
         if (!item.inputs) return item;
-        const target = allPickup || isPickupItem(item.inputs) ? 0 : perTon;
+        const target = isPickupItem(item.inputs) ? 0 : perTon;
         if (item.inputs.transport === target) return item;
         changed = true;
         const finalPrice = item.finalPrice - item.inputs.transport + target;
@@ -785,11 +783,11 @@ export default function Calculator() {
       });
       return changed ? next : prev;
     });
-  }, [committedForcedTransportEur, transportRoute.selfPickup]);
+  }, [committedForcedTransportEur]);
 
-  // Three mutually exclusive tick boxes: "with delivery" = DAP, CPT, FCA. Once chosen, a term can
-  // only be swapped, so clicking the ticked box changes nothing. FCA and CPT force transport 0;
-  // the amount typed before is kept and restored on DAP.
+  // Three mutually exclusive tick boxes: CPT (delivered), FCA, FCA Kraków. Once chosen, a term can
+  // only be swapped, so clicking the ticked box changes nothing. Both FCA terms force transport 0;
+  // the amount typed before is kept and restored on CPT.
   const handleDeliveryTermSelect = (next: Incoterm) => {
     if (next === incoterm) return;
     setDeliveryError(false);
@@ -800,12 +798,10 @@ export default function Calculator() {
     setIncoterm(next);
   };
 
-  // Transport is only relevant to a delivered item. Two cases stay visible on purpose: a legacy
-  // item with no saved term still carries transport in its price, and the offer-wide self pickup
-  // switch lives inside the panel and locks the tick boxes, so hiding it would leave no way back.
-  const showTransport = incoterm === 'DAP' || transportRoute.selfPickup || (incoterm === null && editingId !== null);
-  // Offer-wide self pickup already means FCA, so it counts as a chosen term.
-  const isDeliveryTermMissing = incoterm === null && !transportRoute.selfPickup;
+  // Transport is only relevant to a delivered item. A legacy item with no saved term stays visible
+  // on purpose: it still carries transport in its price.
+  const showTransport = isDeliveredIncoterm(incoterm) || (incoterm === null && editingId !== null);
+  const isDeliveryTermMissing = incoterm === null;
   const showDeliveryError = deliveryError && isDeliveryTermMissing;
 
   const handleCalculateRoute = useCallback(async () => {
@@ -1057,7 +1053,7 @@ export default function Calculator() {
         selectedGrade: selectedGrade ? { name: selectedGrade.name, value: gradeValue } : null,
         selectedCoating,
         marginPct, extra, extraComment, extraCommentInPdf, transport, smallQtySurcharge,
-        incoterm: incoterm ?? (transportRoute.selfPickup ? 'FCA' : undefined),
+        incoterm: incoterm ?? undefined,
         ...(isCoilMode ? {} : { quantitySource: quantity.source, sheetCount: sheets }),
       },
     };
@@ -1106,7 +1102,7 @@ export default function Calculator() {
       // Stare pozycje (sprzed dodania komentarza do dopłaty) nie mają tych pól.
       setExtraComment(inp.extraComment ?? '');
       setExtraCommentInPdf(inp.extraCommentInPdf ?? false);
-      setIncoterm(inp.incoterm ?? null);
+      setIncoterm(editableIncoterm(inp.incoterm));
     } else {
       // Stara pozycja bez snapshotu (oferta zapisana przed tą poprawką): najlepszy wysiłek —
       // odtwarzamy przynajmniej obiekt gatunku po nazwie, żeby dopłata gatunkowa się zgadzała.
@@ -1176,7 +1172,8 @@ export default function Calculator() {
   
   // Restore calculator state from offer data
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const restoreOfferData = (data: Record<string, any>) => {
+  const restoreOfferData = (savedData: Record<string, any>) => {
+    const data = withoutOfferSelfPickup(savedData);
     if (data.currentType) setCurrentType(data.currentType as SteelType);
     if (data.thickness !== undefined) setThickness(data.thickness);
     if (data.width !== undefined) setWidth(data.width);
@@ -1196,7 +1193,7 @@ export default function Calculator() {
     if (data.extraCommentInPdf !== undefined) setExtraCommentInPdf(data.extraCommentInPdf);
     if (data.transport !== undefined) setTransport(data.transport);
     // Always reset: an offer saved before this field must not inherit the previous draft's term.
-    setIncoterm(isIncoterm(data.incoterm) ? data.incoterm : null);
+    setIncoterm(editableIncoterm(data.incoterm));
     setDeliveryError(false);
     if (data.tons !== undefined) setQuantity(pricingEngine.restoreQuantity(data.tons, data.quantitySource, data.sheetCount));
     if (data.validFrom !== undefined) setValidFrom(data.validFrom);
@@ -2870,40 +2867,31 @@ export default function Calculator() {
             </div>
             )}
 
-            {/* Delivery terms of this item: "with delivery" = DAP, CPT, or FCA (client collects).
-                The boxes are mutually exclusive. Offer-wide self pickup makes every item FCA. */}
+            {/* Delivery terms of this item: CPT (delivered), FCA or FCA Kraków (client collects).
+                The boxes are mutually exclusive. */}
             <div
               ref={deliveryRowRef}
               className={`px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)] ${showDeliveryError ? 'ring-2 ring-inset ring-[rgba(239,68,68,0.6)]' : ''}`}
             >
               <div className="flex items-center gap-3">
                 <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.delivery}</span>
-                {([
-                  { term: 'DAP', label: t.summary.withDelivery },
-                  { term: 'CPT', label: 'CPT' },
-                  { term: 'FCA', label: 'FCA' },
-                ] as const).map(({ term, label }) => (
+                {SELECTABLE_INCOTERMS.map((term) => (
                   <label
                     key={term}
-                    className={`flex items-center gap-1.5 text-xs text-[var(--text-primary)] select-none ${
-                      transportRoute.selfPickup ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                    }`}
+                    className="flex items-center gap-1.5 whitespace-nowrap text-xs text-[var(--text-primary)] select-none cursor-pointer"
                   >
                     <input
                       type="checkbox"
-                      checked={transportRoute.selfPickup ? term === 'FCA' : incoterm === term}
-                      disabled={transportRoute.selfPickup}
+                      checked={incoterm === term}
                       onChange={() => handleDeliveryTermSelect(term)}
                     />
-                    {label}
+                    {INCOTERM_LABELS[term]}
                   </label>
                 ))}
               </div>
-              {draftIsPickup && (
+              {incoterm && draftIsPickup && (
                 <p className="mt-1 text-[10px] text-[var(--text-muted)]">
-                  {!transportRoute.selfPickup && incoterm === 'CPT'
-                    ? t.summary.deliveryCptHint
-                    : t.summary.deliveryPickupHint}
+                  {INCOTERM_LABELS[incoterm]} - {t.summary.deliveryPickupHint}
                 </p>
               )}
               {isDeliveryTermMissing && editingId !== null && (
@@ -2913,29 +2901,6 @@ export default function Calculator() {
 
             {showTransport && (
             <>
-            {/* Transport */}
-            <div className="flex items-center px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
-              <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.transport}</span>
-              {/* Gdy transport liczy się z trasy (albo jest wymuszony na 0 przy odbiorze
-                  własnym), pole jest tylko do odczytu — ręczna edycja i tak zostałaby
-                  nadpisana przy następnym przeliczeniu. Żeby wpisać kwotę samemu,
-                  handlowiec włącza tryb ręczny w panelu niżej. */}
-              {transportBreakdown || draftIsPickup ? (
-                <span className="font-mono text-[13px] text-[var(--text-value)] font-medium min-w-[64px] text-right">
-                  {money2(transport)}
-                </span>
-              ) : (
-                <NumericField
-                  value={moneyInput(transport)}
-                  onChange={v => setTransport(fromDisplay(v))}
-                  min="0"
-                  className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
-                    ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
-                />
-              )}
-              <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{symbol}</span>
-            </div>
-
             <TransportPanel
               open={transportPanelOpen}
               onToggle={() => {
@@ -2958,6 +2923,16 @@ export default function Calculator() {
               loading={transportLoading}
               error={transportError}
               onCalculate={handleCalculateRoute}
+              transportEur={transport}
+              transportInput={
+                <NumericField
+                  value={moneyInput(transport)}
+                  onChange={v => setTransport(fromDisplay(v))}
+                  min="0"
+                  className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none
+                    ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+                />
+              }
               formatEur={money2}
               currencySymbol={symbol}
               t={t}
@@ -3217,7 +3192,6 @@ export default function Calculator() {
                       moneyCeil={moneyCeil}
                       priceBook={priceBook}
                       minMarginPct={settings.minMarginPct}
-                      allPickup={transportRoute.selfPickup}
                       isReorderDisabled={itemSort !== null}
                       onEdit={editItem}
                       onDuplicate={dupItem}

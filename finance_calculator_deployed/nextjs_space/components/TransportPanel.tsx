@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { ChevronRight, Truck } from 'lucide-react';
 import type { Translations } from '@/lib/translations';
 import type { TransportBreakdown } from '@/lib/transportTariff';
@@ -28,8 +29,6 @@ export interface TransportRoute {
   oversizeManual: boolean;
   /** Handlowiec świadomie wpisuje kwotę transportu sam (nietypowa trasa). */
   manualMode: boolean;
-  /** Klient odbiera towar sam spod zakładu — transport = 0, reszta trasy nieistotna. */
-  selfPickup: boolean;
 }
 
 export const EMPTY_TRANSPORT_ROUTE: TransportRoute = {
@@ -39,7 +38,6 @@ export const EMPTY_TRANSPORT_ROUTE: TransportRoute = {
   hasLongElements: false,
   oversizeManual: false,
   manualMode: false,
-  selfPickup: false,
 };
 
 interface TransportPanelProps {
@@ -58,6 +56,10 @@ interface TransportPanelProps {
   loading: boolean;
   error: string | null;
   onCalculate: () => void;
+  /** Transport in the item's price, EUR per ton. */
+  transportEur: number;
+  /** Input for the amount, shown only while the salesperson enters it by hand. */
+  transportInput: ReactNode;
   /** EUR -> waluta wyświetlania, sformatowane (ta sama funkcja co reszta podsumowania). */
   formatEur: (eur: number) => string;
   currencySymbol: string;
@@ -84,6 +86,8 @@ export default function TransportPanel({
   loading,
   error,
   onCalculate,
+  transportEur,
+  transportInput,
   formatEur,
   currencySymbol,
   t,
@@ -91,9 +95,9 @@ export default function TransportPanel({
 }: TransportPanelProps) {
   const s = t.summary;
   // Kwota liczona automatycznie tylko wtedy, gdy handlowiec nie przejął sterowania.
-  const isAuto = !route.manualMode && !route.oversizeManual && !route.selfPickup;
-  // Przy odbiorze własnym reszta trasy jest nieistotna — transport i tak wynosi 0.
-  const routeDisabled = route.selfPickup;
+  const isAuto = !route.manualMode && !route.oversizeManual;
+  // Oversize transport is priced by the carrier, so it is typed by hand as well.
+  const isManualAmount = route.manualMode || route.oversizeManual;
 
   const lightBorder = !isDark ? 'border-[#9aa4c4] text-[#0d1220]' : '';
 
@@ -131,24 +135,14 @@ export default function TransportPanel({
             </span>
           )
         )}
+        {/* Transport is part of the price, so the amount stays visible with the panel collapsed. */}
+        <span className="shrink-0 whitespace-nowrap font-mono text-[11px] font-semibold text-[var(--text-value)]">
+          {formatEur(transportEur)} {currencySymbol}
+        </span>
       </button>
 
       {open && (
         <div className="px-4 pb-3 space-y-2.5">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={route.selfPickup}
-              onChange={e => onRouteChange({ selfPickup: e.target.checked })}
-              className="accent-[var(--accent-cr)]"
-            />
-            <span className="text-[10px] text-[var(--text-secondary)] font-semibold">{s.transportSelfPickup}</span>
-          </label>
-
-          <div
-            className={`space-y-2.5 ${routeDisabled ? 'opacity-40 pointer-events-none' : ''}`}
-            aria-disabled={routeDisabled}
-          >
           <div>
             <label className="block text-[10px] text-[var(--text-muted)] mb-1">{s.transportOrigin}</label>
             {/* Adres nadania jest globalny (Ustawienia) — tutaj tylko do wglądu, żeby
@@ -266,15 +260,20 @@ export default function TransportPanel({
             <span className="text-[10px] text-[var(--text-secondary)]">{s.transportManualMode}</span>
           </label>
 
+          {/* Read-only unless typed by hand: a route rate would overwrite a manual edit on the
+              next recalculation. */}
+          <div className="flex items-center">
+            <span className="flex-1 text-xs text-[var(--text-secondary)]">{s.transport}</span>
+            {isManualAmount ? transportInput : (
+              <span className="font-mono text-[13px] text-[var(--text-value)] font-medium">{formatEur(transportEur)}</span>
+            )}
+            <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{currencySymbol}</span>
+          </div>
+
           {route.oversizeManual && (
             <p className="text-[10px] text-[var(--accent-hrs)] leading-snug">
               ⚠️ {s.transportOversizeManualNotice}
             </p>
-          )}
-          </div>
-
-          {route.selfPickup && (
-            <p className="text-[10px] text-[var(--text-muted)] leading-snug">🚚 {s.transportSelfPickupNotice}</p>
           )}
 
           {/* Rozbicie kosztu. To jest ten "widoczny banner": handlowiec widzi wprost,

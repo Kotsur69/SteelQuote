@@ -6,6 +6,9 @@ import {
   CERT_OPTIONS,
   DEFAULT_DELIVERY_INCOTERM,
   SSC_PACKING_OPTIONS,
+  editableIncoterm,
+  effectiveIncoterm,
+  isDeliveredIncoterm,
   isIncoterm,
   type Incoterm,
   type ItemInputs,
@@ -50,14 +53,51 @@ function optionIdx(type: SteelType, inputs: ItemInputs, group: 'cert' | 'sscPack
   return resolveOptionIdx(type, group, inputs[spec.idxField], inputs[spec.valueField]) ?? undefined;
 }
 
-/** Term values of one item. Offer-wide self pickup makes every item FCA. */
+/** Term values of one item. Offer-wide self pickup makes every item FCA (FCA Kraków stays). */
 export function itemTermKeys(type: SteelType, inputs: ItemInputs | undefined, route?: DeliveryRoute): ItemTermKeys {
   if (!inputs) return {};
-  const term = route?.selfPickup === true ? 'FCA' : inputs.incoterm;
+  const term = effectiveIncoterm(inputs.incoterm, route?.selfPickup === true);
   return {
     cert: optionIdx(type, inputs, 'cert'),
     packing: optionIdx(type, inputs, 'sscPacking'),
     incoterm: isIncoterm(term) ? term : undefined,
+  };
+}
+
+/**
+ * The offer-wide self pickup switch no longer exists in the calculator, but offers saved with it
+ * still carry the flag (their PDFs keep reading it through itemTermKeys). Opening one in the form
+ * moves the flag onto the items: each becomes FCA (FCA Kraków stays) with transport 0, so the tick
+ * boxes work per item again. Items without an inputs snapshot have no term to set and stay as saved.
+ */
+export function withoutOfferSelfPickup<T extends Record<string, unknown>>(data: T): T {
+  const route = data.transportRoute as DeliveryRoute | null | undefined;
+  if (route?.selfPickup !== true) return data;
+  const items = data.zestawienie as SelfPickupItem[] | undefined;
+  return {
+    ...data,
+    incoterm: effectiveIncoterm(editableIncoterm(data.incoterm), true),
+    transport: 0,
+    transportRoute: { ...route, selfPickup: false },
+    ...(Array.isArray(items) ? { zestawienie: items.map(toPickupItem) } : {}),
+  };
+}
+
+interface SelfPickupItem {
+  tons: number;
+  finalPrice: number;
+  totalValue: number;
+  inputs?: ItemInputs;
+}
+
+function toPickupItem(item: SelfPickupItem): SelfPickupItem {
+  if (!item.inputs) return item;
+  const finalPrice = item.finalPrice - item.inputs.transport;
+  return {
+    ...item,
+    finalPrice,
+    totalValue: Math.round(finalPrice * item.tons * 100) / 100,
+    inputs: { ...item.inputs, transport: 0, incoterm: effectiveIncoterm(item.inputs.incoterm, true) ?? undefined },
   };
 }
 
@@ -91,9 +131,8 @@ export function offerTermKeys(items: readonly TermItem[], route?: DeliveryRoute)
     cert: dominantValue(keys.map((k) => k.cert), certFallback),
     packing: dominantValue(keys.map((k) => k.packing), packingFallback),
     incoterm,
-    // Only DAP names the address. FCA = the client collects (place agreed separately); CPT prints
-    // the bare code until its description is agreed.
-    destAddress: incoterm === 'DAP' && destAddress ? destAddress : undefined,
+    // Only a delivered term names the address; with FCA the client collects.
+    destAddress: isDeliveredIncoterm(incoterm) && destAddress ? destAddress : undefined,
   };
 }
 

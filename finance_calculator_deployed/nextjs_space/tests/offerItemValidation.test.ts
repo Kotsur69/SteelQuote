@@ -86,22 +86,29 @@ describe('validateOfferItems', () => {
     }))).toMatch(/FCA/);
   });
 
-  // CPT works like FCA on price: freight is not in our price, so 814.37 - 20 = 794.37 €/t.
-  test('accepts a CPT item without transport', () => {
+  // FCA Kraków prices exactly like FCA: 814.37 - 20 = 794.37 €/t.
+  test('accepts an FCA Kraków item without transport', () => {
     expect(validateOfferItems(withItem({
       finalPrice: 794.37,
       totalValue: 794.37,
-      inputs: { marginPct: 7, extra: 0, transport: 0, incoterm: 'CPT' },
+      inputs: { marginPct: 7, extra: 0, transport: 0, incoterm: 'FCA_KRAKOW' },
     }))).toBeNull();
   });
 
-  test('rejects a CPT item that still charges transport', () => {
+  test('rejects an FCA Kraków item that still charges transport', () => {
     expect(validateOfferItems(withItem({
-      inputs: { marginPct: 7, extra: 0, transport: 20, incoterm: 'CPT' },
-    }))).toMatch(/CPT/);
+      inputs: { marginPct: 7, extra: 0, transport: 20, incoterm: 'FCA_KRAKOW' },
+    }))).toMatch(/FCA_KRAKOW/);
   });
 
-  test('still accepts a DAP item with transport', () => {
+  // CPT is the delivered term: transport 20 stays in the price, 814.37 €/t.
+  test('accepts a CPT item with transport', () => {
+    expect(validateOfferItems(withItem({
+      inputs: { marginPct: 7, extra: 0, transport: 20, incoterm: 'CPT' },
+    }))).toBeNull();
+  });
+
+  test('still accepts an item saved as DAP with transport', () => {
     expect(validateOfferItems(withItem({
       inputs: { marginPct: 7, extra: 0, transport: 20, incoterm: 'DAP' },
     }))).toBeNull();

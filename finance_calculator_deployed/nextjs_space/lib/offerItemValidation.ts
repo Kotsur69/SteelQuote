@@ -57,7 +57,7 @@ function consistencyError(item: OfferItem): string | null {
     return 'totalValue does not equal finalPrice × tons';
   }
   if (!item.inputs) return null;
-  // FCA (collected by the client) and CPT carry no transport.
+  // FCA and FCA Kraków (collected by the client) carry no transport.
   if (isTransportFreeIncoterm(item.inputs.incoterm) && !near(item.inputs.transport, 0)) {
     return `transport must be 0 for an ${item.inputs.incoterm} item`;
   }

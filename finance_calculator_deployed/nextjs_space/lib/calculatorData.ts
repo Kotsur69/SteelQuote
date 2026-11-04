@@ -1106,18 +1106,37 @@ export const YIELD_GRADES = [
 
 export type SteelType = 'HRS' | 'CR' | 'HDG' | 'PICKLED' | 'TEARDROP' | 'ZM';
 
-// Delivery terms of one item (Incoterms). FCA = the client collects it; DAP = we deliver and
-// transport is priced in; CPT = transport 0 like FCA (its PDF description is still to be agreed).
-// FCA and CPT carry no transport (0 €/t, and their tons stay off the trucks the tariff is split
-// over). Per item, because one offer can mix them.
-export const INCOTERMS = ['FCA', 'CPT', 'DAP'] as const;
+// Delivery terms of one item (Incoterms). CPT = we deliver, transport is priced in. FCA and
+// FCA Kraków = the client collects it, so no transport (0 €/t, and their tons stay off the trucks
+// the tariff is split over); they differ only in the printed place. Per item, because one offer
+// can mix them. DAP is no longer offered: it stays valid only so items saved with it still load,
+// and it behaves like CPT.
+export const INCOTERMS = ['FCA', 'FCA_KRAKOW', 'CPT', 'DAP'] as const;
 export type Incoterm = (typeof INCOTERMS)[number];
-export const DEFAULT_DELIVERY_INCOTERM: Exclude<Incoterm, 'FCA'> = 'DAP';
+export const SELECTABLE_INCOTERMS = ['CPT', 'FCA', 'FCA_KRAKOW'] as const satisfies readonly Incoterm[];
+export const DEFAULT_DELIVERY_INCOTERM: Incoterm = 'CPT';
+export const INCOTERM_LABELS: Readonly<Record<Incoterm, string>> = {
+  FCA: 'FCA',
+  FCA_KRAKOW: 'FCA Kraków',
+  CPT: 'CPT',
+  DAP: 'DAP',
+};
 export const isIncoterm = (value: unknown): value is Incoterm =>
   typeof value === 'string' && (INCOTERMS as readonly string[]).includes(value);
-/** True for terms whose price carries no transport (FCA, CPT). */
+/** True for terms whose price carries no transport (FCA, FCA Kraków). */
 export const isTransportFreeIncoterm = (term: Incoterm | null | undefined): boolean =>
-  term === 'FCA' || term === 'CPT';
+  term === 'FCA' || term === 'FCA_KRAKOW';
+/** True for terms where we deliver: transport is priced in and the delivery address is named. */
+export const isDeliveredIncoterm = (term: Incoterm | null | undefined): boolean =>
+  term === 'CPT' || term === 'DAP';
+/** The term that applies to an item: self pickup on a saved offer means FCA, keeping a named FCA place. */
+export const effectiveIncoterm = (term: Incoterm | null | undefined, isSelfPickup: boolean): Incoterm | null | undefined =>
+  isSelfPickup && term !== 'FCA_KRAKOW' ? 'FCA' : term;
+/** The term to tick when a saved item opens in the form: retired DAP becomes CPT, unknown = none. */
+export const editableIncoterm = (value: unknown): Incoterm | null => {
+  if (value === 'DAP') return 'CPT';
+  return isIncoterm(value) ? value : null;
+};
 export type Grade = { name: string; value: number };
 
 // Pełny zestaw wejść (przełączników dopłat) dla pojedynczej pozycji zestawienia.

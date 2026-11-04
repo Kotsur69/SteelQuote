@@ -9,7 +9,9 @@ import {
   HDG_PROTECTION_OPTIONS,
   ZM_PROTECTION_OPTIONS,
   SSC_MAX_WEIGHT_OPTIONS,
+  INCOTERM_LABELS,
   getHutaSscToggleOptions,
+  isDeliveredIncoterm,
   ItemInputs,
   SteelType,
 } from './calculatorData';
@@ -53,14 +55,13 @@ export function buildItemNotes(
     if (opt) lines.push(`${label}: ${opt.label}`);
   };
 
-  // Delivery terms first, but only when they differ from the offer's terms. DAP names the
-  // offer's delivery address; FCA (place agreed with the client) and CPT (description still to
-  // come) stay bare. Offer-wide self pickup = FCA for every item. Items saved before this field
-  // have no line.
+  // Delivery terms first, but only when they differ from the offer's terms. A delivered term
+  // names the offer's delivery address; FCA and FCA Kraków print no address. Offer-wide self
+  // pickup = FCA for every item. Items saved before this field have no line.
   const term = own.incoterm;
   if (term && term !== offerTerms.incoterm) {
-    const place = term === 'DAP' ? route?.destAddress?.trim() ?? '' : '';
-    lines.push(`${t.summary.delivery}: ${term}${place ? ` ${place}` : ''}`);
+    const place = isDeliveredIncoterm(term) ? route?.destAddress?.trim() ?? '' : '';
+    lines.push(`${t.summary.delivery}: ${INCOTERM_LABELS[term]}${place ? ` ${place}` : ''}`);
   }
 
   const p = <T,>(group: OptionGroup, options: T[]) => pick(type, inputs, group, options);
