@@ -49,7 +49,8 @@ export const STATUS_COLOR: Record<OfferStatus, string> = {
 // alone: DECISION_ICON travels with it everywhere.
 export const DECISION_COLOR: Record<ClientDecision, string> = {
   won: 'var(--accent-hdg)',
-  lost: 'var(--accent-sum)',
+  // Not --accent-sum: the light brand theme turns that one violet, and a loss must read as red.
+  lost: 'var(--trend-down)',
   pending: 'var(--text-muted)',
 };
 

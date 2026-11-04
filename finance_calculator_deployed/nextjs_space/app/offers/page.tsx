@@ -653,7 +653,7 @@ export default function OffersPage() {
                   setLostDialog(null);
                   submitDecision(offerId, 'lost', choice.reason, choice.note ?? '');
                 }}
-                className="px-4 py-2 text-sm rounded bg-[var(--accent-sum)] text-white font-medium"
+                className="px-4 py-2 text-sm rounded bg-red-700 text-white font-medium"
               >
                 {lostReasonUi(language).confirm}
               </button>
@@ -978,7 +978,7 @@ export default function OffersPage() {
                       <button
                         onClick={() => handleDecision(offer.id, 'lost')}
                         disabled={actionLoading === offer.id}
-                        className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--accent-sum)] text-[var(--accent-sum)] bg-[rgba(245,71,90,0.08)] hover:bg-[rgba(245,71,90,0.15)] transition-colors disabled:opacity-50"
+                        className="px-3 py-1.5 text-xs font-medium rounded border border-[var(--trend-down)] text-[var(--trend-down)] bg-[rgba(220,38,38,0.10)] hover:bg-[rgba(220,38,38,0.18)] transition-colors disabled:opacity-50"
                         title={t.analytics.markLost}
                       >
                         {DECISION_ICON.lost} {t.analytics.markLost}
