@@ -297,6 +297,7 @@ export interface Translations {
     deliveryPickupHint: string;
     deliveryCptHint: string;
     deliveryChooseTerm: string;
+    deliveryRequired: string;
     transportOversizeLong: string;
     transportOversizeManual: string;
     transportOversizeManualNotice: string;
@@ -1154,6 +1155,7 @@ export const pl: Translations = {
     deliveryPickupHint: 'FCA - klient odbiera tę pozycję sam, transport = 0.',
     deliveryCptHint: 'CPT - transport = 0.',
     deliveryChooseTerm: 'Pozycja sprzed tej funkcji - zaznacz "z dostawą", CPT albo FCA, inaczej PDF nie pokaże warunków dostawy.',
+    deliveryRequired: 'Należy wybrać warunek dostawy: z dostawą, CPT albo FCA',
     transportOversizeLong: 'Elementy 13,6–15,1 m (+{price} zł/kurs)',
     transportOversizeManual: 'Ponadgabaryt: >15,1 m lub >2,4 m',
     transportOversizeManualNotice: 'Ponadgabaryt wymaga wyceny indywidualnej u przewoźnika — wpisz kwotę transportu ręcznie.',
@@ -2008,6 +2010,7 @@ export const en: Translations = {
     deliveryPickupHint: 'FCA - the client collects this item, transport = 0.',
     deliveryCptHint: 'CPT - transport = 0.',
     deliveryChooseTerm: 'Item saved before this feature - tick "with delivery", CPT or FCA, otherwise the PDF shows no delivery terms.',
+    deliveryRequired: 'Delivery term has to be chosen: with delivery, CPT or FCA',
     transportOversizeLong: 'Elements 13.6-15.1 m (+{price} PLN/truck)',
     transportOversizeManual: 'Oversize: >15.1 m or >2.4 m',
     transportOversizeManualNotice: 'Oversize loads are quoted individually by the carrier - enter the transport amount by hand.',
@@ -2861,6 +2864,7 @@ export const cs: Translations = {
     deliveryPickupHint: 'FCA - klient si tuto položku vyzvedne sám, doprava = 0.',
     deliveryCptHint: 'CPT - doprava = 0.',
     deliveryChooseTerm: 'Položka z doby před touto funkcí - zaškrtněte "s dopravou", CPT nebo FCA, jinak PDF nezobrazí dodací podmínky.',
+    deliveryRequired: 'Je nutné vybrat dodací podmínku: s dopravou, CPT nebo FCA',
     transportOversizeLong: 'Prvky 13,6-15,1 m (+{price} zł/jízda)',
     transportOversizeManual: 'Nadrozměr: >15,1 m nebo >2,4 m',
     transportOversizeManualNotice: 'Nadrozměrný náklad oceňuje dopravce individuálně - zadejte částku dopravy ručně.',
@@ -3714,6 +3718,7 @@ export const de: Translations = {
     deliveryPickupHint: 'FCA - der Kunde holt diese Position selbst ab, Transport = 0.',
     deliveryCptHint: 'CPT - Transport = 0.',
     deliveryChooseTerm: 'Position aus der Zeit vor dieser Funktion - "mit Lieferung", CPT oder FCA ankreuzen, sonst zeigt das PDF keine Lieferbedingungen.',
+    deliveryRequired: 'Bitte eine Lieferbedingung auswählen: mit Lieferung, CPT oder FCA',
     transportOversizeLong: 'Elemente 13,6-15,1 m (+{price} PLN/Fahrt)',
     transportOversizeManual: 'Übergröße: >15,1 m oder >2,4 m',
     transportOversizeManualNotice: 'Übergroße Ladungen werden vom Spediteur individuell kalkuliert - Transportbetrag manuell eingeben.',

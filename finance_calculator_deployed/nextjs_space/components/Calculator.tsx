@@ -35,7 +35,6 @@ import {
   SSC_MAX_WEIGHT_OPTIONS,
   SSC_PACKING_OPTIONS,
   getHutaSscToggleOptions,
-  DEFAULT_DELIVERY_INCOTERM,
   isIncoterm,
   isTransportFreeIncoterm,
   type Incoterm,
@@ -150,7 +149,7 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
   selectedCoating: 'Z275',
   pglBase: 645, marginPct: 7, extra: 0, extraComment: '', extraCommentInPdf: false, transport: 20, tons: 1,
   quantitySource: 'tons', sheetCount: 0,
-  incoterm: DEFAULT_DELIVERY_INCOTERM,
+  incoterm: null,
   validFrom: '', validTo: '', paymentTermDays: null, quoteValidityHours: null,
   zestawienie: [],
   clientInfo: EMPTY_CLIENT_INFO,
@@ -373,7 +372,10 @@ export default function Calculator() {
   // Delivery terms of the item being configured. FCA = the client collects it: transport 0 and
   // its tons stay out of the tonnage the truck tariff is split over. null = a legacy item opened
   // for edit without a stored term: it keeps no PDF line until the salesperson picks one.
-  const [incoterm, setIncoterm] = useState<Incoterm | null>(DEFAULT_DELIVERY_INCOTERM);
+  // No preselected term: the salesperson has to choose one before an item can be added.
+  const [incoterm, setIncoterm] = useState<Incoterm | null>(null);
+  const [deliveryError, setDeliveryError] = useState(false);
+  const deliveryRowRef = useRef<HTMLDivElement>(null);
   // Transport typed before switching the draft to FCA, brought back when delivery is re-enabled
   // (in manual / oversize mode no route rate would overwrite the forced 0).
   const lastDeliveredTransportRef = useRef(20);
@@ -673,7 +675,12 @@ export default function Calculator() {
       sscLenTol, sscFlatness, sscSurface, sscMaxWeight, sscMarking, sscEdging, sscPacking, sscLabels]);
 
   // Calculate final values
-  const { marzaNetto, cenaKoncowa } = pricingEngine.computeCenaKoncowa(cenaWsadu, marginPct, extra, transport, sumaSSC, smallQtySurcharge);
+  // A new item with no term chosen yet hides the transport row, so the price must not carry that
+  // hidden amount. The state keeps it and it returns on "with delivery". A legacy item being
+  // edited also has no term, but its transport stays visible and stays in its price.
+  const isNewItemWithoutTerm = incoterm === null && editingId === null;
+  const pricedTransport = isNewItemWithoutTerm ? 0 : transport;
+  const { marzaNetto, cenaKoncowa } = pricingEngine.computeCenaKoncowa(cenaWsadu, marginPct, extra, pricedTransport, sumaSSC, smallQtySurcharge);
 
   // --- Transport z trasy -----------------------------------------------------
 
@@ -780,11 +787,12 @@ export default function Calculator() {
     });
   }, [committedForcedTransportEur, transportRoute.selfPickup]);
 
-  // Three mutually exclusive tick boxes: "with delivery" = DAP, CPT, FCA. Exactly one stays
-  // selected, so clicking the ticked box changes nothing. FCA and CPT force transport 0; the
-  // amount typed before is kept and restored on DAP.
+  // Three mutually exclusive tick boxes: "with delivery" = DAP, CPT, FCA. Once chosen, a term can
+  // only be swapped, so clicking the ticked box changes nothing. FCA and CPT force transport 0;
+  // the amount typed before is kept and restored on DAP.
   const handleDeliveryTermSelect = (next: Incoterm) => {
     if (next === incoterm) return;
+    setDeliveryError(false);
     const wasFree = isTransportFreeIncoterm(incoterm);
     const isFree = isTransportFreeIncoterm(next);
     if (!wasFree && isFree) lastDeliveredTransportRef.current = transport;
@@ -795,7 +803,10 @@ export default function Calculator() {
   // Transport is only relevant to a delivered item. Two cases stay visible on purpose: a legacy
   // item with no saved term still carries transport in its price, and the offer-wide self pickup
   // switch lives inside the panel and locks the tick boxes, so hiding it would leave no way back.
-  const showTransport = !isTransportFreeIncoterm(incoterm) || transportRoute.selfPickup;
+  const showTransport = incoterm === 'DAP' || transportRoute.selfPickup || (incoterm === null && editingId !== null);
+  // Offer-wide self pickup already means FCA, so it counts as a chosen term.
+  const isDeliveryTermMissing = incoterm === null && !transportRoute.selfPickup;
+  const showDeliveryError = deliveryError && isDeliveryTermMissing;
 
   const handleCalculateRoute = useCallback(async () => {
     const destAddress = transportRoute.destAddress.trim();
@@ -986,13 +997,20 @@ export default function Calculator() {
   const addToZestawienie = () => {
     // A position without a grade cannot be quoted - block it and point at the field
     // (the button sits in the summary panel, often scrolled away from the grade input).
-    if (isGradeMissing(gradeInput)) {
-      setGradeError(true);
+    const gradeMissing = isGradeMissing(gradeInput);
+    setGradeError(gradeMissing);
+    // The same goes for the delivery term: flag both at once, so one click reports everything.
+    setDeliveryError(isDeliveryTermMissing);
+    if (gradeMissing) {
       gradeInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       gradeInputRef.current?.focus({ preventScroll: true });
       return;
     }
-    setGradeError(false);
+    if (isDeliveryTermMissing) {
+      deliveryRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      deliveryRowRef.current?.querySelector('input')?.focus({ preventScroll: true });
+      return;
+    }
     const snap: ZestawienieItem = {
       id: editingId || Date.now(),
       type: currentType,
@@ -1039,7 +1057,7 @@ export default function Calculator() {
         selectedGrade: selectedGrade ? { name: selectedGrade.name, value: gradeValue } : null,
         selectedCoating,
         marginPct, extra, extraComment, extraCommentInPdf, transport, smallQtySurcharge,
-        incoterm: incoterm ?? undefined,
+        incoterm: incoterm ?? (transportRoute.selfPickup ? 'FCA' : undefined),
         ...(isCoilMode ? {} : { quantitySource: quantity.source, sheetCount: sheets }),
       },
     };
@@ -1178,7 +1196,8 @@ export default function Calculator() {
     if (data.extraCommentInPdf !== undefined) setExtraCommentInPdf(data.extraCommentInPdf);
     if (data.transport !== undefined) setTransport(data.transport);
     // Always reset: an offer saved before this field must not inherit the previous draft's term.
-    setIncoterm(isIncoterm(data.incoterm) ? data.incoterm : DEFAULT_DELIVERY_INCOTERM);
+    setIncoterm(isIncoterm(data.incoterm) ? data.incoterm : null);
+    setDeliveryError(false);
     if (data.tons !== undefined) setQuantity(pricingEngine.restoreQuantity(data.tons, data.quantitySource, data.sheetCount));
     if (data.validFrom !== undefined) setValidFrom(data.validFrom);
     if (data.validTo !== undefined) setValidTo(data.validTo);
@@ -2853,7 +2872,10 @@ export default function Calculator() {
 
             {/* Delivery terms of this item: "with delivery" = DAP, CPT, or FCA (client collects).
                 The boxes are mutually exclusive. Offer-wide self pickup makes every item FCA. */}
-            <div className="px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)]">
+            <div
+              ref={deliveryRowRef}
+              className={`px-4 py-2 border-b border-[rgba(42,48,72,0.5)] hover:bg-[rgba(255,255,255,0.025)] ${showDeliveryError ? 'ring-2 ring-inset ring-[rgba(239,68,68,0.6)]' : ''}`}
+            >
               <div className="flex items-center gap-3">
                 <span className="flex-1 text-xs text-[var(--text-secondary)]">{t.summary.delivery}</span>
                 {([
@@ -2884,7 +2906,7 @@ export default function Calculator() {
                     : t.summary.deliveryPickupHint}
                 </p>
               )}
-              {incoterm === null && !transportRoute.selfPickup && (
+              {isDeliveryTermMissing && editingId !== null && (
                 <p className="mt-1 text-[10px] text-[#f59e0b]">{t.summary.deliveryChooseTerm}</p>
               )}
             </div>
@@ -3028,6 +3050,11 @@ export default function Calculator() {
               {showGradeError && (
                 <p role="alert" className={`mt-1.5 text-[11px] font-semibold text-center ${isDark ? 'text-[#f5a0a8]' : 'text-[#9b2a35]'}`}>
                   ⚠ {t.inputs.gradeRequired}
+                </p>
+              )}
+              {showDeliveryError && (
+                <p role="alert" className={`mt-1.5 text-[11px] font-semibold text-center ${isDark ? 'text-[#f5a0a8]' : 'text-[#9b2a35]'}`}>
+                  ⚠ {t.summary.deliveryRequired}
                 </p>
               )}
               <span role="status" aria-live="polite" className="sr-only">
