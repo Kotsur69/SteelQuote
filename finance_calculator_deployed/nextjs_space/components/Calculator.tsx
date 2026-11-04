@@ -2934,7 +2934,9 @@ export default function Calculator() {
                 />
               }
               formatEur={money2}
+              formatPln={pln => money2(pln / rate)}
               currencySymbol={symbol}
+              currencyUnit={currencyUnit}
               t={t}
               isDark={isDark}
               highContrast={highContrast}

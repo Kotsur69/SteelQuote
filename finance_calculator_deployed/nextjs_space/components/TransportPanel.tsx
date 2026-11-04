@@ -62,7 +62,11 @@ interface TransportPanelProps {
   transportInput: ReactNode;
   /** EUR -> waluta wyświetlania, sformatowane (ta sama funkcja co reszta podsumowania). */
   formatEur: (eur: number) => string;
+  /** Tariff amount in PLN -> offer display currency, formatted. */
+  formatPln: (pln: number) => string;
   currencySymbol: string;
+  /** Currency without "/t", for per-truck and total amounts. */
+  currencyUnit: string;
   t: Translations;
   isDark: boolean;
   // Kept for call-site compatibility; high contrast no longer changes panel
@@ -89,7 +93,9 @@ export default function TransportPanel({
   transportEur,
   transportInput,
   formatEur,
+  formatPln,
   currencySymbol,
+  currencyUnit,
   t,
   isDark,
 }: TransportPanelProps) {
@@ -289,8 +295,8 @@ export default function TransportPanel({
               <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
                 <span>{s.transportPerTruck}</span>
                 <span>
-                  {fixedGrouped(breakdown.pricePerTruckPln, 2)}
-                  {breakdown.oversizePerTruckPln > 0 && ` + ${fixedGrouped(breakdown.oversizePerTruckPln, 2)}`} zł
+                  {formatPln(breakdown.pricePerTruckPln)}
+                  {breakdown.oversizePerTruckPln > 0 && ` + ${formatPln(breakdown.oversizePerTruckPln)}`} {currencyUnit}
                 </span>
               </div>
               <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
@@ -299,11 +305,10 @@ export default function TransportPanel({
               </div>
               <div className="flex justify-between text-[11px] font-mono text-[var(--text-value)] font-semibold">
                 <span>{s.transportTotalCost}</span>
-                <span>{fixedGrouped(breakdown.totalPln, 2)} zł</span>
+                <span>{formatPln(breakdown.totalPln)} {currencyUnit}</span>
               </div>
-              <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
-                <span>= {formatEur(breakdown.eurPerTon)}</span>
-                <span>{currencySymbol}</span>
+              <div className="text-right text-[13px] font-mono font-bold text-[var(--text-value)]">
+                = {formatEur(breakdown.eurPerTon)} {currencySymbol}
               </div>
             </div>
           )}
