@@ -2142,6 +2142,7 @@ export default function Calculator() {
           <NumericField
             value={thickness}
             onChange={setThickness}
+            clearOnFocus
             step="0.01"
             min="0"
             className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none transition-colors w-full
@@ -2155,6 +2156,7 @@ export default function Calculator() {
           <NumericField
             value={width}
             onChange={setWidth}
+            clearOnFocus
             parse={raw => parseInt(raw, 10)}
             step="1"
             min="0"
@@ -2170,6 +2172,7 @@ export default function Calculator() {
             <NumericField
               value={length}
               onChange={setLength}
+              clearOnFocus
               parse={raw => parseInt(raw, 10)}
               step="1"
               min="0"
@@ -2913,6 +2916,7 @@ export default function Calculator() {
               <NumericField
                 value={tons}
                 onChange={setTons}
+                clearOnFocus
                 min="0.01"
                 step="0.5"
                 className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-2 py-1 text-[var(--text-primary)] font-mono text-[13px] font-medium text-right w-[80px] focus:border-[var(--accent-cr)] outline-none

@@ -12,6 +12,12 @@ interface NumericFieldProps {
   /** Read-only for the current role (e.g. no permission to change the PGL base). */
   disabled?: boolean;
   title?: string;
+  /**
+   * Empty the field on focus so a new value can be typed without erasing the old
+   * one first. The old value stays committed (and visible as a placeholder) until
+   * a valid number is typed; leaving the field empty restores it.
+   */
+  clearOnFocus?: boolean;
 }
 
 // Kontrolowany <input type="number"> w Reakcie, który przy pustym polu od razu
@@ -28,9 +34,13 @@ export default function NumericField({
   className,
   disabled,
   title,
+  clearOnFocus = false,
 }: NumericFieldProps) {
   const [text, setText] = useState(String(value));
   const inputRef = useRef<HTMLInputElement>(null);
+  // Value at the moment the field gained focus - what an empty blur restores.
+  // Empty or unparsable text is never committed, so totals never see NaN mid-edit.
+  const valueAtFocusRef = useRef(value);
 
   useEffect(() => {
     if (document.activeElement !== inputRef.current) {
@@ -47,8 +57,13 @@ export default function NumericField({
       min={min}
       disabled={disabled}
       title={title}
+      placeholder={clearOnFocus ? String(value) : undefined}
       aria-disabled={disabled || undefined}
       className={`${className ?? ''}${disabled ? ' opacity-60 cursor-not-allowed' : ''}`}
+      onFocus={() => {
+        valueAtFocusRef.current = value;
+        if (clearOnFocus) setText('');
+      }}
       onChange={e => {
         const raw = e.target.value;
         setText(raw);
@@ -59,7 +74,11 @@ export default function NumericField({
       }}
       onBlur={() => {
         if (text.trim() === '' || Number.isNaN(parse(text))) {
-          setText(String(value));
+          // Typing "5" then erasing it already committed 5 - roll back to the
+          // value the field had before this edit, not the last keystroke.
+          const previous = valueAtFocusRef.current;
+          setText(String(previous));
+          if (previous !== value) onChange(previous);
         }
       }}
     />
