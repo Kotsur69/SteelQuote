@@ -228,7 +228,10 @@ export default function PriceBookPanel() {
               </div>
             </Section>
             <Section title={t.priceBook.sectionFallbacks}>
-              <FallbacksSection {...sectionProps} />
+              <FallbacksSection group="fallbacks" {...sectionProps} />
+            </Section>
+            <Section title={t.priceBook.sectionSmallQuantity}>
+              <FallbacksSection group="smallQuantity" {...sectionProps} />
             </Section>
           </div>
         )}

@@ -13,14 +13,20 @@ type Props = {
   disabled: boolean;
   t: Translations;
   onCell: (id: string, raw: string, current: number) => void;
+  group: 'fallbacks' | 'smallQuantity';
 };
 
-export default function FallbacksSection({ type, book, draft, disabled, t, onCell }: Props) {
-  const rows: { key: ScalarKey; label: string }[] = [
-    { key: 'baseFallback', label: t.priceBook.fallbackBase },
-    { key: 'yieldAmount', label: t.priceBook.yieldAmount },
-    { key: 'teardropOver2050', label: t.priceBook.fallbackTeardrop },
-  ];
+export default function FallbacksSection({ type, book, draft, disabled, t, onCell, group }: Props) {
+  const rows: { key: ScalarKey; label: string }[] = group === 'smallQuantity'
+    ? [
+        { key: 'smallQtyUnder5', label: t.priceBook.smallQtyUnder5 },
+        { key: 'smallQtyUpTo9_9', label: t.priceBook.smallQtyUpTo9_9 },
+      ]
+    : [
+        { key: 'baseFallback', label: t.priceBook.fallbackBase },
+        { key: 'yieldAmount', label: t.priceBook.yieldAmount },
+        { key: 'teardropOver2050', label: t.priceBook.fallbackTeardrop },
+      ];
 
   return (
     <div className="space-y-2">

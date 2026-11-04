@@ -1165,6 +1165,9 @@ export interface ItemInputs {
   extraComment?: string;
   extraCommentInPdf?: boolean;
   transport: number;
+  // Small quantity surcharge in EUR/t, frozen when the item is added. Optional: items saved
+  // before it lack the field and were priced without one.
+  smallQtySurcharge?: number;
   // Delivery terms; optional so items saved before it stay unchanged (no line in the PDF).
   incoterm?: Incoterm;
   // Sheet items only, and never printed on the PDF: which quantity field was typed last and the

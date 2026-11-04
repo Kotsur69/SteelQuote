@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 
 interface NumericFieldProps {
+  /** For a <label htmlFor> placed apart from the input. */
+  id?: string;
   value: number;
   onChange: (value: number) => void;
   parse?: (raw: string) => number;
@@ -33,6 +35,7 @@ interface NumericFieldProps {
 // live), ale WYŚWIETLANY tekst pola jest osobnym buforem, który reaguje na
 // zewnętrzne zmiany tylko gdy pole nie jest aktualnie edytowane (fokus).
 export default function NumericField({
+  id,
   value,
   onChange,
   parse = raw => parseFloat(raw),
@@ -60,6 +63,7 @@ export default function NumericField({
   return (
     <input
       ref={inputRef}
+      id={id}
       type="number"
       value={text}
       step={step}

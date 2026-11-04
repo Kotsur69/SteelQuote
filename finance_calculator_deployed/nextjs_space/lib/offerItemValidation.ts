@@ -35,6 +35,7 @@ const itemSchema = z
         marginPct: finite,
         extra: finite,
         transport: finite,
+        smallQtySurcharge: finite.nonnegative().optional(),
         incoterm: z.enum(INCOTERMS).optional(),
       })
       .passthrough()
@@ -47,8 +48,9 @@ type OfferItem = z.infer<typeof itemSchema>;
 const near = (a: number, b: number) => Math.abs(a - b) <= MONEY_TOLERANCE;
 
 // Mirrors pricingEngine.computeCenaKoncowa: marza = (PGL + Σ Mill) × pct / 100 and
-// finalPrice = PGL + Σ Mill + marza + extra + transport + Σ SSC; totalValue = finalPrice × tons
-// rounded to cents (as Calculator.tsx stores it).
+// finalPrice = PGL + Σ Mill + marza + extra + transport + Σ SSC + small quantity surcharge;
+// totalValue = finalPrice × tons rounded to cents (as Calculator.tsx stores it). The surcharge
+// is checked against the saved amount, not the tons: its rates may change, saved offers may not.
 function consistencyError(item: OfferItem): string | null {
   if (!item.isCoil && item.length <= 0) return 'length must be > 0 for sheets';
   if (!near(item.totalValue, Math.round(item.finalPrice * item.tons * 100) / 100)) {
@@ -63,9 +65,10 @@ function consistencyError(item: OfferItem): string | null {
   if (!near(item.marza, cenaWsadu * (item.inputs.marginPct / 100))) {
     return 'marza does not match (PGL + Σ Mill) × margin %';
   }
-  const expectedPrice = cenaWsadu + item.marza + item.inputs.extra + item.inputs.transport + item.sumaSSC;
+  const expectedPrice = cenaWsadu + item.marza + item.inputs.extra + item.inputs.transport + item.sumaSSC
+    + (item.inputs.smallQtySurcharge ?? 0);
   if (!near(item.finalPrice, expectedPrice)) {
-    return 'finalPrice does not equal PGL + Σ Mill + margin + extra + transport + Σ SSC';
+    return 'finalPrice does not equal PGL + Σ Mill + margin + extra + transport + Σ SSC + small quantity surcharge';
   }
   return null;
 }

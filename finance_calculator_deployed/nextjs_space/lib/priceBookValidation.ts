@@ -6,6 +6,8 @@ export const PRICE_MIN = -1000;
 export const PRICE_MAX = 5000;
 export const GRADE_NAME_MAX_LENGTH = 100;
 const MAX_ENTRIES_PER_SAVE = 5000;
+// A negative rate would be a hidden discount, and saved offers reject it (offerItemValidation).
+const NON_NEGATIVE_SCALARS = new Set(['smallQtyUnder5', 'smallQtyUpTo9_9']);
 
 // NUMERIC(10,2) in the DB: accepted values (at most 2 decimals, float noise allowed) are
 // rounded to cents here, so what is compared, logged and stored is the same number
@@ -114,6 +116,9 @@ export function validatePriceBookUpdate(body: unknown, existingGrades: readonly 
     seenCells.add(cellId);
     const err = priceError(value);
     if (err) return { ok: false, error: `${cellId}: ${err}` };
+    if (tableKey === 'scalar' && NON_NEGATIVE_SCALARS.has(rowKey) && (value as number) < 0) {
+      return { ok: false, error: `${cellId}: must not be negative` };
+    }
     entries.push({ steelType: type, tableKey, rowKey, colKey, value: toCents(value as number) });
   }
 

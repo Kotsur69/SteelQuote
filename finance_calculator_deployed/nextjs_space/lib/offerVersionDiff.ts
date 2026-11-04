@@ -20,6 +20,7 @@ export type ChangeField =
   | 'transport'
   | 'extra'
   | 'extra_comment'
+  | 'small_quantity'
   | 'total'
   | 'transport_route'
   | 'payment_term'
@@ -188,6 +189,10 @@ function diffItem(prev: Data, curr: Data, m: MoneyCtx): OfferChange[] {
   out.push(moneyChange('transport', label, num(prevInputs.transport), num(currInputs.transport), m));
   out.push(moneyChange('extra', label, num(prevInputs.extra), num(currInputs.extra), m));
   out.push(textChange('extra_comment', str(prevInputs.extraComment), str(currInputs.extraComment), label));
+  // Items saved before the surcharge lack the field and were priced without one.
+  out.push(moneyChange(
+    'small_quantity', label, num(prevInputs.smallQtySurcharge) ?? 0, num(currInputs.smallQtySurcharge) ?? 0, m
+  ));
 
   return out.filter((c): c is OfferChange => c !== null);
 }

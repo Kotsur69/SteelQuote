@@ -14,7 +14,7 @@ export const SHORT_LABEL_MAX = 3;
 const SEP = ' · ';
 const ARROW = ' → ';
 
-const PER_TON_FIELDS = new Set(['marza', 'final_price', 'transport', 'extra']);
+const PER_TON_FIELDS = new Set(['marza', 'final_price', 'transport', 'extra', 'small_quantity']);
 
 function unitOf(currency: Currency | undefined): string {
   return currency === 'PLN' ? 'zł' : '€';
@@ -81,6 +81,7 @@ function oldNew(c: OfferChange, s: VersionDiffStrings): OldNew {
     case 'final_price':
     case 'transport':
     case 'extra':
+    case 'small_quantity':
       return moneyPair(c);
     case 'payment_term':
       return { o: o === null ? s.empty : `${o} ${s.days}`, n: n === null ? s.empty : `${n} ${s.days}`, d: null };

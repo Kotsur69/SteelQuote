@@ -311,6 +311,7 @@ export interface Translations {
     quantitySheets: string;
     sheetsUnit: string;
     quantitySheetsNeedsDimensions: string;
+    smallQuantityNote: string;
     totalValue: string;
     addToList: string;
     addedToList: string;
@@ -699,6 +700,9 @@ export interface Translations {
     sectionSsc: string;
     sectionMatrices: string;
     sectionFallbacks: string;
+    sectionSmallQuantity: string;
+    smallQtyUnder5: string;
+    smallQtyUpTo9_9: string;
     sectionLog: string;
     gradeSearch: string;
     gradeName: string;
@@ -769,7 +773,7 @@ export interface Translations {
     selfPickup: string;
     author: string;
     detailsTitle: string;
-    fields: Record<'item_added' | 'item_removed' | 'item_spec' | 'tons' | 'margin' | 'marza' | 'final_price' | 'transport' | 'extra' | 'extra_comment' | 'total' | 'transport_route' | 'payment_term' | 'valid_from' | 'valid_to' | 'currency' | 'eur_pln_rate' | 'company' | 'nip' | 'sap_id' | 'address' | 'contact' | 'email' | 'phone' | 'offer_name', string>;
+    fields: Record<'item_added' | 'item_removed' | 'item_spec' | 'tons' | 'margin' | 'marza' | 'final_price' | 'transport' | 'extra' | 'extra_comment' | 'small_quantity' | 'total' | 'transport_route' | 'payment_term' | 'valid_from' | 'valid_to' | 'currency' | 'eur_pln_rate' | 'company' | 'nip' | 'sap_id' | 'address' | 'contact' | 'email' | 'phone' | 'offer_name', string>;
     events: Record<'created' | 'edit' | 'reviewer_edit' | 'renegotiation', string>;
   };
   analytics: {
@@ -1164,6 +1168,7 @@ export const pl: Translations = {
     quantitySheets: 'Ilość (arkusze)',
     sheetsUnit: 'szt',
     quantitySheetsNeedsDimensions: 'Podaj grubość, szerokość i długość, aby liczyć w arkuszach',
+    smallQuantityNote: 'Dopłata za małą ilość, wliczona w cenę końcową',
     totalValue: 'Wartość całkowita',
     addToList: 'Dodaj do zestawienia',
     addedToList: 'Dodano do zestawienia',
@@ -1519,6 +1524,9 @@ export const pl: Translations = {
     sectionSsc: 'Opcje SSC',
     sectionMatrices: 'Matryce',
     sectionFallbacks: 'Progi i dopłata Re',
+    sectionSmallQuantity: 'Dopłata za małą ilość (na pozycję)',
+    smallQtyUnder5: 'Do 4,9 t',
+    smallQtyUpTo9_9: 'Od 5 do 9,9 t (powyżej bez dopłaty)',
     sectionLog: 'Historia zmian',
     gradeSearch: 'Szukaj gatunku…',
     gradeName: 'Gatunek',
@@ -1598,6 +1606,7 @@ export const pl: Translations = {
       transport: 'Transport',
       extra: 'Dopłata dodatkowa',
       extra_comment: 'Komentarz do dopłaty',
+      small_quantity: 'Dopłata za małą ilość',
       total: 'Wartość oferty',
       transport_route: 'Trasa transportu',
       payment_term: 'Termin płatności',
@@ -2013,6 +2022,7 @@ export const en: Translations = {
     quantitySheets: 'Quantity (sheets)',
     sheetsUnit: 'pcs',
     quantitySheetsNeedsDimensions: 'Enter thickness, width and length to quote in sheets',
+    smallQuantityNote: 'Small quantity surcharge, included in the final price',
     totalValue: 'Total value',
     addToList: 'Add to list',
     addedToList: 'Added to list',
@@ -2368,6 +2378,9 @@ export const en: Translations = {
     sectionSsc: 'SSC options',
     sectionMatrices: 'Matrices',
     sectionFallbacks: 'Fallbacks and yield surcharge',
+    sectionSmallQuantity: 'Small quantity surcharge (per item)',
+    smallQtyUnder5: 'Up to 4.9 t',
+    smallQtyUpTo9_9: '5 to 9.9 t (none above)',
     sectionLog: 'Change log',
     gradeSearch: 'Search grade…',
     gradeName: 'Grade',
@@ -2447,6 +2460,7 @@ export const en: Translations = {
       transport: 'Transport',
       extra: 'Extra surcharge',
       extra_comment: 'Surcharge comment',
+      small_quantity: 'Small quantity surcharge',
       total: 'Offer value',
       transport_route: 'Transport route',
       payment_term: 'Payment term',
@@ -2861,6 +2875,7 @@ export const cs: Translations = {
     quantitySheets: 'Množství (tabule)',
     sheetsUnit: 'ks',
     quantitySheetsNeedsDimensions: 'Zadejte tloušťku, šířku a délku pro výpočet v tabulích',
+    smallQuantityNote: 'Příplatek za malé množství, zahrnut v konečné ceně',
     totalValue: 'Celková hodnota',
     addToList: 'Přidat do seznamu',
     addedToList: 'Přidáno do seznamu',
@@ -3216,6 +3231,9 @@ export const cs: Translations = {
     sectionSsc: 'Volby SSC',
     sectionMatrices: 'Matice',
     sectionFallbacks: 'Meze a příplatek Re',
+    sectionSmallQuantity: 'Příplatek za malé množství (na položku)',
+    smallQtyUnder5: 'Do 4,9 t',
+    smallQtyUpTo9_9: 'Od 5 do 9,9 t (nad tím bez příplatku)',
     sectionLog: 'Historie změn',
     gradeSearch: 'Hledat jakost…',
     gradeName: 'Jakost',
@@ -3295,6 +3313,7 @@ export const cs: Translations = {
       transport: 'Doprava',
       extra: 'Příplatek navíc',
       extra_comment: 'Komentář k příplatku',
+      small_quantity: 'Příplatek za malé množství',
       total: 'Hodnota nabídky',
       transport_route: 'Trasa dopravy',
       payment_term: 'Splatnost',
@@ -3709,6 +3728,7 @@ export const de: Translations = {
     quantitySheets: 'Menge (Tafeln)',
     sheetsUnit: 'Stk',
     quantitySheetsNeedsDimensions: 'Dicke, Breite und Länge eingeben, um in Tafeln zu rechnen',
+    smallQuantityNote: 'Mindermengenzuschlag, im Endpreis enthalten',
     totalValue: 'Gesamtwert',
     addToList: 'Zur Liste hinzufügen',
     addedToList: 'Zur Liste hinzugefügt',
@@ -4064,6 +4084,9 @@ export const de: Translations = {
     sectionSsc: 'SSC-Optionen',
     sectionMatrices: 'Matrizen',
     sectionFallbacks: 'Grenzwerte und Re-Aufpreis',
+    sectionSmallQuantity: 'Mindermengenzuschlag (je Position)',
+    smallQtyUnder5: 'Bis 4,9 t',
+    smallQtyUpTo9_9: '5 bis 9,9 t (darüber kein Zuschlag)',
     sectionLog: 'Änderungsprotokoll',
     gradeSearch: 'Güte suchen…',
     gradeName: 'Güte',
@@ -4143,6 +4166,7 @@ export const de: Translations = {
       transport: 'Transport',
       extra: 'Zusatzaufschlag',
       extra_comment: 'Kommentar zum Aufschlag',
+      small_quantity: 'Mindermengenzuschlag',
       total: 'Angebotswert',
       transport_route: 'Transportroute',
       payment_term: 'Zahlungsziel',

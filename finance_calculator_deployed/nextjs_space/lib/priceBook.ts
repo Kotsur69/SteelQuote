@@ -177,7 +177,7 @@ export const BASE_LENGTH_TYPES: readonly SteelType[] = ['HRS', 'PICKLED', 'TEARD
 
 export const PRICE_TABLE_KEYS = ['option', 'dimension', 'coating', 'baseLength', 'baseWidth', 'pickling', 'teardrop', 'scalar'] as const;
 export type PriceTableKey = (typeof PRICE_TABLE_KEYS)[number];
-export const SCALAR_KEYS = ['baseFallback', 'teardropOver2050', 'yieldAmount'] as const;
+export const SCALAR_KEYS = ['baseFallback', 'teardropOver2050', 'yieldAmount', 'smallQtyUnder5', 'smallQtyUpTo9_9'] as const;
 export type ScalarKey = (typeof SCALAR_KEYS)[number];
 export const VALUE_COL = 'value';
 
@@ -238,6 +238,9 @@ function defaultTables(type: SteelType): Partial<Record<PriceTableKey, CellMap>>
   const scalar: Record<string, Record<string, number>> = {
     baseFallback: { [VALUE_COL]: BASE_SURCHARGE_FALLBACK },
     yieldAmount: { [VALUE_COL]: YIELD_SURCHARGE_AMOUNT },
+    // Rates from the old calculator; the tons bands stay in pricingEngine.smallQuantitySurcharge.
+    smallQtyUnder5: { [VALUE_COL]: 10 },
+    smallQtyUpTo9_9: { [VALUE_COL]: 5 },
   };
 
   const tables: Partial<Record<PriceTableKey, CellMap>> = { option, dimension, scalar };

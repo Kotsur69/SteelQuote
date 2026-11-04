@@ -35,6 +35,8 @@ function describe(entry: PriceBookLogEntry, t: Translations, language: Language)
     case 'scalar':
       if (row === 'baseFallback') return t.priceBook.fallbackBase;
       if (row === 'yieldAmount') return t.priceBook.yieldAmount;
+      if (row === 'smallQtyUnder5') return t.priceBook.smallQtyUnder5;
+      if (row === 'smallQtyUpTo9_9') return t.priceBook.smallQtyUpTo9_9;
       return t.priceBook.fallbackTeardrop;
     default: return `${entry.tableKey}/${row}/${col}`;
   }

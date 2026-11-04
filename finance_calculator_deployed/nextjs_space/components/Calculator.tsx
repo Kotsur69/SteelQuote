@@ -628,6 +628,7 @@ export default function Calculator() {
   // 0 for coils and incomplete dimensions: the quantity is then tons only.
   const sheetWeight = isCoilMode ? 0 : pricingEngine.sheetWeightTons(thickness, width, length, sheetDensity);
   const { tons, sheets } = pricingEngine.resolveQuantity(quantity, sheetWeight);
+  const smallQtySurcharge = pricingEngine.smallQuantitySurcharge(priceBook, currentType, tons);
 
   // Calculate base surcharge
   const baseSurchargeRaw = isCoilMode
@@ -672,7 +673,7 @@ export default function Calculator() {
       sscLenTol, sscFlatness, sscSurface, sscMaxWeight, sscMarking, sscEdging, sscPacking, sscLabels]);
 
   // Calculate final values
-  const { marzaNetto, cenaKoncowa } = pricingEngine.computeCenaKoncowa(cenaWsadu, marginPct, extra, transport, sumaSSC);
+  const { marzaNetto, cenaKoncowa } = pricingEngine.computeCenaKoncowa(cenaWsadu, marginPct, extra, transport, sumaSSC, smallQtySurcharge);
 
   // --- Transport z trasy -----------------------------------------------------
 
@@ -1031,7 +1032,7 @@ export default function Calculator() {
         sscLabels, sscLabelsIdx: optionIdx.sscLabels,
         selectedGrade: selectedGrade ? { name: selectedGrade.name, value: gradeValue } : null,
         selectedCoating,
-        marginPct, extra, extraComment, extraCommentInPdf, transport,
+        marginPct, extra, extraComment, extraCommentInPdf, transport, smallQtySurcharge,
         incoterm: incoterm ?? undefined,
         ...(isCoilMode ? {} : { quantitySource: quantity.source, sheetCount: sheets }),
       },
@@ -2943,12 +2944,28 @@ export default function Calculator() {
             </div>
             
             {/* Tons */}
-            <label
-              className="flex items-center px-4 py-2 mx-3.5 mt-2"
+            <div
+              className="flex flex-wrap items-center px-4 py-2 mx-3.5 mt-2 [container-type:inline-size]"
               onFocus={() => { quantityAtFocusRef.current = quantity; }}
             >
-              <span className="flex-1 text-xs font-semibold text-[var(--text-secondary)]">{t.summary.quantity}</span>
+              <label htmlFor="quantity-tons" className="shrink-0 mr-auto text-xs font-semibold text-[var(--text-secondary)]">{t.summary.quantity}</label>
+              {/* Always rendered, so the input stays put across the bands. A wide row keeps the note
+                  beside the input; a narrow one (panel width, not viewport) drops it to a line below. */}
+              <span
+                aria-live="polite"
+                className="order-last basis-full text-right text-[10px] leading-tight [@container(min-width:420px)]:order-none [@container(min-width:420px)]:basis-0 [@container(min-width:420px)]:flex-1 [@container(min-width:420px)]:mx-2"
+              >
+                {smallQtySurcharge > 0 && (
+                  <>
+                    <span className="text-[var(--text-muted)]">{t.summary.smallQuantityNote}</span>{' '}
+                    <span className="font-mono font-semibold text-[var(--text-value)] whitespace-nowrap">
+                      +{moneyCeil(smallQtySurcharge)} {symbol}
+                    </span>
+                  </>
+                )}
+              </span>
               <NumericField
+                id="quantity-tons"
                 value={tons}
                 onChange={value => setQuantity({ source: 'tons', tons: value, sheets: 0 })}
                 onRevert={() => setQuantity(quantityAtFocusRef.current)}
@@ -2959,7 +2976,7 @@ export default function Calculator() {
                   ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
               />
               <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.common.tons}</span>
-            </label>
+            </div>
 
             {/* Sheets, two-way linked with tons. Sheet forms only; the count never reaches the PDF. */}
             {!isCoilMode && (
@@ -2989,7 +3006,7 @@ export default function Calculator() {
                 <span className="text-[10px] text-[var(--text-muted)] font-mono ml-1 w-[22px]">{t.summary.sheetsUnit}</span>
               </label>
             )}
-            
+
             {/* Add Button */}
             <div className="px-3.5 pt-2.5 pb-1.5">
               <button

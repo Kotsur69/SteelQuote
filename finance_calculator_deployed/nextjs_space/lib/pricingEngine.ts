@@ -77,6 +77,20 @@ export function restoreQuantity(tons: number, source: unknown, sheetCount: unkno
   return { source: 'tons', tons, sheets: 0 };
 }
 
+// --- Small quantity surcharge -----------------------------------------------------------------
+
+/**
+ * EUR/t for the item's own tons, as in the old calculator: under 5 t the first book rate, 5 to
+ * 9.9 t the second, above 9.9 t none. Tons between the quoted bands follow the wording: 4.95 t is
+ * not yet 5 t (first rate), 9.95 t is above 9.9 t (none).
+ */
+export function smallQuantitySurcharge(book: PriceBook, type: SteelType, tons: number): number {
+  if (!(tons > 0)) return 0;
+  if (tons < 5) return scalarValue(book, type, 'smallQtyUnder5');
+  if (tons <= 9.9) return scalarValue(book, type, 'smallQtyUpTo9_9');
+  return 0;
+}
+
 export function getDimensionSurcharge(book: PriceBook, type: SteelType, th: number, w: number): number | null {
   for (const band of DIMENSION_BANDS[type] ?? DIMENSION_BANDS.HRS) {
     if (th >= band.thicknessMin && th <= band.thicknessMax &&
@@ -287,10 +301,11 @@ export function computeCenaKoncowa(
   marginPct: number,
   extra: number,
   transport: number,
-  sumaSSC: number
+  sumaSSC: number,
+  smallQtySurcharge = 0
 ): { marzaNetto: number; cenaKoncowa: number } {
   const marzaNetto = cenaWsadu * (marginPct / 100);
-  const cenaKoncowa = cenaWsadu + marzaNetto + extra + transport + sumaSSC;
+  const cenaKoncowa = cenaWsadu + marzaNetto + extra + transport + sumaSSC + smallQtySurcharge;
   return { marzaNetto, cenaKoncowa };
 }
 
@@ -346,7 +361,10 @@ export function computeItemPricing(
     book, item.type, item.thickness, item.width, item.length, !!item.isCoil, item.grade,
     cenaWsadu, settings.scrapPct, inp
   );
-  const { marzaNetto, cenaKoncowa } = computeCenaKoncowa(cenaWsadu, inp.marginPct, inp.extra, inp.transport, sumaSSC);
+  // The saved amount, never re-derived from tons: items saved before the surcharge stay at 0.
+  const { marzaNetto, cenaKoncowa } = computeCenaKoncowa(
+    cenaWsadu, inp.marginPct, inp.extra, inp.transport, sumaSSC, inp.smallQtySurcharge ?? 0
+  );
   const totalValue = Math.round(cenaKoncowa * item.tons * 100) / 100;
 
   return { pgl: newPgl, sumaHuta, sumaSSC, marza: marzaNetto, finalPrice: cenaKoncowa, totalValue };
