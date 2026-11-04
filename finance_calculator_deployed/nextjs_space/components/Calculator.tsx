@@ -38,6 +38,7 @@ import {
 } from '@/lib/calculatorData';
 import { attachNotesToZestawienie } from '@/lib/itemNotes';
 import { offerTermKeys } from '@/lib/offerTerms';
+import { isGradeMissing } from '@/lib/gradeValidation';
 import { offerNumberLabel } from '@/lib/offerVersions';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
@@ -424,6 +425,9 @@ export default function Calculator() {
   // Short confirmation on the add/update button itself - testers did not notice the new
   // row in the list below and clicked again, adding a duplicate.
   const [addFeedback, setAddFeedback] = useState<'added' | 'updated' | null>(null);
+  // Set when "Add to list" was blocked for a missing grade. Shown only while the grade is
+  // still missing, so any way of filling it (typing, dropdown pick, type switch) hides it.
+  const [gradeError, setGradeError] = useState(false);
   const addFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
     if (addFeedbackTimerRef.current) clearTimeout(addFeedbackTimerRef.current);
@@ -799,6 +803,8 @@ export default function Calculator() {
   }, [transportRoute.destAddress, t.summary.transportNoTariff]);
   
   // Filtered grades for dropdown
+  const showGradeError = gradeError && isGradeMissing(gradeInput);
+
   const filteredGrades = useMemo(() => {
     const q = gradeInput.toLowerCase().trim();
     if (q.length === 0) return activeGradeTable;
@@ -956,10 +962,19 @@ export default function Calculator() {
           : `＋ ${t.summary.addToList.toUpperCase()}`;
 
   const addToZestawienie = () => {
+    // A position without a grade cannot be quoted - block it and point at the field
+    // (the button sits in the summary panel, often scrolled away from the grade input).
+    if (isGradeMissing(gradeInput)) {
+      setGradeError(true);
+      gradeInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      gradeInputRef.current?.focus({ preventScroll: true });
+      return;
+    }
+    setGradeError(false);
     const snap: ZestawienieItem = {
       id: editingId || Date.now(),
       type: currentType,
-      grade: gradeInput || '—',
+      grade: gradeInput.trim(),
       thickness,
       width,
       length: isCoilMode ? 0 : length,
@@ -2199,9 +2214,17 @@ export default function Calculator() {
             onBlur={() => setTimeout(() => setShowGradeDropdown(false), 150)}
             placeholder={t.inputs.searchGrade}
             autoComplete="off"
+            aria-invalid={showGradeError}
+            aria-describedby={showGradeError ? 'grade-required-msg' : undefined}
             className={`bg-[var(--bg-input)] border border-[var(--border)] rounded px-3 py-2 text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cr)] outline-none transition-colors w-full
-              ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}`}
+              ${!isDark ? 'border-[#9aa4c4] text-[#0d1220]' : ''}
+              ${showGradeError ? '!border-[#ef4444] ring-2 ring-[rgba(239,68,68,0.35)]' : ''}`}
           />
+          {showGradeError && (
+            <p id="grade-required-msg" className={`text-[11px] font-semibold ${isDark ? 'text-[#f5a0a8]' : 'text-[#9b2a35]'}`}>
+              ⚠ {t.inputs.gradeRequired}
+            </p>
+          )}
           {showGradeDropdown && (filteredGrades.length > 0 || showOneTimeGradeOption) && (
             // Opaque in light theme: --bg-panel is 55% transparent there, so the cards below
             // bled through the list. preventDefault on mousedown keeps the input focused, so
@@ -2907,6 +2930,11 @@ export default function Calculator() {
               >
                 {addButtonLabel}
               </button>
+              {showGradeError && (
+                <p role="alert" className={`mt-1.5 text-[11px] font-semibold text-center ${isDark ? 'text-[#f5a0a8]' : 'text-[#9b2a35]'}`}>
+                  ⚠ {t.inputs.gradeRequired}
+                </p>
+              )}
               <span role="status" aria-live="polite" className="sr-only">
                 {addFeedback === 'added' ? t.summary.addedToList : addFeedback === 'updated' ? t.summary.itemUpdated : ''}
               </span>

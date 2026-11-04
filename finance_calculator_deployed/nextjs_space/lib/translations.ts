@@ -193,6 +193,7 @@ export interface Translations {
     length: string;
     grade: string;
     searchGrade: string;
+    gradeRequired: string;
     oneTimeGradeAdd: string;
     oneTimeGradeBadge: string;
     oneTimeGradeSurcharge: string;
@@ -1041,6 +1042,7 @@ export const pl: Translations = {
     length: 'Długość (mm)',
     grade: 'Gatunek',
     searchGrade: 'Szukaj gatunku…',
+    gradeRequired: 'Należy wybrać gatunek',
     oneTimeGradeAdd: 'Gatunek jednorazowy',
     oneTimeGradeBadge: 'jednorazowy',
     oneTimeGradeSurcharge: 'Dopłata',
@@ -1880,6 +1882,7 @@ export const en: Translations = {
     length: 'Length (mm)',
     grade: 'Grade',
     searchGrade: 'Search grade...',
+    gradeRequired: 'Grade has to be chosen',
     oneTimeGradeAdd: 'One-time grade',
     oneTimeGradeBadge: 'one-time',
     oneTimeGradeSurcharge: 'Surcharge',
@@ -2718,6 +2721,7 @@ export const cs: Translations = {
     length: 'Délka (mm)',
     grade: 'Jakost',
     searchGrade: 'Hledat jakost...',
+    gradeRequired: 'Je nutné vybrat jakost',
     oneTimeGradeAdd: 'Jednorázová jakost',
     oneTimeGradeBadge: 'jednorázová',
     oneTimeGradeSurcharge: 'Příplatek',
@@ -3556,6 +3560,7 @@ export const de: Translations = {
     length: 'Länge (mm)',
     grade: 'Güte',
     searchGrade: 'Güte suchen...',
+    gradeRequired: 'Bitte eine Güte auswählen',
     oneTimeGradeAdd: 'Einmalige Güte',
     oneTimeGradeBadge: 'einmalig',
     oneTimeGradeSurcharge: 'Zuschlag',

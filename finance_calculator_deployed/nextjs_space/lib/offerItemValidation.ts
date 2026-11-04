@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { STEEL_TYPES } from '@/lib/pglQuarterly';
 import { INCOTERMS } from '@/lib/calculatorData';
+import { isGradeMissing } from '@/lib/gradeValidation';
 
 // Server-side guard for offer_data.zestawienie on create/update. The calculator always sends
 // complete, self-consistent items; this rejects anything else (hand-made API payloads, broken
@@ -15,7 +16,7 @@ const positive = finite.positive();
 const itemSchema = z
   .object({
     type: z.enum(STEEL_TYPES as [string, ...string[]]),
-    grade: z.string().trim().min(1),
+    grade: z.string().refine(g => !isGradeMissing(g), 'grade is required'),
     thickness: positive,
     width: positive,
     length: finite.nonnegative(),

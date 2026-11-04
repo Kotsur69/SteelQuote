@@ -91,4 +91,15 @@ describe('validateOfferItems', () => {
       inputs: { marginPct: 7, extra: 0, transport: 20, incoterm: 'EXW' },
     }))).not.toBeNull();
   });
+
+  // The calculator used to store an empty grade as the '—' placeholder, which slipped
+  // past a plain non-empty check. Every "no grade" spelling must be rejected.
+  test.each(['', '   ', '—', '-', '–', ' — '])('rejects a gradeless item (grade %j)', grade => {
+    expect(validateOfferItems(withItem({ grade }))).toMatch(/^Item 1: invalid grade/);
+  });
+
+  test('rejects an item with the grade field missing', () => {
+    const { grade: _grade, ...noGrade } = validItem;
+    expect(validateOfferItems({ zestawienie: [noGrade] })).toMatch(/^Item 1: invalid grade/);
+  });
 });
