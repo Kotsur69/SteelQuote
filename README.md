@@ -6,15 +6,44 @@ costs, margin, transport) for **HRS, CR, HDG, PICKLED** (pickled HRS),
 an offer, run it through an approval workflow, and export it to PDF or Excel for
 a client.
 
-Current release: **2.1** (live in production since 21 October 2026). Next
-version in development: **2.2**.
+Current release: **2.2** (live in production since 6 November 2026). Next
+version in development: **2.3**.
 
 ![HRS pricing defaults](screenshot_hrs_defaults.png)
 ![CR pricing defaults](screenshot_cr_defaults.png)
 ![HDG pricing defaults](screenshot_hdg_defaults.png)
 
 Live at [steelpricinghub.abacusai.app](https://steelpricinghub.abacusai.app)
-(production runs 2.1; this repo is on 2.2). On Android the login screen offers to install it as an app.
+(production runs 2.2; this repo is on 2.3). On Android the login screen offers to install it as an app.
+
+### What's new in 2.2: delivery terms per item, sheet quantity and new PDF terms
+
+- **Delivery term on every line item**: CPT (delivered, transport priced in),
+  FCA or FCA Kraków (the client collects: transport 0 €/t and the item's tonnes
+  stay out of the truck-rate tonnage). Picking a term is mandatory; the old
+  whole-offer "self-pickup" checkbox is gone and older offers that used it open
+  with FCA on every item. The server rejects CPT / FCA items with transport above 0
+- The transport amount (€/t) moved into the "Trasa i transport" panel, and the
+  cost breakdown there is shown in the offer currency
+- **Quantity in sheets** next to tonnes, linked both ways through the sheet
+  weight (100 sheets of 2 × 1500 × 3000 mm = 7.065 t); teardrop sheets weigh
+  with density 8.25
+- **Small-quantity surcharge** per item: up to 4.9 t +10 €/t, 5 to 9.9 t
+  +5 €/t, rates editable per steel type in the price book. It enters the final
+  price, not the margin
+- Sortable item list (view only, PDF keeps the offer order), dimension fields
+  clear on click, offer validity picked in days (1 / 2 / 5 / 7 / custom)
+- Grade field fixed; an item without a grade can't be added or saved
+- Permissions: KAM and Head of Projects may change the base PGL (migration 035);
+  an offer over 1 000 000 € needs CEO (N+3) approval in both flows (migration
+  036); the add-salesperson form picks flow and role directly
+- PDF: new terms of sale in the footer, the offer number in the header instead
+  of the internal offer name, delivery / certificate / packaging stated once in
+  the offer terms, payment term counted from the invoice date
+- Optional own PDF engine (local headless Chromium, `PDF_RENDERER=local`) for
+  the move off Abacus.ai; production still uses the Abacus.ai renderer
+- "Panel Menedżera" replaces the senior panel name; texts follow the flow / role
+  model; client rejection shown in red
 
 ### What's new in 2.1: ArcelorMittal branding and offer version history
 
@@ -104,7 +133,8 @@ The app. Next.js 14 (App Router) + PostgreSQL, deployed via Abacus.ai.
 
 **Stack:** JWT sessions (`jose`/`bcryptjs`) is the active auth — Prisma and
 NextAuth are installed in the scaffold but currently dormant. PDF export goes
-through a server-side Abacus.ai-hosted rendering endpoint (`/api/generate-pdf`).
+through a server-side Abacus.ai-hosted rendering endpoint (`/api/generate-pdf`)
+by default; `PDF_RENDERER=local` renders it with a local headless Chromium instead.
 Road distances come from Geoapify, with a Nominatim + OSRM fallback so transport
 still prices without an API key.
 
@@ -143,8 +173,9 @@ still prices without an API key.
 - Truck count from total offer tonnage against a configurable truck capacity: one
   tonne over the limit still pays for a whole extra truck. Items of 13.6–15.1 m
   add a per-truck oversize surcharge
-- Self-pickup checkbox zeroes transport and disables the route fields when the
-  client collects the goods themselves
+- Delivery term per line item (since 2.2): CPT is delivered and carries the
+  transport; FCA and FCA Kraków mean the client collects, so the item has
+  transport 0 €/t and its tonnes don't count toward the truck rate
 - Routes are cached per address pair, so the same client is geocoded once
 - Manual entry stays available for anything the route engine can't price
 
@@ -254,7 +285,7 @@ cd finance_calculator_deployed/nextjs_space
 npm install --legacy-peer-deps   # legacy flag: eslint 9 vs @typescript-eslint/parser@7, lint-only conflict
 cp .env.example .env.local       # fill in DATABASE_URL and JWT_SECRET for your local Postgres
 
-# Migrations are idempotent and must run in order (001 → 034).
+# Migrations are idempotent and must run in order (001 → 036).
 for f in migrations/*.sql; do psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"; done
 
 npm run dev
@@ -290,6 +321,8 @@ tests (vitest).
 | `DATABASE_URL` | yes | PostgreSQL connection string |
 | `JWT_SECRET` | yes | Signs the session cookie |
 | `ABACUSAI_API_KEY` | for PDF export | Deployment token for the Abacus.ai-hosted rendering service behind `/api/generate-pdf` |
+| `PDF_RENDERER` | optional | `abacus` (default when empty) or `local` for the own Chromium PDF engine |
+| `PDF_CHROME_PATH` | with `PDF_RENDERER=local` | Path to the Chrome / Chromium binary; on Linux also install fonts covering PL / CS / DE (e.g. `fonts-liberation`) |
 | `GEOAPIFY_API_KEY` | optional | Geocoding and truck routing for transport costs; without it the app falls back to Nominatim + OSRM |
 | `NEXTAUTH_SECRET` | no | Belongs to the dormant NextAuth scaffold |
 
