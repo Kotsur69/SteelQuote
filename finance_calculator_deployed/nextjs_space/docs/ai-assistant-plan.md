@@ -1,7 +1,8 @@
 # AI Assistant ("Luna w aplikacji") - plan v2
 
-Status: PLAN, nothing built yet. v1 written 2026-11-02, v2 rewritten 2026-11-09 (planning session
-with Mati, decisions D1-D14 below). This file is the single source of truth - update it as
+Status: **phase 0 in progress** (11-09: knowledge base PL, demo DB + seed, golden set v1 done;
+waiting on Mati for 14.1 Q1-Q5, catalog sign-off, API key). v1 written 2026-11-02, v2 rewritten
+2026-11-09 (planning session with Mati, decisions D1-D24 below). This file is the single source of truth - update it as
 decisions are made.
 
 Mode: **demo first, production later.** Built production-grade from day one, runs on the demo DB
@@ -124,10 +125,13 @@ below is enforced in server code; the prompt only repeats them.
 |---|---|---|---|
 | `offers_created` | offers created | created | count |
 | `offers_sent` | offers sent to the client | sent | count |
-| `offers_won` / `offers_lost` / `offers_pending` | client decision | decided (pending: sent) | count |
+| `offers_won` / `offers_lost` | client decision | decided | count |
+| `offers_pending` | no client decision yet, **incl. not-yet-sent** (= /analytics "Bez decyzji") | created | count |
 | `tons_offered` | tonnage of offers | created or sent (param) | t |
 | `tons_won` ("sprzedane") | tonnage of won offers | decided | t |
 | `tons_lost` | tonnage of lost offers | decided | t |
+| `value_lost` | value of lost offers | decided | EUR + PLN |
+| `clients_lost` ("ilu klientów odrzuciło ofertę") | distinct clients with a lost offer | decided | count |
 | `value_offered` | value of offers | created or sent | EUR + PLN |
 | `value_won` ("sprzedaż") | value of won offers | decided | EUR + PLN |
 | `clients_offered` | distinct clients with an offer | created or sent | count |
@@ -137,7 +141,17 @@ below is enforced in server code; the prompt only repeats them.
 | `margin_simple` | simple average of per-offer margin % | param | % |
 | `avg_tons_per_offer`, `avg_value_per_offer` | averages | param | t / EUR |
 | `approval_time` (later) | submit -> final approval, median + avg | submitted | hours |
-| `lost_reasons` | share of lost offers by reason | decided | % + count |
+| `lost_reasons` | lost offers by reason: count, tons, value EUR + PLN, share % | decided | count + t + EUR/PLN + % |
+
+Lost-offer family (signed off by Mati 11-09): "ile ofert przegraliśmy", "ile ton straciliśmy",
+"ilu klientów odrzuciło ofertę i dlaczego" -> `offers_lost` / `tons_lost` / `value_lost` /
+`clients_lost` + `lost_reasons`. Reasons are **the app's admin-managed list** (`lost_reasons`
+table, /admin/powody-przegranej) via `computeLostReasons` - the assistant never invents or
+re-groups reasons; archived reasons still count for past losses. Engine work (phase 1, rule 3.2):
+add `valueLostPln` and `clientsLost` to `computeKpi` (today only `valueLostEur` exists).
+
+Version rule (signed off 11-09): every date basis uses the **latest version's** dates, exactly
+like /analytics (a renegotiated offer moves to the month of its newest version).
 
 Filters on every metric: `people[]` (resolved user IDs), `team`, `clients[]`, `steel_types[]`,
 `status[]`, `decision[]`, `flow`, `period`. `steel_types` uses the item-level rule already in
@@ -292,6 +306,12 @@ Every tool: strict Zod schema, runs with the user's `AccessContext`, returns com
 | `calculate_transport` | destination, weight, dims | breakdown | `computeTransport`, `transportRouting` |
 | `get_pgl` | steel type, quarter | PGL values | `pglQuarterly.ts` |
 | `list_lost_reasons` | - | active reasons (PL labels) | `lostReasons.ts` |
+| `get_approval_rules` | `flow?` (default: my active flow) | current active rules: criterion, operator, threshold, unit, target level; plus `approval_validity_hours` and the calculator's `minMarginPct` | `approval_rules`, `app_settings` |
+
+Thresholds (approval rules, minimum margin, approval validity) are **admin settings that change
+month to month** (Mati 11-09). The knowledge base only explains what the rules mean; any concrete
+threshold in an answer must come from `get_approval_rules` at question time, never from the
+knowledge base or the model's memory (number guard applies).
 
 Charts (D8): `query_metrics` with a series returns chart data; the UI renders it with the dashboard
 chart components. The model only says "oto wykres" - it never produces chart data.
@@ -593,12 +613,81 @@ Still to decide with Mati:
    the original checkout; merge main into the branch regularly.
 2. Go-live budget cap (decide with CEO, after the demo).
 
-To verify in code before phase 1 (not decisions, facts):
-- ~~/analytics accepts every filter from the URL~~ checked 11-09: it does not read the URL at all ->
-  work item in 6.1 / phase 2
-- `validateOfferItems` vs flagged lines (D20)
-- what `lib/search.ts` does with Polish diacritics (section 4)
-- which chart library /analytics uses (MiniChart reuse)
+To verify in code before phase 1 (not decisions, facts) - all checked 11-09:
+- ~~/analytics accepts every filter from the URL~~ it does not read the URL at all -> work item in
+  6.1 / phase 2
+- ~~`validateOfferItems` vs flagged lines (D20)~~ it requires `pgl`, `finalPrice`, `totalValue` > 0
+  and a known grade on EVERY `zestawienie` item, so a "do uzupełnienia" line cannot live there.
+  Proposal: keep it in a separate `offer_data.unpricedLines[]` (`{source_text, type?, grade?,
+  dims?, tons?, reason}`), which the validator ignores; submit checks `unpricedLines.length === 0`;
+  the calculator shows them as a banner to fix. Needs Mati's OK (Q3 below)
+- ~~`lib/search.ts` and diacritics~~ it only escapes LIKE wildcards; **no diacritics handling and
+  the DB has no `unaccent` extension** (only `pg_trgm`). `polish.ts` must normalise in JS (strip
+  diacritics on both sides) or add `unaccent` in migration 037 (needs CREATE EXTENSION on the
+  AbacusAI host - same fallback pattern as pg_trgm in 008)
+- ~~chart library~~ /analytics uses **recharts** (TimeSeriesPanel, BreakdownPanel, WinLossPanel)
+
+### 14.1 Phase 0 findings that need Mati (11-09)
+
+Q1. ~~IFO / EFO / KAM see their whole team~~ **Answered 11-09: OK for now.** The assistant uses
+    the app's visibility exactly as it is (`offerVisibilitySql`, the visibility matrix in
+    Uprawnienia) - it never has rules of its own. **Later (separate feature, not in this plan's
+    phases):** a per-person "what data can this worker see" setting, along the hierarchy:
+    N0 (seller) - only own offers; N+1 - own team; N+2 - everything below them (cluster / whole
+    flow); N+3 - everything; plus individual exceptions set by the admin. It will live in the app
+    (Uprawnienia), and the assistant picks it up automatically because it reads the same scope
+    SQL. Nothing to build on the assistant side; the golden `visibility.ts` fixture + `verify.ts`
+    will flag the change when it lands.
+Q2. **Answered 11-09: signed off** with the lost-offer family (`value_lost`, `clients_lost`,
+    reasons from the app list) - folded into 3.1. Details found while checking the engine:
+    - `value_lost` is used by the 6.1 worked example but missing from 3.1 -> add it. The engine's
+      KPI has `valueLostEur` but **no `valueLostPln`** (only the lost-reasons rows have PLN) ->
+      add `valueLostPln` to `computeKpi` (engine rule 3.2, not assistant-side).
+    - Every basis uses the **latest version's** dates: a lost offer renegotiated as a new draft
+      no longer counts as "sent" in its old month, and `offers_created` dates a family by its
+      newest version. Consistent with /analytics; say so in `metryki.md`, or change the engine?
+    - `offers_pending` = latest version with no client decision **including not-yet-sent**
+      offers (that is what /analytics "Bez decyzji" does). The plan said "basis: sent" - pick one.
+    - Weighted margin in `computeKpi` weights each offer's margin by the offer's **full**
+      tonnage even when only some of its items carry a margin (mixed legacy + new items). Tiny
+      real-world impact, but rule 3.6 says items without margin are excluded -> fix in engine?
+Q3. D20 flagged-line shape (`unpricedLines[]`, above) - **still open**: Polish use case sent to
+    Mati 11-09, waiting for OK.
+Q4. ~~Calculator margin warning vs approval rules~~ **Answered 11-09: not an issue** - both the
+    calculator's minimum margin and the rules' thresholds are admin settings that change month to
+    month (e.g. 4 % this month, 5 % next). Consequence for the assistant: never quote a threshold
+    from the knowledge base -> new read tool `get_approval_rules` (section 6); knowledge base
+    reworded to "values come from the current rules".
+Q5. ~~flows-v2-plan.md outdated~~ **Done 11-09:** updated to the code (Flow 2 CEO = N+3 + HoP
+    stand-in, absolute 2.1 % rule, value -> CEO (036), quoteValidityHours (2.1), only the owner
+    sends, 48 h approval validity, HoC = all Flow 1, team visibility of front office intended).
+Q6. Anthropic API key + console spend limit - **later** (Mati 11-09: "soon, not yet").
+
+### 14.2 Demo data (phase 0 deliverable)
+
+Separate local DB **`steelquote_ai`** (the normal dev DB `steelquote` is untouched). One command:
+`powershell -File scripts/assistant-demo/setup.ps1 [-Reset]` = migrations + accounts
+(`scripts/seed.ts`) + demo seed + verify + golden build.
+
+- `scripts/assistant-demo/spec.ts` - deterministic spec (seeded PRNG): 6 salespeople (two
+  "Marek"s, "Katarzyna Wąsik" vs client "Wąsik Metal", client "Marek-Stal", "Łukasz Żak" for
+  diacritics), 12 fictional clients with Polish names/cities, PGL per quarter 2025-Q3..2026-Q4,
+  128 offer families / 146 rows from Sep 2025 to 8 Nov 2026: won / lost with all 8 reasons,
+  legacy offers without margin, 2-3 version families, mixed HRS+HDG, pending approvals,
+  rejected, approved-not-sent; anchors a01-a09 for timezone edges (23:40 / 00:20 Warsaw at
+  month boundaries), a 3-version family and queues "today".
+- `seed.ts` prices every item with `computeItemPricing` and writes approval steps from
+  `assessOffer` (real rule engine). Guarded: refuses anything but `localhost/steelquote_ai`.
+- `verify.ts`: every row passes `validateOfferItems`; `offerVisibilitySql` == `visibility.ts`
+  fixture; **oracle == analytics engine on 15 KPIs x 8 windows** (passes).
+- `oracle.ts`: independent reducer over the spec -> expected golden numbers (no DB, no engine).
+- `tests/assistant/golden.json` (built by `build-golden.ts`): **113 cases, 88% PL** - aggregates
+  30, comparisons 15 (4 must ask, D12), rankings 10, lookups 15, knowledge 10, ambiguity 8,
+  out-of-scope 5, permission 5, injection 5, actions 10. Relative periods resolve against
+  `today = 2026-11-09` -> **phase 1 requirement: tools take an injectable "today"** (eval runs
+  with the fixed date; prod uses the DB clock as /analytics does).
+- Logins: `marek.nowak@steelquote.test`, `anna.kowalska@...`, `katarzyna.wasik@...`, etc.,
+  password `1234`, plus the `scripts/seed.ts` accounts (Adam ASM, Hanna HoC, Celina CEO, ...).
 
 For IT / CEO (go-live only): data location, provider contract, log retention, pilot group.
 
@@ -607,14 +696,19 @@ For IT / CEO (go-live only): data location, provider contract, log retention, pi
 ## 15. TODO
 
 ### Phase 0
-- [ ] Answer section 14
-- [ ] Anthropic API key (console), spend limit set in console
-- [ ] Sign off metric catalog 3.1 + Polish verb mapping 3.2
-- [ ] Knowledge base (section 11), Polish first
-- [ ] Demo seed: two "Marek"s, offers across Sep-Nov 2025 and Sep-Nov 2026, won / lost with reasons,
-      missing-margin items, multi-version families, pending approvals, clients with Polish
-      diacritics
-- [ ] Golden set v1 (100+) with hand-computed answers
+- [x] Code facts in section 14 checked (11-09)
+- [x] Mati: answer 14.1 Q1, Q2, Q4, Q5 (11-09)
+- [ ] Mati: Q3 (D20 `unpricedLines[]`)
+- [ ] Mati: Anthropic API key (console), spend limit set in console ($20, D22) - later
+- [x] Mati: sign off metric catalog 3.1 + Polish verb mapping 3.2 (11-09, + lost-offer family)
+- [x] `flows-v2-plan.md` updated to match the code (11-09)
+- [ ] Phase 1 adds: `get_approval_rules` tool; `valueLostPln` + `clientsLost` in `computeKpi`;
+      golden cases for `clients_lost` and "jaki jest teraz próg marży" (answer from the tool)
+- [x] Knowledge base PL `lib/assistant/knowledge/pl/*.md` (7 files, ~25 KB) + README (11-09);
+      one `TODO verify` left in `metryki.md` (offers_pending, depends on Q2)
+- [x] Demo seed in separate DB `steelquote_ai` (14.2), verified against the real engine
+- [x] Golden set v1: 113 cases, numbers from an independent oracle (14.2)
+- [ ] EN knowledge base (after PL is reviewed)
 
 ### Phase 1 - core
 - [ ] `npm i @anthropic-ai/sdk`

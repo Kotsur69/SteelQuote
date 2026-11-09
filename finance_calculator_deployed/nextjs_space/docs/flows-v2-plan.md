@@ -4,6 +4,10 @@ Source of truth: `Formularz_uprawnien_i_walidacji_ofert 22.09.26.xlsx` (sheets R
 WIDOCZNOSC, SYMULATOR). Where its sheets disagree, REGULY wins. Decisions below were confirmed
 by the product owner on 2026-10-07.
 
+> **Updated 2026-11-09 to match the code** (round 2 = migration 030, value rule = 036, quote
+> validity = 2.1). Changed places are marked *(round 2)* / *(2.1)* / *(036)*. All thresholds are
+> admin settings (Uprawnienia -> Reguły) and change over time; values below are the seeds.
+
 ## Domain model
 
 | Table | Purpose |
@@ -24,11 +28,12 @@ by the product owner on 2026-10-07.
 
 - Flow 1: Internal FO / External FO = N0, Area Sales Manager = N+1, Head of Cluster = N+2,
   CEO = N+3, Head of Projects = NPR.
-- Flow 2: Internal FO / Key Account Manager = N0, Head of Projects = NPR, **CEO = N+2**
-  (the ROLE sheet's N+3 is wrong; START + SYMULATOR say Flow 2 tops out at N+2).
+- Flow 2: Internal FO / Key Account Manager = N0, Head of Projects = NPR, **CEO = N+3**
+  *(round 2; the 025 seed had N+2)*. Flow 2 has no N+1 / N+2 holder, so Head of Projects stands
+  in for them: a parallel level may decide chain steps up to its stand-in rank (HoP = N+2).
 
-The hierarchy level lives on `flow_roles`, not on `roles`, so the same CEO role sits at N+3 in
-Flow 1 and N+2 in Flow 2.
+The hierarchy level lives on `flow_roles`, not on `roles`, so the same role can sit at different
+levels in different flows.
 
 ## Validation rules
 
@@ -41,15 +46,22 @@ parallel track: if an NPR rule fires, the NPR approver must approve too.
 | `margin_deficit_pp` | `reference_value` (target) minus lowest item margin, in percentage points |
 | `base_price_change` | 1 when any item PGL is below its current base (incl. quarterly override) |
 | `base_reduction_pct` | largest `(base - pgl) / base * 100` over items |
-| `quote_validity_hours` | `paymentTermDays * 24` |
+| `quote_validity_hours` | `offer_data.quoteValidityHours` (24 / 48 / custom, picked in the calculator) *(2.1)*; `paymentTermDays * 24` only as a fallback for offers saved before it (`lib/quoteValidity.ts`) |
 | `price_validity_quarters` | from validFrom/validTo: same calendar month = 0, inside one quarter = 1, spans quarters = 2 |
 | `price_validity_days` | inclusive day count of validFrom..validTo |
 | `offer_value_eur` | sum of item `totalValue` (EUR) |
 
 A rule with `threshold IS NULL` never fires and is listed by the completeness control.
-Seed = the 12 REGULY rows (margin target 4.5 %, deficit >= 2.1 pp -> N+2, base change -> NPR,
-validity, value > 1 000 000 EUR) plus unconfigured placeholders (margin N+3, base reduction
-N+2/N+3, validity N+3).
+Seed = the 12 REGULY rows (margin target 4.5 %, base change -> NPR, validity, value
+> 1 000 000 EUR) plus unconfigured placeholders (margin N+3, base reduction N+2/N+3, validity N+3).
+*(round 2)* The N+2 margin rule is an **absolute** margin (lowest item margin <= 2.1 % -> N+2),
+no longer a deficit in pp. *(036)* Value > 1 000 000 EUR also goes to **N+3 (CEO)** in both
+flows (Flow 1: N+3; Flow 2: NPR + N+3).
+
+Two different margin numbers exist, both admin settings: the **calculator's minimum margin**
+(Ustawienia, default 7 %: starting margin of a new line + the warning in the calculator) and the
+**approval rules' margin thresholds** (Reguły, e.g. 4.5 % -> N+1). Only the rules decide who
+approves; the admin may change either month to month.
 
 ## Routing
 
@@ -69,8 +81,11 @@ N+2/N+3, validity N+3).
 draft -> (submit) -> pending_review with steps -> every step approved -> approved -> sent.
 Reject at any step -> rejected (reason = instructions for the seller); resubmit restarts.
 A reviewer may edit a pending offer (new version row, as before). Rules re-run on the edited
-version and steps are rebuilt, so an edit can push the offer to a higher level. A reviewer may
-send an approved offer to the client on the creator's behalf (`offers.sent_by`).
+version and steps are rebuilt, so an edit can push the offer to a higher level.
+*(round 2)* **Only the owner sends** an approved offer (the 2.0 "reviewer sends on the creator's
+behalf" was removed). An approval is valid for `app_settings.approval_validity_hours` (default
+48 h); after that, or when the rules got stricter, the offer must be re-validated before sending.
+"Send" only confirms a manual send - the app e-mails nothing.
 Editing an approved offer that now needs validation -> pending_review with fresh steps.
 
 ## Visibility
@@ -80,6 +95,11 @@ region, all-in-flow, all-flows, awaiting-my-validation. There is no branch/regio
 `app_settings.org_scope_fallback` decides what they mean (`team` by default, least privilege;
 `flow` = whole flow). Team = the existing `team_members` table (leader <-> member), shared
 membership in either direction. Visibility never implies edit or approval.
+*(round 2)* Head of Cluster sees **all of Flow 1** (was: region -> team fallback). IFO / EFO / KAM
+keep the TAK cells (own + team + branch), so a front-office member sees their team's offers -
+confirmed as intended for now (2026-11-09). A per-person data-access setting is planned later
+(see docs/ai-assistant-plan.md 14.1 Q1); until then everything (incl. the AI assistant) reads
+this matrix.
 
 ## Legacy migration
 
@@ -102,6 +122,10 @@ Accounts created by an admin start with no membership (no access until assigned)
 
 Business-facing version, in Polish and without jargon: `Historia wersji oraz md/questions_for_lukasz.md`.
 Current behaviour is the default listed; every item is a config change unless marked *code*.
+
+Status 2026-11-09: resolved by round 2 / 2.1 / 036 -> 1 (N+3), 4 (absolute 2.1 %), 7
+(quoteValidityHours), 11 (cells kept, intended), 12 (value -> CEO), 16 (48 h validity),
+17 (only the owner sends). The rest is still open.
 
 Spec contradictions / gaps
 1. CEO level in Flow 2 (ROLE says N+3, START/SYMULATOR say N+2) - seeded N+2.
