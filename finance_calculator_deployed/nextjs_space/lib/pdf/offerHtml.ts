@@ -3,7 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import type { Currency } from '@/lib/currency';
 import { translations, type Language } from '@/lib/translations';
-import { PDF_LABELS, OWS_URL, ESTEEL_URL, type PdfLabels } from '@/lib/pdfLabels';
+import { PDF_LABELS, PDF_DATE_LOCALE, OWS_URL, ESTEEL_URL, type PdfLabels } from '@/lib/pdfLabels';
+import { formatPricePeriod } from '@/lib/quarterUtils';
 import { fixedGrouped, tonDecimals } from '@/lib/numberFormat';
 import { certificateText, packagingDescription, type OfferTermKeys } from '@/lib/offerTerms';
 
@@ -113,8 +114,10 @@ function termsHtml(L: PdfLabels, language: Language, terms: PdfTermsInput): stri
   const lines = [
     L.invoiceNote,
     packingText ? L.packagingNote(packingText) : '',
-    terms.validFrom && terms.validTo ? L.validityRangeNote(terms.validFrom, terms.validTo) : '',
-    terms.quoteValidityHours !== undefined ? L.priceValidityNote(terms.quoteValidityHours) : '',
+    terms.quoteValidityHours !== undefined ? L.quoteValidityNote(terms.quoteValidityHours) : '',
+    terms.validFrom && terms.validTo
+      ? L.priceValidityNote(formatPricePeriod(terms.validFrom, terms.validTo, PDF_DATE_LOCALE[language]))
+      : '',
     incoterm ? L.deliveryTermsNote(incoterm, destAddress ?? '') : '',
     paymentLine(L, terms.paymentTermDays),
     L.minQuantityNote,

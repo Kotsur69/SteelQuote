@@ -64,6 +64,38 @@ export function isQuarterAvailable(year: number, quarter: Quarter): boolean {
   return quarterDateRange(year, quarter).end >= todayDateString();
 }
 
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Price period as printed on the PDF ("Cena obowiązuje przy dostawach w: ..."):
+ * - whole rest of one month (validTo = last day of validFrom's month) -> "Listopad 2026"
+ * - ends on the quarter end within the same quarter -> "Q4 2026"
+ * - anything else -> "09.11.2026 – 15.12.2026"
+ * Month is checked first, so a Q4 pick made in December prints as "Grudzień 2026" (same days).
+ * Unlike detectValidityMode this does not depend on today's date, so a re-printed old offer
+ * shows the same text as when it was issued.
+ */
+export function formatPricePeriod(validFrom: string, validTo: string, locale: string): string {
+  const from = DATE_RE.exec(validFrom);
+  const to = DATE_RE.exec(validTo);
+  if (!from || !to) return `${validFrom} – ${validTo}`;
+
+  const year = Number(from[1]);
+  const month = Number(from[2]);
+  if (validTo === lastDayOfMonth(year, month)) {
+    const name = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }).format(
+      new Date(Date.UTC(year, month - 1, 1))
+    );
+    return `${name.charAt(0).toLocaleUpperCase(locale)}${name.slice(1)} ${year}`;
+  }
+
+  const quarter = Math.ceil(month / 3) as Quarter;
+  if (validTo === quarterDateRange(year, quarter).end) return `Q${quarter} ${year}`;
+
+  const dmy = (m: RegExpExecArray) => `${m[3]}.${m[2]}.${m[1]}`;
+  return `${dmy(from)} – ${dmy(to)}`;
+}
+
 export type ValidityMode = 'quarter' | 'month' | 'custom';
 
 /**

@@ -44,11 +44,12 @@ export interface PdfLabels {
   invoiceNote: string;
   // Dominant SSC packaging of the offer, as its description (S01 -> "Kantówki"), not the code.
   packagingNote: (description: string) => string;
-  // Period picked in the calculator (quarter / month / custom). Shown only when both dates came.
-  validityRangeNote: (from: string, to: string) => string;
-  // Quote validity picked per offer in days, stored as hours (lib/quoteValidity.ts). Legacy
-  // offers without the field fall back to payment days x 24.
-  priceValidityNote: (hours: number) => string;
+  // "Ważność oferty": quote validity picked per offer in days (1/2/5...), stored as hours
+  // (lib/quoteValidity.ts). Legacy offers without the field fall back to payment days x 24.
+  quoteValidityNote: (hours: number) => string;
+  // "Cena obowiązuje przy dostawach w": delivery period picked in the calculator, already
+  // formatted by formatPricePeriod ("Q4 2026" / "Listopad 2026" / "09.11.2026 – 15.12.2026").
+  priceValidityNote: (period: string) => string;
   // Dominant delivery term of the offer; a delivered term adds the offer's delivery address,
   // FCA and FCA Kraków add a note that the client collects.
   deliveryTermsNote: (term: Incoterm, place: string) => string;
@@ -123,8 +124,8 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     termsTitle: 'Warunki',
     invoiceNote: 'Faktura wystawiana wg wagi brutto',
     packagingNote: (description) => `Pakowanie: ${description}`,
-    validityRangeNote: (from, to) => `Ważność oferty: ${from} – ${to}`,
-    priceValidityNote: (hours) => `Cena obowiązuje dla dostaw w okresie: ${formatValidityPeriod(hours, 'pl')} od daty wystawienia oferty`,
+    quoteValidityNote: (hours) => `Ważność oferty: ${formatValidityPeriod(hours, 'pl')} od daty wystawienia`,
+    priceValidityNote: (period) => `Cena obowiązuje przy dostawach w: ${period}`,
     deliveryTermsNote: (term, place) => deliveryTermsLine('Warunki dostawy', 'odbiór własny', term, place),
     paymentTermDaysNote: (days) => `Warunki płatności: ${days} dni od dnia wystawienia faktury`,
     paymentPrepaymentNote: 'Warunki płatności: przedpłata',
@@ -183,8 +184,8 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     termsTitle: 'Terms',
     invoiceNote: 'Invoice issued based on gross weight',
     packagingNote: (description) => `Packaging: ${description}`,
-    validityRangeNote: (from, to) => `Offer validity: ${from} – ${to}`,
-    priceValidityNote: (hours) => `Price valid for deliveries within: ${formatValidityPeriod(hours, 'en')} from the offer issue date`,
+    quoteValidityNote: (hours) => `Offer validity: ${formatValidityPeriod(hours, 'en')} from the issue date`,
+    priceValidityNote: (period) => `Price valid for deliveries in: ${period}`,
     deliveryTermsNote: (term, place) => deliveryTermsLine('Delivery terms', 'own collection', term, place),
     paymentTermDaysNote: (days) => `Payment terms: ${days} days from the invoice issue date`,
     paymentPrepaymentNote: 'Payment terms: prepayment',
@@ -243,8 +244,8 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     termsTitle: 'Podmínky',
     invoiceNote: 'Faktura vystavena na základě hrubé hmotnosti',
     packagingNote: (description) => `Balení: ${description}`,
-    validityRangeNote: (from, to) => `Platnost nabídky: ${from} – ${to}`,
-    priceValidityNote: (hours) => `Cena platí pro dodávky v období: ${formatValidityPeriod(hours, 'cs')} od data vystavení nabídky`,
+    quoteValidityNote: (hours) => `Platnost nabídky: ${formatValidityPeriod(hours, 'cs')} od data vystavení`,
+    priceValidityNote: (period) => `Cena platí pro dodávky v: ${period}`,
     deliveryTermsNote: (term, place) => deliveryTermsLine('Dodací podmínky', 'vlastní odběr', term, place),
     paymentTermDaysNote: (days) => `Platební podmínky: ${days} dní ode dne vystavení faktury`,
     paymentPrepaymentNote: 'Platební podmínky: platba předem',
@@ -303,8 +304,8 @@ export const PDF_LABELS: Record<Language, PdfLabels> = {
     termsTitle: 'Bedingungen',
     invoiceNote: 'Rechnungsstellung auf Basis des Bruttogewichts',
     packagingNote: (description) => `Verpackung: ${description}`,
-    validityRangeNote: (from, to) => `Angebotsgültigkeit: ${from} – ${to}`,
-    priceValidityNote: (hours) => `Der Preis gilt für Lieferungen im Zeitraum: ${formatValidityPeriod(hours, 'de')} ab Angebotsdatum`,
+    quoteValidityNote: (hours) => `Angebotsgültigkeit: ${formatValidityPeriod(hours, 'de')} ab Angebotsdatum`,
+    priceValidityNote: (period) => `Der Preis gilt für Lieferungen in: ${period}`,
     deliveryTermsNote: (term, place) => deliveryTermsLine('Lieferbedingungen', 'Selbstabholung', term, place),
     paymentTermDaysNote: (days) => `Zahlungsbedingungen: ${days} Tage ab Rechnungsdatum`,
     paymentPrepaymentNote: 'Zahlungsbedingungen: Vorkasse',
