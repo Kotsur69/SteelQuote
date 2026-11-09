@@ -56,3 +56,4 @@
 - **Arkusz** - cięcie na wymiar: liczone dopłaty SSC; ilość można podać w tonach albo w arkuszach (aplikacja przelicza z wagi teoretycznej arkusza).
 - **Grubość, szerokość, długość** - w mm. Kombinacja spoza tabel daje ostrzeżenie w kalkulatorze.
 - **Gatunek** - gatunek stali z listy dla danego typu (np. S235JR+AR, S355JR+N, DC01, DX51D); każdy ma własną dopłatę. Można dodać gatunek jednorazowy z ręczną dopłatą.
+- **Gatunek jednorazowy** - gatunek spoza listy gatunków, wpisany ręcznie razem z dopłatą (w kalkulatorze "Gatunek jednorazowy"). Gdy asystent tworzy ofertę z gatunkiem, którego nie ma na liście, używa gatunku jednorazowego, pyta o dopłatę (nie zgaduje jej) i mówi wprost: "użyto gatunku jednorazowego, bo gatunku X nie ma na naszej liście gatunków".

@@ -43,7 +43,7 @@ provides.** Section 3 is the contract that enforces this in code, not in the pro
 | D17 | 11-09 | UI: **bubble on every page + full page `/asystent`** ("rozwiń"), same chat state carried over | quick questions + room for wide tables / charts |
 | D18 | 11-09 | Access: **everyone**; every action only when the user's role already allows it in the UI; admin can switch the assistant off per user | permissions already exist, no second rulebook |
 | D19 | 11-09 | **No bulk actions.** One offer per confirmation card; "zatwierdź wszystkie oferty Marka" -> list + one card per offer | no mass approval by one misclick |
-| D20 | 11-09 | Unpriceable RFQ line (unknown grade, dimension outside tables): **draft is saved, the line is flagged "do uzupełnienia" with the reason**; submit stays blocked until fixed. **To verify:** `validateOfferItems` on POST may reject an unpriced item today - if so, define the flagged-line shape so it passes draft validation but fails submit validation | user fixes one line instead of retyping the RFQ |
+| D20 | 11-09 | Grade not in the price book (e.g. "S999XYZ"): **use the calculator's existing one-time grade** (`selectedGrade {name, value}` not in the book, UI "Gatunek jednorazowy"). The surcharge comes from the user (asked in chat) or the RFQ text, never invented. The chat and the confirmation card say explicitly: "użyto gatunku jednorazowego, bo gatunku S999XYZ nie ma na naszej liście gatunków". Same data shape as a manual one-time grade, so `validateOfferItems` passes; no `unpricedLines[]`. Other unpriceable input (dimension outside tables) -> the assistant asks, no draft until resolved. Answered by Mati 11-09 | reuses an existing calculator feature, no new data shape |
 | D21 | 11-09 | Simple-average margin also shown on **/analytics as a small KPI** next to the weighted one | keeps "every number the agent says is visible in Analytics" |
 | D22 | 11-09 | Demo budget **$20 / month**: hard stop in the app (`AI_MONTHLY_BUDGET_USD=20`) + spend limit in the Anthropic console | dev + eval + demo fit easily |
 | D24 | 11-09 | **Proactive follow-ups.** After an answer the assistant offers the next useful step as a short question + up to 3 clickable chips, e.g. "Chcesz zobaczyć szczegóły w panelu analizy?" [Pokaż w panelu analizy] [Porównaj z wrześniem] [Rozbij na handlowców]. Chips are built by the server from the query that was run (section 6.2), the model only phrases the question | feels smart, but every suggestion is guaranteed to be valid and answerable |
@@ -434,7 +434,7 @@ server: token belongs to this user, not expired, not used; re-check permission;
 
 | Tool | Who | Notes |
 |---|---|---|
-| `propose_offer_draft` | can_create_offer in active flow | input: client (resolved), items (type, grade, dims, tons/sheets, margin? else default), delivery / payment / validity? (else defaults). Server builds `offer_data`, prices every item with `computeItemPricing`, runs `validateOfferItems` + `fieldViolation`. Card shows every line with prices. Confirm -> DRAFT + link to the calculator. Pasted RFQ e-mail (D16): the model extracts client + items, the card marks every extracted value with its source line from the e-mail; the e-mail text is untrusted data (injection rules 9.1) and is never stored |
+| `propose_offer_draft` | can_create_offer in active flow | input: client (resolved), items (type, grade, dims, tons/sheets, margin? else default), delivery / payment / validity? (else defaults). Server builds `offer_data`, prices every item with `computeItemPricing` (grade not in the book -> one-time grade with the surcharge the user gave, flagged on the card and in the reply, D20), runs `validateOfferItems` + `fieldViolation`. Card shows every line with prices. Confirm -> DRAFT + link to the calculator. Pasted RFQ e-mail (D16): the model extracts client + items, the card marks every extracted value with its source line from the e-mail; the e-mail text is untrusted data (injection rules 9.1) and is never stored |
 | `propose_offer_edit` | offer owner / allowed editor | diff card (old -> new per field, via `offerVersionDiff`); confirm -> new version through the same path as PUT |
 | `propose_duplicate` | as duplicate route | optional changes (client, tons) shown in the card |
 | `propose_submit` | owner, draft / rejected | shows the approval path it will take |
@@ -617,10 +617,10 @@ To verify in code before phase 1 (not decisions, facts) - all checked 11-09:
 - ~~/analytics accepts every filter from the URL~~ it does not read the URL at all -> work item in
   6.1 / phase 2
 - ~~`validateOfferItems` vs flagged lines (D20)~~ it requires `pgl`, `finalPrice`, `totalValue` > 0
-  and a known grade on EVERY `zestawienie` item, so a "do uzupełnienia" line cannot live there.
-  Proposal: keep it in a separate `offer_data.unpricedLines[]` (`{source_text, type?, grade?,
-  dims?, tons?, reason}`), which the validator ignores; submit checks `unpricedLines.length === 0`;
-  the calculator shows them as a banner to fix. Needs Mati's OK (Q3 below)
+  and a grade on EVERY `zestawienie` item, so a "do uzupełnienia" line cannot live there.
+  Resolved (Q3): an unknown grade becomes a one-time grade (`selectedGrade.value` = surcharge,
+  `effectiveGradeValue` in `lib/pricingEngine.ts` keeps it because the name is not in the book),
+  which passes the validator as-is
 - ~~`lib/search.ts` and diacritics~~ it only escapes LIKE wildcards; **no diacritics handling and
   the DB has no `unaccent` extension** (only `pg_trgm`). `polish.ts` must normalise in JS (strip
   diacritics on both sides) or add `unaccent` in migration 037 (needs CREATE EXTENSION on the
@@ -651,8 +651,9 @@ Q2. **Answered 11-09: signed off** with the lost-offer family (`value_lost`, `cl
     - Weighted margin in `computeKpi` weights each offer's margin by the offer's **full**
       tonnage even when only some of its items carry a margin (mixed legacy + new items). Tiny
       real-world impact, but rule 3.6 says items without margin are excluded -> fix in engine?
-Q3. D20 flagged-line shape (`unpricedLines[]`, above) - **still open**: Polish use case sent to
-    Mati 11-09, waiting for OK.
+Q3. ~~D20 flagged-line shape~~ **Answered 11-09:** no new shape. An unknown grade uses the
+    calculator's one-time grade with a surcharge the user gives; the assistant must say that a
+    one-time grade was used because grade X is not on the grade list (D20).
 Q4. ~~Calculator margin warning vs approval rules~~ **Answered 11-09: not an issue** - both the
     calculator's minimum margin and the rules' thresholds are admin settings that change month to
     month (e.g. 4 % this month, 5 % next). Consequence for the assistant: never quote a threshold
@@ -698,7 +699,7 @@ For IT / CEO (go-live only): data location, provider contract, log retention, pi
 ### Phase 0
 - [x] Code facts in section 14 checked (11-09)
 - [x] Mati: answer 14.1 Q1, Q2, Q4, Q5 (11-09)
-- [ ] Mati: Q3 (D20 `unpricedLines[]`)
+- [x] Mati: Q3 (D20 -> one-time grade, 11-09)
 - [ ] Mati: Anthropic API key (console), spend limit set in console ($20, D22) - later
 - [x] Mati: sign off metric catalog 3.1 + Polish verb mapping 3.2 (11-09, + lost-offer family)
 - [x] `flows-v2-plan.md` updated to match the code (11-09)

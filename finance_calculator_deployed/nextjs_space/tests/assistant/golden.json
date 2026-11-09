@@ -2210,9 +2210,19 @@
       "asker": "marekN",
       "question": "Zrób ofertę dla Profilex: 5 t S999XYZ 3 x 1500 x 3000.",
       "expect": {
-        "behavior": "propose",
-        "tool": "propose_offer_draft",
-        "note": "D20: unknown grade -> line flagged \"do uzupełnienia\", submit blocked"
+        "behavior": "clarify",
+        "mustContain": [
+          "jednorazow",
+          "S999XYZ"
+        ],
+        "mustNotContain": [
+          "zatwierdziłam",
+          "odrzuciłam",
+          "wysłałam",
+          "oznaczyłam",
+          "zapisałam ofertę"
+        ],
+        "note": "D20: S999XYZ is not in the grade list -> asks for the grade surcharge, then proposes a one-time grade and says so"
       }
     },
     {
