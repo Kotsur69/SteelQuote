@@ -60,7 +60,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/senior') ||
     pathname.startsWith('/calculator') ||
     pathname.startsWith('/offers') ||
-    pathname.startsWith('/analytics')
+    pathname.startsWith('/analytics') ||
+    pathname.startsWith('/asystent')
   ) {
     if (!token) {
       return NextResponse.redirect(new URL('/', request.url));
@@ -93,6 +94,7 @@ export const config = {
     '/calculator/:path*',
     '/offers/:path*',
     '/analytics/:path*',
+    '/asystent/:path*',
     '/senior/:path*',
     '/admin/:path*',
     '/api/:path*',

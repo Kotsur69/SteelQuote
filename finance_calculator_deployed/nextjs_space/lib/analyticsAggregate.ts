@@ -52,6 +52,13 @@ export interface NormalizedOffer {
   byType: Partial<Record<SteelType, TypeTotals>>;
   /** Tonnage-weighted margin %, or null when no line item carries one. */
   marginPct: number | null;
+  /**
+   * The unrounded parts of marginPct: sum of margin % x tons, and the tonnage that carried a
+   * margin. Aggregates weight with these rather than with the rounded marginPct x the offer's
+   * full tonnage, so rounding does not compound and items without a margin stay out.
+   */
+  marginWeighted: number;
+  marginTons: number;
   /** The date this row is bucketed and filtered on, per the chosen basis. */
   basisDate: string | null;
   createdAt: string | null;
@@ -177,6 +184,8 @@ export function normalizeOffer(
     valuePln: round(valueEur * rate, 2),
     byType,
     marginPct: marginTons > 0 ? round(marginWeighted / marginTons, 2) : null,
+    marginWeighted,
+    marginTons,
     basisDate,
     createdAt: row.created_date,
     sentAt: row.sent_date,
@@ -223,14 +232,18 @@ const EMPTY_KPI: AnalyticsKpi = {
   valueWonEur: 0,
   valueWonPln: 0,
   valueLostEur: 0,
+  valueLostPln: 0,
   offersWon: 0,
   offersLost: 0,
   offersPending: 0,
   clients: 0,
   clientsWon: 0,
+  clientsLost: 0,
   winRateTons: null,
   winRateOffers: null,
   avgMarginPct: null,
+  avgMarginSimplePct: null,
+  offersWithMargin: 0,
   avgTonsPerOffer: null,
   avgValuePerOfferEur: null,
 };
@@ -246,6 +259,7 @@ export function computeKpi(offers: NormalizedOffer[]): AnalyticsKpi {
 
   const clients = new Set<number>();
   const clientsWon = new Set<number>();
+  const clientsLost = new Set<number>();
   let tonsOffered = 0;
   let valueEur = 0;
   let valuePln = 0;
@@ -255,11 +269,14 @@ export function computeKpi(offers: NormalizedOffer[]): AnalyticsKpi {
   let valueWonEur = 0;
   let valueWonPln = 0;
   let valueLostEur = 0;
+  let valueLostPln = 0;
   let offersWon = 0;
   let offersLost = 0;
   let offersPending = 0;
   let marginWeighted = 0;
   let marginTons = 0;
+  let marginSimpleSum = 0;
+  let offersWithMargin = 0;
 
   for (const o of offers) {
     tonsOffered += o.tons;
@@ -277,14 +294,20 @@ export function computeKpi(offers: NormalizedOffer[]): AnalyticsKpi {
       offersLost++;
       tonsLost += o.tons;
       valueLostEur += o.valueEur;
+      valueLostPln += o.valuePln;
+      if (o.clientId !== null) clientsLost.add(o.clientId);
     } else {
       offersPending++;
       tonsPending += o.tons;
     }
 
-    if (o.marginPct !== null && o.tons > 0) {
-      marginWeighted += o.marginPct * o.tons;
-      marginTons += o.tons;
+    if (o.marginTons > 0) {
+      marginWeighted += o.marginWeighted;
+      marginTons += o.marginTons;
+      // The simple average ignores tonnage on purpose: "what margin does a typical offer
+      // carry", next to the weighted "what margin did the tonnage carry".
+      marginSimpleSum += o.marginWeighted / o.marginTons;
+      offersWithMargin++;
     }
   }
 
@@ -299,14 +322,18 @@ export function computeKpi(offers: NormalizedOffer[]): AnalyticsKpi {
     valueWonEur: round(valueWonEur, 2),
     valueWonPln: round(valueWonPln, 2),
     valueLostEur: round(valueLostEur, 2),
+    valueLostPln: round(valueLostPln, 2),
     offersWon,
     offersLost,
     offersPending,
     clients: clients.size,
     clientsWon: clientsWon.size,
+    clientsLost: clientsLost.size,
     winRateTons: winRate(tonsWon, tonsLost),
     winRateOffers: winRate(offersWon, offersLost),
     avgMarginPct: marginTons > 0 ? round(marginWeighted / marginTons, 2) : null,
+    avgMarginSimplePct: offersWithMargin > 0 ? round(marginSimpleSum / offersWithMargin, 2) : null,
+    offersWithMargin,
     avgTonsPerOffer: round(tonsOffered / offers.length),
     avgValuePerOfferEur: round(valueEur / offers.length, 2),
   };

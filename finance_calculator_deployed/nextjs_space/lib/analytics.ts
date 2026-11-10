@@ -99,6 +99,7 @@ export interface AnalyticsKpi {
   valueWonEur: number;
   valueWonPln: number;
   valueLostEur: number;
+  valueLostPln: number;
   offersWon: number;
   offersLost: number;
   offersPending: number;
@@ -106,12 +107,18 @@ export interface AnalyticsKpi {
   clients: number;
   /** Distinct clients with at least one WON offer in the period. */
   clientsWon: number;
+  /** Distinct clients with at least one LOST offer in the period. */
+  clientsLost: number;
   /** tonsWon / (tonsWon + tonsLost) * 100. null while nothing is decided yet. */
   winRateTons: number | null;
   /** offersWon / (offersWon + offersLost) * 100. null while nothing is decided yet. */
   winRateOffers: number | null;
   /** Tonnage-weighted average of the per-item margin %. null when no item carries one. */
   avgMarginPct: number | null;
+  /** Plain average of the per-offer margin % (every offer weighs the same). null when none has one. */
+  avgMarginSimplePct: number | null;
+  /** Offers that carry a margin, i.e. the ones behind both margin averages. */
+  offersWithMargin: number;
   avgTonsPerOffer: number | null;
   avgValuePerOfferEur: number | null;
 }

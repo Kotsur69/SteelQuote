@@ -1,7 +1,8 @@
 # AI Assistant ("Luna w aplikacji") - plan v2
 
-Status: **phase 0 in progress** (11-09: knowledge base PL, demo DB + seed, golden set v1 done;
-waiting on Mati for 14.1 Q1-Q5, catalog sign-off, API key). v1 written 2026-11-02, v2 rewritten
+Status: **phase 1 built, not yet run against a real model** (11-10: engine additions, metric
+catalog, guards, read tools, agent loop, chat route, cache, budget, panel UI - all verified
+without the model, see 14.3; waiting on Mati for the API key to run the live eval). v1 written 2026-11-02, v2 rewritten
 2026-11-09 (planning session with Mati, decisions D1-D24 below). This file is the single source of truth - update it as
 decisions are made.
 
@@ -690,6 +691,38 @@ Separate local DB **`steelquote_ai`** (the normal dev DB `steelquote` is untouch
 - Logins: `marek.nowak@steelquote.test`, `anna.kowalska@...`, `katarzyna.wasik@...`, etc.,
   password `1234`, plus the `scripts/seed.ts` accounts (Adam ASM, Hanna HoC, Celina CEO, ...).
 
+### 14.3 Phase 1 notes (11-10)
+
+How phase 1 was verified without a model:
+- `tests/assistant/metrics.test.ts`: all 40 golden aggregate + ranking cases through
+  `runMetricsQuery` on in-memory demo rows == oracle numbers.
+- `scripts/assistant-demo/verify-tools.ts`: the real tools on `steelquote_ai` under each golden
+  asker (SQL, visibility, queues, single offer, name resolution) - 110 checks.
+- `tests/assistant/agentLoop.test.ts`: scripted fake model - validation, limits, number-guard
+  retry and fallback, link stripping, refusal.
+- Panel: Playwright on the dev server with a MOCKED answer stream (layout, Esc, focus, phone
+  width, both themes). Not yet seen with real model output.
+
+Decisions taken while building (say if any should change):
+- **Engine change visible on /analytics:** the weighted margin is now summed from unrounded
+  per-item parts instead of each offer's rounded margin x its full tonnage. Fixes the Q2 point
+  (items without a margin no longer weigh in) and a 0.01 pp rounding drift the golden oracle
+  caught (7.58 vs 7.59). Existing dashboard figures can move by 0.01 pp.
+- **Month / quarter without a year** is decided by the server: finished -> most recent one,
+  still running -> buttons, not started yet this year -> last year's.
+- **Comparisons (`compare`, D12) are not in `query_metrics` yet** - phase 2 as planned. Until
+  then a "vs" question gets two separate figures at best; the number guard blocks a delta the
+  model computes itself.
+- **No actions in phase 1**: the prompt tells the model to say so and point to the app.
+- **Bubble visibility**: drawn only when `AI_ASSISTANT_ENABLED=true`, migration 037 is applied
+  and the user is not switched off - merging this branch changes nothing visible until then.
+- **`AI_FIXED_TODAY`** (demo mode only) pins "today" so golden questions resolve the same daily.
+- **Dependencies**: `npm i` needs `--legacy-peer-deps` (pre-existing eslint peer conflict; the
+  SDK's optional zod peer wants >= 3.25, the app stays on 3.23.8, `zod-to-json-schema` pinned
+  to 3.23.x). The Abacus deploy prompt must use the same flag.
+- **Standalone builds**: `next.config.js` now traces `lib/assistant/knowledge/**/*.md` into the
+  chat route (the files are read with fs at runtime).
+
 For IT / CEO (go-live only): data location, provider contract, log retention, pilot group.
 
 ---
@@ -703,8 +736,8 @@ For IT / CEO (go-live only): data location, provider contract, log retention, pi
 - [ ] Mati: Anthropic API key (console), spend limit set in console ($20, D22) - later
 - [x] Mati: sign off metric catalog 3.1 + Polish verb mapping 3.2 (11-09, + lost-offer family)
 - [x] `flows-v2-plan.md` updated to match the code (11-09)
-- [ ] Phase 1 adds: `get_approval_rules` tool; `valueLostPln` + `clientsLost` in `computeKpi`;
-      golden cases for `clients_lost` and "jaki jest teraz próg marży" (answer from the tool)
+- [x] Phase 1 adds: `get_approval_rules` tool; `valueLostPln` + `clientsLost` in `computeKpi` (11-10)
+- [ ] Golden cases for `clients_lost` and "jaki jest teraz próg marży" (answer from the tool)
 - [x] Knowledge base PL `lib/assistant/knowledge/pl/*.md` (7 files, ~25 KB) + README (11-09);
       one `TODO verify` left in `metryki.md` (offers_pending, depends on Q2)
 - [x] Demo seed in separate DB `steelquote_ai` (14.2), verified against the real engine
@@ -712,24 +745,32 @@ For IT / CEO (go-live only): data location, provider contract, log retention, pi
 - [ ] EN knowledge base (after PL is reviewed)
 
 ### Phase 1 - core
-- [ ] `npm i @anthropic-ai/sdk`
-- [ ] Migration 037: `ai_turns` (metadata only), `ai_tool_calls`, `ai_usage`, `ai_feedback`,
-      `ai_answer_cache`, `ai_pending_actions`, `app_settings` rows (enabled, budget, limits,
-      data_version) + `data_version` triggers
-- [ ] `provider.ts` + `anthropicProvider.ts` (streaming, prompt caching, 429/5xx retry, no retry on
-      400, refusal / max_tokens)
-- [ ] `systemPrompt.ts` (rules from section 3, Polish mapping, knowledge, cached prefix)
-- [ ] `agentLoop.ts`
-- [ ] `metrics.ts` + simple-average margin added to the analytics engine
-- [ ] `polish.ts` (declension fallback, diacritics) + check `lib/search.ts` behaviour
-- [ ] Tools: get_my_context, find_people, find_clients, query_metrics, search_offers, get_offer,
-      my_queue, price_item, calculate_transport, get_pgl, list_lost_reasons
-- [ ] Guards: input, number (pl-PL), link / ID; `footer.ts`
-- [ ] `cache.ts`, `budget.ts`
-- [ ] `/api/assistant/chat` + `/feedback`
-- [ ] Panel UI: bubble, streaming, DataTable, OfferCard, Footer, ClarifyButtons, suggestions,
-      page context, PL / EN, themes, a11y
-- [ ] Tests 12.1-12.4, build green, reviews
+- [x] `npm i @anthropic-ai/sdk zod-to-json-schema` (11-10; needs `--legacy-peer-deps`, see 14.3)
+- [x] Migration 037: `ai_state` (data_version + triggers on 16 tables), `ai_turns` (metadata only,
+      tool calls as JSONB - no separate `ai_tool_calls` / `ai_usage` tables needed),
+      `ai_feedback`, `ai_answer_cache`, `app_settings` + `users` switches. Applied on
+      `steelquote_ai` only. `ai_pending_actions` moves to phase 3 with the actions
+- [x] `provider.ts` + `anthropicProvider.ts` (streaming, prompt caching, typed errors, refusal /
+      max_tokens, server-side fallback)
+- [x] `systemPrompt.ts` (rules from section 3, Polish mapping, knowledge, cached prefix)
+- [x] `agentLoop.ts`
+- [x] `metrics.ts` + engine: `valueLostPln`, `clientsLost`, `avgMarginSimplePct`,
+      `offersWithMargin` in `computeKpi`; margins weighted from unrounded item parts
+- [x] `polish.ts` (declension stems, diacritics, one-typo tolerance)
+- [x] Tools: get_my_context, find_people, find_clients, query_metrics, search_offers, get_offer,
+      my_queue, price_item, calculate_transport, get_pgl, list_lost_reasons, get_approval_rules
+- [x] Guards: input, number (pl-PL), link / ID; `footer.ts`
+- [x] `cache.ts`, `budget.ts`
+- [x] `/api/assistant/chat` (POST stream, GET availability) + `/feedback`
+- [x] Panel UI: bubble, panel, `/asystent`, streaming, DataTable, OfferCard, Footer,
+      ClarifyButtons, suggestions, page context, PL / EN, themes, a11y
+- [x] Tests 12.1-12.4 (428 pass), `verify-tools.ts` on the demo DB (110 checks), build green
+- [ ] Mati: Anthropic API key -> `scripts/assistant-eval.ts` (12.6, live golden run) + first
+      real conversation; tune the system prompt on the results
+- [ ] /analytics KPI for the simple-average margin (D21) - the engine field exists
+- [ ] Admin page `/api/admin/assistant` (usage, cost, guard hits, switches) - settings exist in DB
+- [ ] `flow` filter on metrics (needs an engine filter first, rule 3.2)
+- [ ] EN knowledge base
 
 ### Phase 2 - analytics outputs
 - [ ] compare + incomplete-period clarification (3.3)

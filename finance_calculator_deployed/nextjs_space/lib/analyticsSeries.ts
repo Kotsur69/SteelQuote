@@ -62,8 +62,8 @@ function contribution(
     tons: offer.tons,
     valueEur: offer.valueEur,
     valuePln: offer.valuePln,
-    marginWeighted: offer.marginPct !== null ? offer.marginPct * offer.tons : 0,
-    marginTons: offer.marginPct !== null ? offer.tons : 0,
+    marginWeighted: offer.marginWeighted,
+    marginTons: offer.marginTons,
   };
 }
 

@@ -9,6 +9,11 @@ const nextConfig = {
     outputFileTracingRoot: path.join(__dirname, '../'),
     // Loaded from node_modules at runtime; bundling it breaks its internal dynamic imports.
     serverComponentsExternalPackages: ['puppeteer-core'],
+    // The assistant's knowledge base is read with fs at runtime (lib/assistant/systemPrompt.ts),
+    // so the tracer cannot see it: without this a standalone build ships without the files.
+    outputFileTracingIncludes: {
+      '/api/assistant/chat': ['./lib/assistant/knowledge/**/*.md'],
+    },
   },
   eslint: {
     ignoreDuringBuilds: true,
