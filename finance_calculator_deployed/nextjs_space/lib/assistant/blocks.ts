@@ -35,15 +35,60 @@ export interface OffersBlock {
   total: number;
 }
 
+export interface FooterLink {
+  /** panel = /analytics deep link (plan 6.1), download = Excel export (D8). */
+  kind: 'panel' | 'download';
+  label: string;
+  /** Internal path only - the panel refuses anything else. */
+  href: string;
+}
+
 export interface FooterBlock {
   type: 'footer';
   lines: string[];
+  links?: FooterLink[];
+}
+
+export interface ClarifyOption {
+  label: string;
+  /** Sent back as the user's next message when clicked. */
+  value: string;
+  /** Signed tool call the server runs for this choice (lib/assistant/tokens.ts). */
+  followUp?: string;
 }
 
 export interface ClarifyBlock {
   type: 'clarify';
-  /** Each option is sent back as the user's next message when clicked. */
-  options: { label: string; value: string }[];
+  options: ClarifyOption[];
 }
 
-export type AnswerBlock = TableBlock | OffersBlock | FooterBlock | ClarifyBlock;
+export interface ChartPoint {
+  label: string;
+  /** null = nothing to compute for that bucket (drawn as a gap, never as zero). */
+  value: number | null;
+  /** The value formatted exactly as in the table. */
+  text: string;
+}
+
+export interface ChartBlock {
+  type: 'chart';
+  /** bar for amounts and counts, line for rates and averages. */
+  kind: 'bar' | 'line';
+  title: string;
+  points: ChartPoint[];
+}
+
+export interface FollowUpChip {
+  label: string;
+  /** Signed tool call; a chip never carries free text the model wrote. */
+  followUp: string;
+}
+
+/** Proactive next steps (plan 6.2, D24): built by the server from the query that was run. */
+export interface FollowUpsBlock {
+  type: 'followups';
+  question: string;
+  chips: FollowUpChip[];
+}
+
+export type AnswerBlock = TableBlock | OffersBlock | FooterBlock | ClarifyBlock | ChartBlock | FollowUpsBlock;

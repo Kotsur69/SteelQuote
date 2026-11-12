@@ -26,6 +26,8 @@ interface ChartFrameProps {
   /** Shown instead of the body when there is nothing to draw. */
   empty?: boolean;
   emptyLabel?: string;
+  /** Anchor for an /analytics?focus= deep link (lib/analyticsUrlState.ts sectionId). */
+  id?: string;
   children: ReactNode;
 }
 
@@ -36,10 +38,11 @@ export default function ChartFrame({
   legend,
   empty,
   emptyLabel,
+  id,
   children,
 }: ChartFrameProps) {
   return (
-    <section className="bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
+    <section id={id} className="scroll-mt-4 bg-[var(--bg-card)] border border-[var(--border)] rounded-md overflow-hidden">
       <header className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-[var(--border)]">
         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: accent }} />
         <h2 className="text-xs font-semibold tracking-widest uppercase text-[var(--text-primary)]">

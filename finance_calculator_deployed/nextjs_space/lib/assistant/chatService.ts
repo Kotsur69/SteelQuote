@@ -11,7 +11,7 @@ import pool from '../db';
 import type { AccessContext } from '../access/types';
 import { fetchToday } from '../analyticsQuery';
 import { isIsoDate } from '../analytics';
-import { runAgent, type AgentOutcome } from './agentLoop';
+import { runAgent, type AgentOutcome, type PinnedCall } from './agentLoop';
 import type { AnswerBlock } from './blocks';
 import { checkGate, denialText, logTurn } from './budget';
 import { cacheKey, readCache, writeCache } from './cache';
@@ -20,6 +20,7 @@ import { checkInput, MAX_MESSAGE_CHARS } from './guards/input';
 import { ProviderBusyError, ProviderUnavailableError, ZERO_USAGE, type ChatProvider, type ProviderTool } from './provider';
 import { PROMPT_VERSION, dynamicSystemPrompt, stableSystemPrompt } from './systemPrompt';
 import { TOOLS } from './tools';
+import { MAX_TOKEN_CHARS, verifyToken } from './tokens';
 
 export const MAX_HISTORY_TURNS = 30;
 const MAX_ASSISTANT_TURN_CHARS = 6000;
@@ -32,6 +33,8 @@ export const chatRequestSchema = z
       .max(MAX_HISTORY_TURNS)
       .default([]),
     lang: z.enum(['pl', 'en']).default('pl'),
+    /** Signed tool call of a clicked follow-up chip or clarification button (plan 6.2). */
+    followUp: z.string().max(MAX_TOKEN_CHARS).optional(),
     page: z
       .object({ path: z.string().max(200).regex(/^\/[\w\-/]*$/), offerId: z.number().int().positive().optional() })
       .strict()
@@ -48,7 +51,7 @@ export type ChatEvent =
   | { type: 'final'; text: string; blocks: AnswerBlock[]; turnId: number | null; cached: boolean }
   | { type: 'error'; message: string };
 
-const ERRORS: Record<Lang, Record<'empty' | 'too_long' | 'too_many_turns' | 'unavailable' | 'busy' | 'failed', string>> = {
+const ERRORS: Record<Lang, Record<'empty' | 'too_long' | 'too_many_turns' | 'unavailable' | 'busy' | 'failed' | 'stale_button', string>> = {
   pl: {
     empty: 'Wpisz pytanie.',
     too_long: `Pytanie jest za długie (maks. ${MAX_MESSAGE_CHARS} znaków).`,
@@ -56,6 +59,7 @@ const ERRORS: Record<Lang, Record<'empty' | 'too_long' | 'too_many_turns' | 'una
     unavailable: 'Asystent nie jest jeszcze podłączony do modelu AI (brak klucza API).',
     busy: 'Model AI jest teraz zajęty. Spróbuj ponownie za chwilę.',
     failed: 'Coś poszło nie tak. Spróbuj ponownie.',
+    stale_button: 'Ten przycisk jest już nieaktualny. Zadaj pytanie ponownie.',
   },
   en: {
     empty: 'Type a question.',
@@ -64,6 +68,7 @@ const ERRORS: Record<Lang, Record<'empty' | 'too_long' | 'too_many_turns' | 'una
     unavailable: 'The assistant is not connected to an AI model yet (API key missing).',
     busy: 'The AI model is busy right now. Try again in a moment.',
     failed: 'Something went wrong. Try again.',
+    stale_button: 'This button has expired. Ask the question again.',
   },
 };
 
@@ -85,10 +90,29 @@ export function toolDefinitions(): ProviderTool[] {
  * (AI_FIXED_TODAY) so the golden set's relative periods resolve the same on any day - never
  * honoured outside demo mode.
  */
-async function resolveToday(): Promise<string> {
+export async function resolveToday(): Promise<string> {
   const fixed = process.env.AI_FIXED_TODAY;
   if (process.env.AI_DATA_MODE === 'demo' && isIsoDate(fixed)) return fixed;
   return fetchToday(pool);
+}
+
+// The only tools a button may stand for (lib/assistant/followUps.ts emits nothing else).
+const FOLLOW_UP_TOOLS = ['query_metrics', 'search_offers'] as const;
+
+const followUpPayloadSchema = z
+  .object({ tool: z.enum(FOLLOW_UP_TOOLS), input: z.unknown(), label: z.string().min(1).max(200) })
+  .strict();
+
+/**
+ * A clicked button: the server-signed call it stands for. Bound to the clicking user and only
+ * for the follow-up tools; the input is validated against the tool's schema when it runs.
+ */
+function pinnedCallOf(token: string, ctx: AccessContext): { call: PinnedCall; label: string } | null {
+  const check = verifyToken('followup', token, ctx.userId);
+  if (!check.ok) return null;
+  const payload = followUpPayloadSchema.safeParse(check.data);
+  if (!payload.success || !TOOLS.some((t) => t.name === payload.data.tool)) return null;
+  return { call: { name: payload.data.tool, input: payload.data.input }, label: payload.data.label };
 }
 
 /** Only complete, read-only answers are cached - never questions back to the user or fallbacks. */
@@ -112,7 +136,11 @@ export async function handleChat(
   const started = Date.now();
   const fail = (key: keyof (typeof ERRORS)['pl']) => emit({ type: 'error', message: ERRORS[lang][key] });
 
-  const input = checkInput(request.message);
+  const pinned = request.followUp ? pinnedCallOf(request.followUp, ctx) : null;
+  if (request.followUp && !pinned) return fail('stale_button');
+
+  // A button click is sent as the button's own label - the signed one, not the browser's copy.
+  const input = checkInput(pinned ? pinned.label : request.message);
   if (!input.ok) return fail(input.reason);
   if (request.history.length >= MAX_HISTORY_TURNS) return fail('too_many_turns');
 
@@ -131,7 +159,7 @@ export async function handleChat(
   const base = { userId: ctx.userId, model: provider.model, lang, injectionFlag: input.injectionSuspected };
 
   // Only the first turn of a chat is cacheable: later ones depend on the conversation.
-  const key = request.history.length === 0
+  const key = request.history.length === 0 && !pinned
     ? cacheKey({
         ctx, question: input.text, lang, today, dataVersion: gate.dataVersion, promptVersion: PROMPT_VERSION,
         model: provider.model, page: request.page ? `${request.page.path}#${request.page.offerId ?? ''}` : '',
@@ -164,6 +192,7 @@ export async function handleChat(
       runtime: { ctx, today, lang, db: pool },
       userText: input.text,
       allowedText: stable,
+      ...(pinned ? { pinned: pinned.call } : {}),
       onEvent: emit,
     });
 

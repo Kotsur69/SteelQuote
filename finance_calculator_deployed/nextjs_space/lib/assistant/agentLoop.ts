@@ -42,6 +42,11 @@ export interface AgentResult {
   guardViolations: string[];
 }
 
+export interface PinnedCall {
+  name: string;
+  input: unknown;
+}
+
 export interface AgentInput {
   session: ChatSession;
   tools: readonly AssistantTool[];
@@ -49,6 +54,12 @@ export interface AgentInput {
   userText: string;
   /** Extra text whose numbers the answer may quote (the knowledge base). */
   allowedText?: string;
+  /**
+   * A tool call the server already decided on - a clicked follow-up chip or clarification
+   * button (signed, lib/assistant/tokens.ts). It runs before the model is asked, and the model
+   * writes the answer from its result instead of re-typing the parameters.
+   */
+  pinned?: PinnedCall;
   onEvent?: (event: AgentEvent) => void;
 }
 
@@ -130,15 +141,34 @@ async function executeTool(
   }
 }
 
-/** What the panel shows: a pending question replaces everything, otherwise one footer (the last). */
+/**
+ * What the panel shows: a pending question replaces everything; otherwise one footer and one set
+ * of follow-up chips - the last ones, which belong to the figures the answer ends on.
+ */
 function selectBlocks(perStep: AnswerBlock[][]): AnswerBlock[] {
   const last = perStep[perStep.length - 1] ?? [];
   const clarify = last.filter((b) => b.type === 'clarify');
   if (clarify.length > 0) return clarify.slice(-1);
 
   const all = perStep.flat().filter((b) => b.type !== 'clarify');
-  const lastFooter = all.map((b) => b.type).lastIndexOf('footer');
-  return all.filter((b, i) => b.type !== 'footer' || i === lastFooter);
+  const types = all.map((b) => b.type);
+  const lastFooter = types.lastIndexOf('footer');
+  const lastFollowUps = types.lastIndexOf('followups');
+  return all.filter((b, i) => (b.type !== 'footer' || i === lastFooter) && (b.type !== 'followups' || i === lastFollowUps));
+}
+
+/**
+ * The user's turn after a button click: what they clicked plus the result the server already ran.
+ * The result is JSON holding user-entered names, so "<" is escaped (still valid JSON) and nothing
+ * inside can close the data fence.
+ */
+function pinnedTurn(userText: string, call: PinnedCall, content: string): string {
+  const fenced = content.replace(/</g, '\u003c');
+  return (
+    `${userText}\n\n[The user clicked a button in the app. The app already ran ${call.name} with input ${JSON.stringify(call.input)}; ` +
+    'the result is below. Answer from it; call another tool only if the question needs more.]\n' +
+    `<tool_data name="${call.name}" untrusted="true">\n${fenced}\n</tool_data>`
+  );
 }
 
 export async function runAgent(input: AgentInput): Promise<AgentResult> {
@@ -161,7 +191,17 @@ export async function runAgent(input: AgentInput): Promise<AgentResult> {
     return text;
   };
 
-  let turn = await session.send({ userText: input.userText }, emitText);
+  let userText = input.userText;
+  if (input.pinned) {
+    onEvent?.({ type: 'tool', name: input.pinned.name });
+    const executed = await executeTool({ id: 'pinned', ...input.pinned }, tools, runtime, seen);
+    toolCalls.push(executed.log);
+    toolData.push(executed.data);
+    blocksPerStep.push(executed.blocks);
+    userText = pinnedTurn(input.userText, input.pinned, executed.result.content);
+  }
+
+  let turn = await session.send({ userText }, emitText);
   usage = addUsage(usage, turn.usage);
   steps++;
 

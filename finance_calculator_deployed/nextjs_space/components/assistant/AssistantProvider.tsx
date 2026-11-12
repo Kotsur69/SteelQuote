@@ -29,7 +29,8 @@ interface AssistantState {
   busy: boolean;
   open: boolean;
   setOpen: (open: boolean) => void;
-  send: (text: string) => void;
+  /** followUp = signed tool call of a clicked chip or clarification button. */
+  send: (text: string, followUp?: string) => void;
   stop: () => void;
   newChat: () => void;
 }
@@ -73,7 +74,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const send = useCallback(
-    (raw: string) => {
+    (raw: string, followUp?: string) => {
       const text = raw.trim();
       if (!text || abortRef.current) return;
 
@@ -106,7 +107,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           const response = await fetch('/api/assistant/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text, history, lang, page: pageContext() }),
+            body: JSON.stringify({ message: text, history, lang, page: pageContext(), ...(followUp ? { followUp } : {}) }),
             signal: controller.signal,
           });
           if (!response.ok || !response.body) {

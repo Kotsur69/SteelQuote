@@ -10,146 +10,34 @@
 // No database access: the rows arrive through MetricsDeps, so the catalog is unit-testable and
 // the tool wrapper (tools/queryMetrics.ts) owns visibility and the clock.
 
-import { z } from 'zod';
 import {
-  CLIENT_DECISIONS,
-  DATE_BASES,
-  OFFER_STATUSES,
   OTHER_KEY,
   STEEL_TYPE_SERIES_ORDER,
   type AnalyticsFilters,
   type AnalyticsKpi,
   type ClientDecision,
   type DateBasis,
-  type Granularity,
   type OfferStatus,
 } from '../analytics';
 import { computeKpi, computeLostReasons, normalizeOffers, withinWindow, type NormalizedOffer } from '../analyticsAggregate';
 import { bucketStart } from '../analyticsPeriods';
 import type { AnalyticsOfferRow, RowQueryWindow } from '../analyticsQuery';
-import type { SteelType } from '../calculatorData';
 import type { LostReasonDef } from '../lostReasons';
+import { comparisonWindow, delta, incompleteChoices, type ComparisonChoice } from './compare';
 import {
-  formatCount, formatDateRange, formatMoney, formatPercent, formatTons, monthLabel, quarterLabel, type Lang,
+  formatCount, formatDateRange, formatMoney, formatNumber, formatPercent, formatTons, monthLabel, quarterLabel, type Lang,
 } from './format';
-import { periodInputSchema, resolvePeriod, type PeriodChoice, type ResolvedWindow } from './periods';
+import { resolvePeriod, type PeriodChoice, type ResolvedWindow } from './periods';
 
-// --- catalog --------------------------------------------------------------------------
+import {
+  DEFAULT_PARAM_BASIS, MARGIN_METRICS, METRICS, TIME_GRANULARITY,
+  type GroupDimension, type MetricDef, type MetricId, type MetricsFilters, type MetricsQuery, type Unit,
+} from './metricCatalog';
 
-type Unit = 'count' | 'tons' | 'money' | 'money_eur' | 'percent1' | 'percent2' | 'table';
-
-interface MetricDef {
-  /** Fixed date basis, or 'param' when the question's verb decides (plan 3.2). */
-  basis: DateBasis | 'param';
-  unit: Unit;
-  label: Record<Lang, string>;
-  /** One-sentence definition for the server-written footer. */
-  definition: Record<Lang, string>;
-  pick: (kpi: AnalyticsKpi) => { value: number | null; valuePln?: number | null };
-}
-
-const def = (
-  basis: MetricDef['basis'],
-  unit: Unit,
-  label: [string, string],
-  definition: [string, string],
-  pick: MetricDef['pick']
-): MetricDef => ({ basis, unit, label: { pl: label[0], en: label[1] }, definition: { pl: definition[0], en: definition[1] }, pick });
-
-export const METRICS = {
-  offers_created: def('created', 'count', ['Utworzone oferty', 'Offers created'],
-    ['oferty wg daty utworzenia (najnowsza wersja)', 'offers by creation date (latest version)'], (k) => ({ value: k.offers })),
-  offers_sent: def('sent', 'count', ['Wysłane oferty', 'Offers sent'],
-    ['oferty wysłane do klienta, wg daty wysłania', 'offers sent to the client, by sent date'], (k) => ({ value: k.offers })),
-  offers_won: def('decided', 'count', ['Wygrane oferty', 'Offers won'],
-    ['oferty wygrane, wg daty decyzji klienta', 'offers won, by client decision date'], (k) => ({ value: k.offersWon })),
-  offers_lost: def('decided', 'count', ['Przegrane oferty', 'Offers lost'],
-    ['oferty przegrane, wg daty decyzji klienta', 'offers lost, by client decision date'], (k) => ({ value: k.offersLost })),
-  offers_pending: def('created', 'count', ['Oferty bez decyzji', 'Offers without a decision'],
-    ['oferty bez decyzji klienta (także jeszcze niewysłane), wg daty utworzenia', 'offers with no client decision yet (incl. not yet sent), by creation date'],
-    (k) => ({ value: k.offersPending })),
-  tons_offered: def('param', 'tons', ['Tonaż ofert', 'Tons offered'],
-    ['suma ton z ofert', 'total tonnage of offers'], (k) => ({ value: k.tonsOffered })),
-  tons_won: def('decided', 'tons', ['Sprzedany tonaż', 'Tons won'],
-    ['tonaż ofert wygranych ("sprzedane"), wg daty decyzji klienta', 'tonnage of won offers ("sold"), by client decision date'], (k) => ({ value: k.tonsWon })),
-  tons_lost: def('decided', 'tons', ['Przegrany tonaż', 'Tons lost'],
-    ['tonaż ofert przegranych, wg daty decyzji klienta', 'tonnage of lost offers, by client decision date'], (k) => ({ value: k.tonsLost })),
-  value_offered: def('param', 'money', ['Wartość ofert', 'Value offered'],
-    ['wartość ofert; EUR to źródło, PLN wg zamrożonego kursu każdej oferty', "value of offers; EUR is the source, PLN by each offer's frozen rate"],
-    (k) => ({ value: k.valueOfferedEur, valuePln: k.valueOfferedPln })),
-  value_won: def('decided', 'money', ['Wartość sprzedaży', 'Value won'],
-    ['wartość ofert wygranych, wg daty decyzji klienta; PLN wg zamrożonego kursu oferty', "value of won offers, by client decision date; PLN by the offer's frozen rate"],
-    (k) => ({ value: k.valueWonEur, valuePln: k.valueWonPln })),
-  value_lost: def('decided', 'money', ['Wartość przegranych ofert', 'Value lost'],
-    ['wartość ofert przegranych, wg daty decyzji klienta; PLN wg zamrożonego kursu oferty', "value of lost offers, by client decision date; PLN by the offer's frozen rate"],
-    (k) => ({ value: k.valueLostEur, valuePln: k.valueLostPln })),
-  clients_offered: def('param', 'count', ['Klienci z ofertą', 'Clients offered'],
-    ['liczba różnych klientów z co najmniej jedną ofertą', 'distinct clients with at least one offer'], (k) => ({ value: k.clients })),
-  clients_won: def('decided', 'count', ['Klienci z wygraną ofertą', 'Clients won'],
-    ['liczba różnych klientów z wygraną ofertą, wg daty decyzji', 'distinct clients with a won offer, by decision date'], (k) => ({ value: k.clientsWon })),
-  clients_lost: def('decided', 'count', ['Klienci z przegraną ofertą', 'Clients lost'],
-    ['liczba różnych klientów z przegraną ofertą, wg daty decyzji', 'distinct clients with a lost offer, by decision date'], (k) => ({ value: k.clientsLost })),
-  win_rate_offers: def('decided', 'percent1', ['Skuteczność (oferty)', 'Win rate (offers)'],
-    ['wygrane / (wygrane + przegrane) oferty, wg daty decyzji', 'won / (won + lost) offers, by decision date'], (k) => ({ value: k.winRateOffers })),
-  win_rate_tons: def('decided', 'percent1', ['Skuteczność (tony)', 'Win rate (tons)'],
-    ['wygrane / (wygrane + przegrane) tony, wg daty decyzji', 'won / (won + lost) tons, by decision date'], (k) => ({ value: k.winRateTons })),
-  margin_weighted: def('param', 'percent2', ['Marża ważona tonażem', 'Tonnage-weighted margin'],
-    ['średnia marża ważona tonażem (jak w panelu analizy)', 'tonnage-weighted average margin (as in the analytics panel)'], (k) => ({ value: k.avgMarginPct })),
-  margin_simple: def('param', 'percent2', ['Marża średnia na ofertę', 'Simple average margin'],
-    ['zwykła średnia marż ofert (każda oferta waży tyle samo)', 'plain average of per-offer margins (every offer weighs the same)'],
-    (k) => ({ value: k.avgMarginSimplePct })),
-  avg_tons_per_offer: def('param', 'tons', ['Średni tonaż oferty', 'Average tons per offer'],
-    ['tonaż ofert / liczba ofert', 'tonnage of offers / number of offers'], (k) => ({ value: k.avgTonsPerOffer })),
-  avg_value_per_offer: def('param', 'money_eur', ['Średnia wartość oferty', 'Average value per offer'],
-    ['wartość ofert w EUR / liczba ofert', 'value of offers in EUR / number of offers'], (k) => ({ value: k.avgValuePerOfferEur })),
-  lost_reasons: def('decided', 'table', ['Powody przegranej', 'Lost reasons'],
-    ['przegrane oferty wg powodu z listy aplikacji, udział = % przegranych ofert', "lost offers by the reason from the app's list, share = % of lost offers"],
-    () => ({ value: null })),
-} as const satisfies Record<string, MetricDef>;
-
-export type MetricId = keyof typeof METRICS;
-export const METRIC_IDS = Object.keys(METRICS) as [MetricId, ...MetricId[]];
-
-const MARGIN_METRICS: readonly MetricId[] = ['margin_weighted', 'margin_simple'];
-/** Basis of a 'param' metric when the model gives none: the offer went out to a client. */
-const DEFAULT_PARAM_BASIS: DateBasis = 'sent';
-
-// --- query schema ---------------------------------------------------------------------
-
-export const GROUP_DIMENSIONS = ['person', 'client', 'steel_type', 'status', 'decision', 'month', 'week', 'quarter'] as const;
-export type GroupDimension = (typeof GROUP_DIMENSIONS)[number];
-
-const TIME_GRANULARITY: Partial<Record<GroupDimension, Granularity>> = { month: 'month', week: 'week', quarter: 'quarter' };
-
-const idList = z.array(z.number().int().positive()).max(50);
-
-export const metricsFiltersSchema = z
-  .object({
-    people: idList.optional(),
-    /** The asking user plus everyone sharing a team with them. */
-    my_team: z.boolean().optional(),
-    clients: idList.optional(),
-    steel_types: z.array(z.enum(STEEL_TYPE_SERIES_ORDER as [SteelType, ...SteelType[]])).optional(),
-    status: z.array(z.enum(OFFER_STATUSES as [OfferStatus, ...OfferStatus[]])).optional(),
-    decision: z.array(z.enum(CLIENT_DECISIONS as [ClientDecision, ...ClientDecision[]])).optional(),
-  })
-  .strict();
-
-export type MetricsFilters = z.infer<typeof metricsFiltersSchema>;
-
-export const metricsQuerySchema = z
-  .object({
-    metrics: z.array(z.enum(METRIC_IDS)).min(1).max(8),
-    period: periodInputSchema,
-    basis: z.enum(DATE_BASES as [DateBasis, ...DateBasis[]]).optional(),
-    filters: metricsFiltersSchema.optional(),
-    group_by: z.enum(GROUP_DIMENSIONS).optional(),
-    sort: z.enum(['desc', 'asc']).optional(),
-    limit: z.number().int().min(1).max(50).optional(),
-  })
-  .strict();
-
-export type MetricsQuery = z.infer<typeof metricsQuerySchema>;
+export {
+  GROUP_DIMENSIONS, METRICS, METRIC_IDS, metricsFiltersSchema, metricsQuerySchema,
+  type GroupDimension, type MetricId, type MetricsFilters, type MetricsQuery,
+} from './metricCatalog';
 
 // --- result ---------------------------------------------------------------------------
 
@@ -175,6 +63,9 @@ export interface LostReasonRow {
   label: string;
   archived: boolean;
   offers: number;
+  tons: number;
+  value_eur: number;
+  value_pln: number;
   tons_text: string;
   value_text: string;
   share_text: string;
@@ -188,6 +79,24 @@ export interface BasisCoverage {
   /** Only when a margin metric was asked: offers that carry a margin / that do not. */
   offers_with_margin?: number;
   offers_without_margin?: number;
+}
+
+export interface DeltaCell {
+  metric: MetricId;
+  /** current - previous, in the metric's unit (percentage points for % metrics). */
+  delta_abs: number | null;
+  delta_abs_pln?: number | null;
+  /** Relative change in %, one decimal. null when the comparison value is not positive or missing. */
+  delta_pct: number | null;
+  /** Both changes formatted for the answer language - copy verbatim. */
+  text: string;
+}
+
+export interface ComparisonSide {
+  period: { from: string; to: string; label: string; in_progress: boolean };
+  values: MetricCell[];
+  coverage: BasisCoverage[];
+  deltas: DeltaCell[];
 }
 
 export interface MetricsOk {
@@ -205,13 +114,18 @@ export interface MetricsOk {
   };
   lost_reasons?: LostReasonRow[];
   coverage: BasisCoverage[];
+  /** Present when `compare` was asked: the second window and the change per metric. */
+  comparison?: ComparisonSide;
   /** The filters as applied, for the footer. */
   applied: { filters: MetricsFilters; userIds: number[] };
+  /** Offers behind the figures, per basis - only with deps.includeOffers (Excel export). */
+  offers?: { basis: DateBasis; offers: NormalizedOffer[] }[];
 }
 
 export type MetricsResult =
   | MetricsOk
   | { status: 'needs_clarification'; question: 'period'; options: PeriodChoice[] }
+  | { status: 'needs_clarification'; question: 'comparison'; options: ComparisonChoice[] }
   | { status: 'future_period'; label: string }
   | { status: 'invalid'; message: string };
 
@@ -225,6 +139,8 @@ export interface MetricsDeps {
   fetchRows: (filters: AnalyticsFilters, window: RowQueryWindow) => Promise<AnalyticsOfferRow[]>;
   /** Admin-managed lost reasons, archived included. */
   loadLostReasons: () => Promise<readonly LostReasonDef[]>;
+  /** Also return the offers behind the figures (the Excel export). */
+  includeOffers?: boolean;
 }
 
 // --- formatting -----------------------------------------------------------------------
@@ -386,6 +302,133 @@ function uniq<T>(values: readonly T[]): T[] {
   return Array.from(new Set(values));
 }
 
+interface WindowRun {
+  slices: Map<DateBasis, Slice>;
+  values: MetricCell[];
+  coverage: BasisCoverage[];
+}
+
+/** Every metric of the query over one window: one engine run per date basis involved. */
+async function runWindow(
+  query: MetricsQuery,
+  metrics: MetricId[],
+  window: { from: string | null; to: string | null },
+  userIds: number[],
+  deps: MetricsDeps
+): Promise<WindowRun> {
+  const f = query.filters ?? {};
+  // "ile wysłaliśmy i ile wygraliśmy" mixes two bases - each metric runs on its own date.
+  const slices = new Map<DateBasis, Slice>();
+  for (const basis of uniq(metrics.map((m) => basisOf(m, query.basis)))) {
+    const filters: AnalyticsFilters = {
+      dateFrom: window.from ?? '',
+      dateTo: window.to ?? '',
+      basis,
+      granularity: 'month',
+      userIds,
+      steelTypes: f.steel_types ?? [],
+      statuses: f.status ?? [],
+      decisions: f.decision ?? [],
+      clientIds: f.clients ?? [],
+    };
+    const rows = await deps.fetchRows(filters, { from: window.from, to: window.to });
+    slices.set(basis, { basis, filters, rows, offers: withinWindow(normalizeOffers(rows, filters), window.from, window.to) });
+  }
+
+  const kpis = new Map<DateBasis, AnalyticsKpi>();
+  for (const [basis, slice] of slices) kpis.set(basis, computeKpi(slice.offers));
+
+  const values = metrics
+    .filter((m) => METRICS[m].unit !== 'table')
+    .map((m) => {
+      const basis = basisOf(m, query.basis);
+      return cell(m, basis, kpis.get(basis)!, deps.lang);
+    });
+
+  const wantsMargin = metrics.some((m) => MARGIN_METRICS.includes(m));
+  const marginBasis = wantsMargin ? basisOf('margin_weighted', query.basis) : null;
+  const coverage: BasisCoverage[] = [...kpis.entries()].map(([basis, kpi]) =>
+    basis === marginBasis
+      ? { basis, offers: kpi.offers, offers_with_margin: kpi.offersWithMargin, offers_without_margin: kpi.offers - kpi.offersWithMargin }
+      : { basis, offers: kpi.offers }
+  );
+  return { slices, values, coverage };
+}
+
+// A change is stated with the precision of the metric itself.
+const DELTA_DECIMALS: Record<Unit, number> = { count: 0, tons: 3, money: 2, money_eur: 2, percent1: 1, percent2: 2, table: 0 };
+const NO_BASE: Record<Lang, string> = { pl: 'brak zmiany % (wartość porównawcza nie jest dodatnia)', en: 'no % change (comparison value is not positive)' };
+const PP: Record<Lang, string> = { pl: 'p.p.', en: 'pp' };
+
+const signed = (text: string, value: number) => (value > 0 ? `+${text}` : text);
+
+function deltaCell(current: MetricCell, previous: MetricCell, lang: Lang): DeltaCell {
+  const d: MetricDef = METRICS[current.metric];
+  const decimals = DELTA_DECIMALS[d.unit];
+  const { abs, pct } = delta(current.value, previous.value, decimals);
+  if (abs === null) return { metric: current.metric, delta_abs: null, delta_pct: null, text: NO_DATA[lang] };
+
+  let absText: string;
+  let absPln: number | undefined;
+  if (d.unit === 'money') {
+    absPln = delta(current.value_pln ?? null, previous.value_pln ?? null, 2).abs ?? 0;
+    absText = `${signed(formatMoney(abs, 'EUR', lang), abs)} (${signed(formatMoney(absPln, 'PLN', lang), absPln)})`;
+  } else if (d.unit === 'percent1' || d.unit === 'percent2') {
+    absText = `${signed(formatNumber(abs, decimals, lang), abs)} ${PP[lang]}`;
+  } else {
+    absText = signed(cellText(d.unit, abs, null, lang), abs);
+  }
+  const pctText = pct === null ? NO_BASE[lang] : signed(formatPercent(pct, 1, lang), pct);
+  return {
+    metric: current.metric,
+    delta_abs: abs,
+    ...(absPln !== undefined ? { delta_abs_pln: absPln } : {}),
+    delta_pct: pct,
+    text: `${absText}; ${pctText}`,
+  };
+}
+
+/** The second window of a comparison, or the reason it cannot be computed (yet). */
+async function runComparison(
+  query: MetricsQuery,
+  metrics: MetricId[],
+  current: ResolvedWindow,
+  currentValues: MetricCell[],
+  userIds: number[],
+  deps: MetricsDeps
+): Promise<Exclude<MetricsResult, MetricsOk> | ComparisonSide> {
+  const compare = query.compare!;
+  if (query.group_by) {
+    return { status: 'invalid', message: 'compare cannot be combined with group_by. Ask for the comparison and the breakdown separately.' };
+  }
+  if (metrics.includes('lost_reasons')) {
+    return { status: 'invalid', message: 'compare cannot be combined with lost_reasons. Ask for the comparison and the lost reasons separately.' };
+  }
+
+  // D12: a running period is never compared silently - the user picks what it means.
+  if (current.to !== null && current.to > deps.today) {
+    const options = incompleteChoices(current, compare, deps.today, deps.lang);
+    if (options.length > 0) return { status: 'needs_clarification', question: 'comparison', options };
+  }
+
+  const other = comparisonWindow(current, compare, deps.today, deps.lang);
+  if (other.kind === 'invalid') return { status: 'invalid', message: other.message };
+  if (other.kind === 'future') return { status: 'future_period', label: other.label };
+  if (other.kind === 'clarify') return { status: 'invalid', message: 'The comparison period is ambiguous - pass it with a year.' };
+  if (!other.from || !other.to) return { status: 'invalid', message: 'The comparison period must be bounded.' };
+  if (other.to > deps.today) {
+    return { status: 'invalid', message: 'The comparison period is still running. Put the running period in "period" and the finished one in "compare".' };
+  }
+
+  const run = await runWindow(query, metrics, other, userIds, deps);
+  return {
+    period: { from: other.from, to: other.to, label: other.label, in_progress: other.inProgress },
+    values: run.values,
+    coverage: run.coverage,
+    deltas: currentValues.map((v, i) => deltaCell(v, run.values[i], deps.lang)),
+  };
+}
+
 export async function runMetricsQuery(query: MetricsQuery, deps: MetricsDeps): Promise<MetricsResult> {
   const resolved = resolvePeriod(query.period, deps.today, deps.lang);
   if (resolved.kind === 'clarify') return { status: 'needs_clarification', question: 'period', options: resolved.options };
@@ -395,59 +438,37 @@ export async function runMetricsQuery(query: MetricsQuery, deps: MetricsDeps): P
   const metrics = uniq(query.metrics);
   const f = query.filters ?? {};
   const userIds = uniq([...(f.people ?? []), ...(f.my_team ? [deps.selfId, ...deps.teamUserIds] : [])]);
+  const scalar = metrics.filter((m) => METRICS[m].unit !== 'table');
 
-  // One engine run per date basis involved: "ile wysłaliśmy i ile wygraliśmy" mixes two.
-  const slices = new Map<DateBasis, Slice>();
-  for (const basis of uniq(metrics.map((m) => basisOf(m, query.basis)))) {
-    const filters: AnalyticsFilters = {
-      dateFrom: resolved.from ?? '',
-      dateTo: resolved.to ?? '',
-      basis,
-      granularity: 'month',
-      userIds,
-      steelTypes: f.steel_types ?? [],
-      statuses: f.status ?? [],
-      decisions: f.decision ?? [],
-      clientIds: f.clients ?? [],
-    };
-    const rows = await deps.fetchRows(filters, { from: resolved.from, to: resolved.to });
-    slices.set(basis, { basis, filters, rows, offers: withinWindow(normalizeOffers(rows, filters), resolved.from, resolved.to) });
+  const run = await runWindow(query, metrics, resolved, userIds, deps);
+
+  let comparison: ComparisonSide | undefined;
+  if (query.compare) {
+    const outcome = await runComparison(query, metrics, resolved, run.values, userIds, deps);
+    if ('status' in outcome) return outcome;
+    comparison = outcome;
   }
 
-  const kpis = new Map<DateBasis, AnalyticsKpi>();
-  for (const [basis, slice] of slices) kpis.set(basis, computeKpi(slice.offers));
-
-  const scalar = metrics.filter((m) => METRICS[m].unit !== 'table');
-  const values = scalar.map((m) => {
-    const basis = basisOf(m, query.basis);
-    return cell(m, basis, kpis.get(basis)!, deps.lang);
-  });
-
-  const wantsMargin = metrics.some((m) => MARGIN_METRICS.includes(m));
-  const marginBasis = wantsMargin ? basisOf('margin_weighted', query.basis) : null;
-  const coverage: BasisCoverage[] = [...kpis.entries()].map(([basis, kpi]) =>
-    basis === marginBasis
-      ? { basis, offers: kpi.offers, offers_with_margin: kpi.offersWithMargin, offers_without_margin: kpi.offers - kpi.offersWithMargin }
-      : { basis, offers: kpi.offers }
-  );
-
+  const noOffers = (coverage: BasisCoverage[]) => coverage.every((c) => c.offers === 0);
   const result: MetricsOk = {
     status: 'ok',
     period: { from: resolved.from, to: resolved.to, label: resolved.label, in_progress: resolved.inProgress },
-    empty: coverage.every((c) => c.offers === 0),
-    values,
-    coverage,
+    // A comparison with an empty current window still has a figure to report.
+    empty: noOffers(run.coverage) && (!comparison || noOffers(comparison.coverage)),
+    values: run.values,
+    coverage: run.coverage,
+    ...(comparison ? { comparison } : {}),
     applied: { filters: f, userIds },
   };
 
   if (query.group_by && scalar.length > 0) {
-    result.groups = buildGroups(query, scalar, slices, resolved, deps);
+    result.groups = buildGroups(query, scalar, run.slices, resolved, deps);
   }
 
   if (metrics.includes('lost_reasons')) {
     const reasons = await deps.loadLostReasons();
     const lang = deps.lang;
-    result.lost_reasons = computeLostReasons(slices.get('decided')!.offers, reasons)
+    result.lost_reasons = computeLostReasons(run.slices.get('decided')!.offers, reasons)
       // The answer ranks by count; the panel keeps the admin's list order.
       .sort((a, b) => b.offers - a.offers)
       .map((r) => ({
@@ -455,11 +476,18 @@ export async function runMetricsQuery(query: MetricsQuery, deps: MetricsDeps): P
         label: r.labels[lang] || r.labels.pl || r.reason,
         archived: r.archived,
         offers: r.offers,
+        tons: r.tonsLost,
+        value_eur: r.valueLostEur,
+        value_pln: r.valueLostPln,
         tons_text: formatTons(r.tonsLost, lang),
         value_text: `${formatMoney(r.valueLostEur, 'EUR', lang)} (${formatMoney(r.valueLostPln, 'PLN', lang)})`,
         share_text: formatPercent(r.sharePct, 1, lang),
         share_pct: r.sharePct,
       }));
+  }
+
+  if (deps.includeOffers) {
+    result.offers = [...run.slices.values()].map((slice) => ({ basis: slice.basis, offers: slice.offers }));
   }
 
   return result;

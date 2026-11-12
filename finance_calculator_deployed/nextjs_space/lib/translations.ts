@@ -849,6 +849,7 @@ export interface Translations {
     kpiValueOffered: string;
     kpiValueWon: string;
     kpiAvgMargin: string;
+    kpiSimpleMargin: string;
     kpiAvgTons: string;
     vsPrevious: string;
     noComparison: string;
@@ -1700,6 +1701,7 @@ export const pl: Translations = {
     kpiValueOffered: 'Wartość zaoferowana',
     kpiValueWon: 'Wartość wygrana',
     kpiAvgMargin: 'Średnia marża',
+    kpiSimpleMargin: 'prosta średnia',
     kpiAvgTons: 'Średnio ton na ofertę',
     vsPrevious: 'vs poprzedni okres',
     noComparison: 'brak porównania',
@@ -2551,6 +2553,7 @@ export const en: Translations = {
     kpiValueOffered: 'Value offered',
     kpiValueWon: 'Value won',
     kpiAvgMargin: 'Average margin',
+    kpiSimpleMargin: 'simple average',
     kpiAvgTons: 'Average tons per offer',
     vsPrevious: 'vs previous period',
     noComparison: 'no comparison',
@@ -3401,6 +3404,7 @@ export const cs: Translations = {
     kpiValueOffered: 'Nabídnutá hodnota',
     kpiValueWon: 'Získaná hodnota',
     kpiAvgMargin: 'Průměrná marže',
+    kpiSimpleMargin: 'prostý průměr',
     kpiAvgTons: 'Průměr tun na nabídku',
     vsPrevious: 'vs předchozí období',
     noComparison: 'bez srovnání',
@@ -4251,6 +4255,7 @@ export const de: Translations = {
     kpiValueOffered: 'Angebotener Wert',
     kpiValueWon: 'Gewonnener Wert',
     kpiAvgMargin: 'Durchschnittliche Marge',
+    kpiSimpleMargin: 'einfacher Durchschnitt',
     kpiAvgTons: 'Tonnen je Angebot',
     vsPrevious: 'vs. Vorperiode',
     noComparison: 'kein Vergleich',

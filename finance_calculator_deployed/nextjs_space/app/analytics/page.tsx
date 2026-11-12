@@ -10,7 +10,7 @@
 // One fetch per filter change, and every figure on the page comes out of that one response, so
 // the KPI tiles, the timeline and the tables can never disagree with each other.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import { useCurrency } from '@/contexts/CurrencyContext';
@@ -36,18 +36,12 @@ import {
 import { exportAnalyticsToExcel } from '@/lib/analyticsExport';
 import type { SteelType } from '@/lib/calculatorData';
 import ChartFrame from '@/components/analytics/ChartFrame';
-import FilterBar, {
-  DEFAULT_UI_FILTERS,
-  type AnalyticsUiFilters,
-} from '@/components/analytics/FilterBar';
+import { useAnalyticsUrlState } from '@/components/analytics/useAnalyticsUrlState';
+import { sectionId } from '@/lib/analyticsUrlState';
+import FilterBar from '@/components/analytics/FilterBar';
 import KpiTiles from '@/components/analytics/KpiTiles';
-import TimeSeriesPanel, {
-  SPLITTABLE_MEASURES,
-  type TimeChartKind,
-} from '@/components/analytics/TimeSeriesPanel';
-import BreakdownPanel, {
-  type BreakdownChartKind,
-} from '@/components/analytics/BreakdownPanel';
+import TimeSeriesPanel, { SPLITTABLE_MEASURES } from '@/components/analytics/TimeSeriesPanel';
+import BreakdownPanel from '@/components/analytics/BreakdownPanel';
 import WinLossPanel from '@/components/analytics/WinLossPanel';
 import LostReasonsPanel from '@/components/analytics/LostReasonsPanel';
 import { lostReasonUi } from '@/lib/lostReasons';
@@ -96,49 +90,38 @@ function LabeledChip({ label, chip }: { label: string; chip: React.ReactNode }) 
   );
 }
 
-/** UI filter state -> /api/analytics query string. Empty values are simply left out. */
-function buildQuery(filters: AnalyticsUiFilters): string {
-  const params = new URLSearchParams();
-  params.set('preset', filters.preset);
-  if (filters.preset === 'custom') {
-    if (filters.from) params.set('from', filters.from);
-    if (filters.to) params.set('to', filters.to);
-  }
-  params.set('basis', filters.basis);
-  if (filters.granularity !== 'auto') params.set('granularity', filters.granularity);
-  params.set('split', filters.split);
-  if (filters.userIds.length) params.set('users', filters.userIds.join(','));
-  if (filters.steelTypes.length) params.set('types', filters.steelTypes.join(','));
-  if (filters.statuses.length) params.set('statuses', filters.statuses.join(','));
-  if (filters.decisions.length) params.set('decisions', filters.decisions.join(','));
-  if (filters.clientIds.length) params.set('clients', filters.clientIds.join(','));
-  return params.toString();
-}
-
-export default function AnalyticsPage() {
+function AnalyticsView() {
   const { t, language } = useLanguage();
   const { currency, setCurrency } = useCurrency();
   const [isDark, setIsDark] = useDarkMode();
   const [highContrast, setHighContrast] = useHighContrast();
   const a = t.analytics;
 
-  const [filters, setFilters] = useState<AnalyticsUiFilters>(DEFAULT_UI_FILTERS);
   const [data, setData] = useState<AnalyticsPayload | null>(null);
+  // The query `data` was loaded for - a deep-link scroll waits until it matches the URL's filters.
+  const [loadedQuery, setLoadedQuery] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Panel-local view state. Not part of the query - switching a chart type or a measure only
-  // re-reads what is already in memory.
-  const [measure, setMeasure] = useState<Measure>('tons');
-  const [timeKind, setTimeKind] = useState<TimeChartKind>('stackedBar');
-  const [breakdownDimension, setBreakdownDimension] = useState<Dimension>('steelType');
-  const [breakdownKind, setBreakdownKind] = useState<BreakdownChartKind>('bar');
-  /** Which hierarchy tier (level code, e.g. N0 / N+1 / NPR) the Handlowcy panel shows - purely
-   * a display filter over the already-fetched bySalesperson groups, not a query param, since the
-   * data for every tier is fetched in one round trip anyway. */
-  const [salespersonRoleFilter, setSalespersonRoleFilter] = useState<string>('all');
-
-  const query = useMemo(() => buildQuery(filters), [filters]);
+  // Filters and view settings live in the URL (components/analytics/useAnalyticsUrlState.ts), so
+  // every view is a shareable link and the assistant can open the panel on the exact view it
+  // answered from. View settings (measure, chart kinds, role tier) never reach the query - they
+  // only re-read what is already in memory.
+  const {
+    filters,
+    setFilters,
+    apiQuery: query,
+    measure,
+    setMeasure,
+    timeKind,
+    setTimeKind,
+    breakdownDimension,
+    setBreakdownDimension,
+    breakdownKind,
+    setBreakdownKind,
+    role: salespersonRoleFilter,
+    setRole: setSalespersonRoleFilter,
+  } = useAnalyticsUrlState((apiQuery) => !loading && data !== null && loadedQuery === apiQuery);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,7 +134,10 @@ export default function AnalyticsPage() {
         return (await res.json()) as AnalyticsPayload;
       })
       .then((payload) => {
-        if (!cancelled) setData(payload);
+        if (!cancelled) {
+          setData(payload);
+          setLoadedQuery(query);
+        }
       })
       .catch(() => {
         // A stale panel showing last period's numbers under a new filter would be worse than
@@ -479,6 +465,7 @@ export default function AnalyticsPage() {
               </div>
             )}
 
+            <div id={sectionId('kpi')} className="scroll-mt-4">
             <KpiTiles
               kpi={data.kpi}
               previousKpi={data.previousKpi}
@@ -497,11 +484,14 @@ export default function AnalyticsPage() {
                 vsPrevious: a.vsPrevious,
                 noComparison: a.noComparison,
                 decidedOffers: a.decidedOffers,
+                simpleMargin: a.kpiSimpleMargin,
               }}
               onFilterDecision={(decision) => setFilters((f) => ({ ...f, decisions: [decision] }))}
             />
+            </div>
 
             <ChartFrame
+              id={sectionId('timeline')}
               title={a.panelTimeline}
               legend={timeLegend}
               empty={!hasRows}
@@ -545,6 +535,7 @@ export default function AnalyticsPage() {
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
               <ChartFrame
+                id={sectionId('breakdown')}
                 title={a.panelBreakdown}
                 accent="var(--accent-hrs)"
                 legend={breakdownKind === 'bar' ? undefined : breakdownLegend}
@@ -618,6 +609,7 @@ export default function AnalyticsPage() {
             </div>
 
             <ChartFrame
+              id={sectionId('lostReasons')}
               title={a.panelLostReasons}
               accent="var(--accent-sum)"
               empty={data.byLostReason.length === 0}
@@ -686,6 +678,7 @@ export default function AnalyticsPage() {
             </div>
 
             <ChartFrame
+              id={sectionId('table')}
               title={a.panelDataTable}
               accent="var(--accent-teardrop)"
               empty={!hasRows}
@@ -733,5 +726,14 @@ export default function AnalyticsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// useSearchParams needs a Suspense boundary so the page can still be prerendered.
+export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AnalyticsView />
+    </Suspense>
   );
 }

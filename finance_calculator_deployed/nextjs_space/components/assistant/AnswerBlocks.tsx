@@ -1,20 +1,32 @@
 'use client';
 
-// Renders the server-built parts of an answer (lib/assistant/blocks.ts): tables, offer cards,
-// the definition footer and clarification buttons. Everything here is data the server computed -
+// Renders the server-built parts of an answer (lib/assistant/blocks.ts): tables, a trend chart,
+// offer cards, the definition footer with its links, clarification buttons and follow-up chips. Everything here is data the server computed -
 // the component only lays it out, it never formats or derives a number.
 
+import { useId } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Info } from 'lucide-react';
-import type { AnswerBlock, ClarifyBlock, FooterBlock, OffersBlock, TableBlock } from '@/lib/assistant/blocks';
+import { ArrowRight, ArrowUpRight, BarChart3, Download, Info } from 'lucide-react';
+import type { AnswerBlock, ClarifyBlock, FollowUpsBlock, FooterBlock, FooterLink, OffersBlock, TableBlock } from '@/lib/assistant/blocks';
+import { MiniChart } from './MiniChart';
 import type { PanelStrings } from './strings';
 
 type BlocksProps = {
   blocks: AnswerBlock[];
   strings: PanelStrings;
-  /** Sends a clarification choice as the next user message. null = buttons are inert (old turn). */
-  onChoose: ((value: string) => void) | null;
+  /**
+   * Sends a clarification choice or follow-up chip as the next user message, with its signed
+   * tool call. null = buttons are inert (old turn).
+   */
+  onChoose: ((value: string, followUp?: string) => void) | null;
 };
+
+// Footer links are server-built, but the panel still only follows its own two destinations.
+const LINK_PREFIX: Record<FooterLink['kind'], string> = { panel: '/analytics?', download: '/api/assistant/export/' };
+const isSafeLink = (link: FooterLink) => link.href.startsWith(LINK_PREFIX[link.kind]) && !link.href.includes('//');
+
+const LINK_CLASS =
+  'inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-accent underline-offset-2 transition-colors duration-150 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 // A cell that starts with a digit (or a minus) is a figure: right-aligned, tabular.
 const isNumeric = (cell: string) => /^-?\d/.test(cell);
@@ -113,16 +125,42 @@ function OfferCards({ block, strings }: { block: OffersBlock; strings: PanelStri
   );
 }
 
+function FooterLinks({ links }: { links: FooterLink[] }) {
+  const safe = links.filter(isSafeLink);
+  if (safe.length === 0) return null;
+  return (
+    <div className="-mx-2 mt-1 flex flex-wrap gap-x-1">
+      {safe.map((link) =>
+        link.kind === 'panel' ? (
+          <Link key={link.href} href={link.href} className={LINK_CLASS}>
+            <BarChart3 aria-hidden className="h-3.5 w-3.5" />
+            {link.label}
+          </Link>
+        ) : (
+          // A file download, not a page: a plain anchor so the router does not try to render it.
+          <a key={link.href} href={link.href} download className={LINK_CLASS}>
+            <Download aria-hidden className="h-3.5 w-3.5" />
+            {link.label}
+          </a>
+        )
+      )}
+    </div>
+  );
+}
+
 function AnswerFooter({ block }: { block: FooterBlock }) {
   // The definitions are what makes a figure checkable, so they stay visible - small, not hidden.
   return (
     <aside className="flex gap-2 rounded-md bg-[var(--accent-tint)] px-3 py-2 text-xs leading-relaxed text-txt-secondary">
       <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
-      <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
-        {block.lines.map((line) => (
-          <li key={line}>{line}</li>
-        ))}
-      </ul>
+      <div className="min-w-0">
+        <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+          {block.lines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        {block.links && <FooterLinks links={block.links} />}
+      </div>
     </aside>
   );
 }
@@ -135,12 +173,38 @@ function ClarifyButtons({ block, onChoose }: { block: ClarifyBlock; onChoose: Bl
           key={option.value}
           type="button"
           disabled={!onChoose}
-          onClick={() => onChoose?.(option.value)}
+          onClick={() => onChoose?.(option.value, option.followUp)}
           className="min-h-[44px] cursor-pointer rounded-full border border-accent px-4 text-sm font-medium text-accent transition-colors duration-150 hover:bg-[var(--accent-tint-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-default disabled:border-brd disabled:text-txt-muted disabled:hover:bg-transparent"
         >
           {option.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+function FollowUpChips({ block, onChoose }: { block: FollowUpsBlock; onChoose: BlocksProps['onChoose'] }) {
+  const questionId = useId();
+  // An old turn's chips are not shown at all: they would point at a stale question.
+  if (!onChoose) return null;
+  return (
+    // A group of actions, not a navigation landmark - a long chat would otherwise list one per answer.
+    <div role="group" aria-labelledby={questionId}>
+      <p id={questionId} className="mb-1.5 text-xs text-txt-muted">{block.question}</p>
+      <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
+        {block.chips.map((chip) => (
+          <li key={chip.label}>
+            <button
+              type="button"
+              onClick={() => onChoose(chip.label, chip.followUp)}
+              className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-full border border-brd-hi bg-[var(--bg-input)] px-3.5 text-sm text-txt-primary transition-colors duration-150 hover:border-accent hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              {chip.label}
+              <ArrowRight aria-hidden className="h-3.5 w-3.5 text-txt-muted" />
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -154,6 +218,8 @@ export function AnswerBlocks({ blocks, strings, onChoose }: BlocksProps) {
         if (block.type === 'table') return <DataTable key={key} block={block} />;
         if (block.type === 'offers') return <OfferCards key={key} block={block} strings={strings} />;
         if (block.type === 'footer') return <AnswerFooter key={key} block={block} />;
+        if (block.type === 'chart') return <MiniChart key={key} block={block} />;
+        if (block.type === 'followups') return <FollowUpChips key={key} block={block} onChoose={onChoose} />;
         return <ClarifyButtons key={key} block={block} onChoose={onChoose} />;
       })}
     </div>

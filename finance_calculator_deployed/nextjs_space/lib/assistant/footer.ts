@@ -47,6 +47,8 @@ const T = {
     offers: 'Uwzględnione oferty', people: 'handlowiec', team: 'mój zespół', clients: 'klient',
     steel: 'typ stali (liczone tylko pasujące pozycje)', status: 'status', decision: 'decyzja klienta',
     versions: 'Oferta z kilkoma wersjami liczy się raz (najnowsza wersja).',
+    compared: 'Porównanie z',
+    change: 'Zmiana = okres - okres porównawczy; zmiana % liczona od okresu porównawczego (brak, gdy jest w nim 0).',
     margin: (withM: string, all: string) => `marża liczona z ${withM} z ${all} ofert (pozostałe bez zapisanej marży)`,
   },
   en: {
@@ -54,6 +56,8 @@ const T = {
     offers: 'Offers included', people: 'salesperson', team: 'my team', clients: 'client',
     steel: 'steel type (matching line items only)', status: 'status', decision: 'client decision',
     versions: 'An offer with several versions counts once (latest version).',
+    compared: 'Compared with',
+    change: 'Change = period - comparison period; % change relative to the comparison period (none when it is 0).',
     margin: (withM: string, all: string) => `margin computed from ${withM} of ${all} offers (the rest carry no margin)`,
   },
 } as const;
@@ -68,7 +72,7 @@ export interface AnswerFooter {
   lines: string[];
 }
 
-export function buildMetricsFooter(result: MetricsOk, scope: ScopeKind, names: FooterNames, lang: Lang): AnswerFooter {
+export function buildMetricsFooter(result: MetricsOk, scope: ScopeKind, names: FooterNames, lang: Lang, extraNote?: string | null): AnswerFooter {
   const t = T[lang];
   const lines: string[] = [];
 
@@ -91,11 +95,24 @@ export function buildMetricsFooter(result: MetricsOk, scope: ScopeKind, names: F
   if (f.decision?.length) filters.push(`${t.decision}: ${f.decision.join(', ')}`);
   if (filters.length > 0) lines.push(`${t.filters}: ${filters.join('; ')}.`);
 
-  const coverage = result.coverage.map((c) => {
-    const base = `${formatCount(c.offers, lang)} (${BASIS_TEXT[lang][c.basis]})`;
-    return c.offers_without_margin ? `${base}, ${t.margin(formatCount(c.offers_with_margin ?? 0, lang), formatCount(c.offers, lang))}` : base;
-  });
-  lines.push(`${t.offers}: ${coverage.join('; ')}. ${t.versions}`);
+  const coverage = (rows: MetricsOk['coverage']) =>
+    rows
+      .map((c) => {
+        const base = `${formatCount(c.offers, lang)} (${BASIS_TEXT[lang][c.basis]})`;
+        return c.offers_without_margin ? `${base}, ${t.margin(formatCount(c.offers_with_margin ?? 0, lang), formatCount(c.offers, lang))}` : base;
+      })
+      .join('; ');
+
+  const cmp = result.comparison;
+  if (cmp) {
+    const cmpRange = formatDateRange(cmp.period.from, cmp.period.to, lang);
+    const cmpPeriod = cmp.period.label === cmpRange ? cmpRange : `${cmp.period.label} (${cmpRange})`;
+    lines.push(`${t.compared}: ${cmpPeriod}. ${t.change}`);
+    lines.push(`${t.offers}: ${result.period.label}: ${coverage(result.coverage)}; ${cmp.period.label}: ${coverage(cmp.coverage)}. ${t.versions}`);
+  } else {
+    lines.push(`${t.offers}: ${coverage(result.coverage)}. ${t.versions}`);
+  }
+  if (extraNote) lines.push(extraNote);
 
   return { lines };
 }

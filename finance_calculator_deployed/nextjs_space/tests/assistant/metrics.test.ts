@@ -3,56 +3,10 @@
 // independent oracle, must come out of runMetricsQuery - i.e. out of the analytics engine.
 
 import { describe, expect, test } from 'vitest';
-import golden from './golden.json';
-import { METRIC_IDS, metricsQuerySchema, runMetricsQuery, type MetricId, type MetricsOk, type MetricsQuery } from '@/lib/assistant/metrics';
-import type { PeriodInput } from '@/lib/assistant/periods';
-import { clientIdOf, clientKeyOf, demoDeps, userIdOf } from './demoRows';
+import { cases, periodOf, queryOf } from './goldenCases';
+import { METRIC_IDS, metricsQuerySchema, runMetricsQuery, type MetricId, type MetricsOk } from '@/lib/assistant/metrics';
+import { clientKeyOf, demoDeps, userIdOf } from './demoRows';
 import { PEOPLE } from '../../scripts/assistant-demo/spec';
-
-interface GoldenParams {
-  metrics: string[];
-  period: string;
-  basis: 'created' | 'sent' | 'decided';
-  filters: { people?: string[]; clients?: string[]; steelTypes?: string[] };
-  group_by?: 'person' | 'client' | 'steel_type' | 'month';
-  limit?: number;
-}
-
-interface Case {
-  id: string;
-  group: string;
-  asker: string;
-  question: string;
-  expect: { behavior: string; params?: GoldenParams; numbers?: Record<string, number | null> };
-}
-
-const cases = golden.cases as unknown as Case[];
-
-function periodOf(label: string): PeriodInput {
-  if (label === 'thisYear') return { preset: 'ytd' };
-  if (label === 'last30days') return { preset: 'last30' };
-  if (/^\d{4}$/.test(label)) return { year: Number(label) };
-  const month = /^(\d{4})-(\d{2})$/.exec(label);
-  if (month) return { year: Number(month[1]), month: Number(month[2]) };
-  const quarter = /^(\d{4})-Q(\d)$/.exec(label);
-  if (quarter) return { year: Number(quarter[1]), quarter: Number(quarter[2]) };
-  return { preset: label as PeriodInput['preset'] };
-}
-
-function queryOf(p: GoldenParams): MetricsQuery {
-  const metrics = p.metrics.flatMap((m) => (m === 'margin' ? ['margin_weighted', 'margin_simple'] : [m])) as MetricId[];
-  return metricsQuerySchema.parse({
-    metrics,
-    period: periodOf(p.period),
-    basis: p.basis,
-    filters: {
-      ...(p.filters.people ? { people: p.filters.people.map(userIdOf) } : {}),
-      ...(p.filters.clients ? { clients: p.filters.clients.map(clientIdOf) } : {}),
-      ...(p.filters.steelTypes ? { steel_types: p.filters.steelTypes } : {}),
-    },
-    ...(p.group_by ? { group_by: p.group_by, sort: 'desc', limit: p.limit } : {}),
-  });
-}
 
 // Golden number key -> where runMetricsQuery reports it.
 const KEY_TO_METRIC: Record<string, { metric: MetricId; pln?: boolean }> = {
@@ -95,6 +49,21 @@ describe('metric catalog == golden oracle', () => {
       for (const [key, expected] of Object.entries(c.expect.numbers!)) {
         expect(actual(result as MetricsOk, key), key).toBe(expected);
       }
+    });
+  }
+
+  for (const c of cases.filter((x) => x.group === 'comparison' && x.expect.behavior === 'answer')) {
+    test(`${c.id} ${c.question}`, async () => {
+      const p = c.expect.params!;
+      const query = metricsQuerySchema.parse({ ...queryOf(p), compare: periodOf(p.compare!) });
+      const result = (await runMetricsQuery(query, demoDeps(c.asker))) as MetricsOk;
+      expect(result.status).toBe('ok');
+      const cmp = result.comparison!;
+      const n = c.expect.numbers!;
+      expect(result.values[0].value, 'current').toBe(n.current);
+      expect(cmp.values[0].value, 'previous').toBe(n.previous);
+      expect(cmp.deltas[0].delta_abs, 'deltaAbs').toBe(n.deltaAbs);
+      expect(cmp.deltas[0].delta_pct, 'deltaPct').toBe(n.deltaPct);
     });
   }
 
@@ -178,7 +147,97 @@ describe('metric rules', () => {
     expect(metricsQuerySchema.safeParse({ metrics: ['offers_sent'], period: { preset: 'ytd' }, sql: 'select 1' }).success).toBe(false);
   });
 
+  test('D12: comparing the running month asks, with three fully specified choices', async () => {
+    const run = (compare: unknown, lang: 'pl' | 'en' = 'pl') =>
+      runMetricsQuery(metricsQuerySchema.parse({ metrics: ['offers_sent'], period: { preset: 'thisMonth' }, compare }), demoDeps('admin', lang));
+
+    const pl = (await run('previous_period')) as { status: string; question: string; options: { label: string; period: unknown; compare: unknown }[] };
+    expect(pl).toMatchObject({ status: 'needs_clarification', question: 'comparison' });
+    // Golden cmp-042..045 (today = 2026-11-09).
+    expect(pl.options.map((o) => o.label)).toEqual(['1-9 lis vs 1-9 paź', 'listopad do dziś vs cały październik', 'październik vs wrzesień']);
+    expect(pl.options.map((o) => [o.period, o.compare])).toEqual([
+      [{ from: '2026-11-01', to: '2026-11-09' }, { from: '2026-10-01', to: '2026-10-09' }],
+      [{ from: '2026-11-01', to: '2026-11-09' }, { from: '2026-10-01', to: '2026-10-31' }],
+      [{ from: '2026-10-01', to: '2026-10-31' }, { from: '2026-09-01', to: '2026-09-30' }],
+    ]);
+
+    const en = (await run('previous_period', 'en')) as typeof pl;
+    expect(en.options.map((o) => o.label)).toEqual(['1-9 Nov vs 1-9 Oct', 'November to date vs all of October', 'October vs September']);
+
+    const lastYear = (await run('same_period_last_year')) as typeof pl;
+    expect(lastYear.options[0].label).toBe('1-9 lis 2026 vs 1-9 lis 2025');
+    expect(lastYear.options[2].period).toEqual({ from: '2026-10-01', to: '2026-10-31' });
+    expect(lastYear.options[2].compare).toEqual({ from: '2025-10-01', to: '2025-10-31' });
+
+    // Every choice answers without asking again.
+    for (const option of pl.options) {
+      const picked = await runMetricsQuery(
+        metricsQuerySchema.parse({ metrics: ['offers_sent'], period: option.period, compare: option.compare }),
+        demoDeps('admin')
+      );
+      expect(picked.status).toBe('ok');
+    }
+  });
+
+  test('comparison: previous period of a quarter, last year, base 0 and guard rails', async () => {
+    const q3 = (await runMetricsQuery(
+      metricsQuerySchema.parse({ metrics: ['tons_won'], period: { year: 2026, quarter: 3 }, compare: 'previous_period' }),
+      demoDeps('admin')
+    )) as MetricsOk;
+    expect(q3.comparison!.period).toMatchObject({ from: '2026-04-01', to: '2026-06-30', label: 'II kwartał 2026' });
+
+    const ly = (await runMetricsQuery(
+      metricsQuerySchema.parse({ metrics: ['offers_sent'], period: { year: 2026, month: 10 }, compare: 'same_period_last_year' }),
+      demoDeps('admin')
+    )) as MetricsOk;
+    expect(ly.comparison!.period).toMatchObject({ from: '2025-10-01', to: '2025-10-31' });
+    expect(ly.comparison!.deltas[0].text).toBe('+7; +100,0%');
+
+    // Nothing in the comparison window: no "infinity %".
+    const fromNothing = (await runMetricsQuery(
+      metricsQuerySchema.parse({ metrics: ['offers_sent'], period: { year: 2026, month: 10 }, compare: { year: 2020, month: 10 } }),
+      demoDeps('admin')
+    )) as MetricsOk;
+    expect(fromNothing.comparison!.deltas[0]).toMatchObject({ delta_abs: 14, delta_pct: null });
+
+    const withGroups = await runMetricsQuery(
+      metricsQuerySchema.parse({ metrics: ['offers_sent'], period: { year: 2026, month: 10 }, compare: 'previous_period', group_by: 'person' }),
+      demoDeps('admin')
+    );
+    expect(withGroups.status).toBe('invalid');
+
+    const allTime = await runMetricsQuery(
+      metricsQuerySchema.parse({ metrics: ['offers_sent'], period: { preset: 'all' }, compare: 'previous_period' }),
+      demoDeps('admin')
+    );
+    expect(allTime.status).toBe('invalid');
+  });
+
+  test('margin change is stated in percentage points', async () => {
+    const result = (await runMetricsQuery(
+      metricsQuerySchema.parse({ metrics: ['margin_weighted'], period: { year: 2026, quarter: 3 }, compare: { year: 2026, quarter: 2 } }),
+      demoDeps('admin')
+    )) as MetricsOk;
+    expect(result.comparison!.deltas[0].text).toBe('+0,45 p.p.; +5,5%');
+  });
+
   test('people named in the fixture exist', () => {
     expect(PEOPLE.length).toBeGreaterThan(0);
+  });
+});
+
+describe('comparison edge cases (review fixes)', () => {
+  test('no % change against a zero or negative base - a sign flip would read backwards', async () => {
+    const { delta } = await import('@/lib/assistant/compare');
+    // Margin from -2,00% to -1,00%: an improvement of 1 p.p., never "-50%".
+    expect(delta(-1, -2, 2)).toEqual({ abs: 1, pct: null });
+    expect(delta(5, 0, 0)).toEqual({ abs: 5, pct: null });
+    expect(delta(12, 10, 0)).toEqual({ abs: 2, pct: 20 });
+  });
+
+  test('compare with lost_reasons is refused, not silently half-answered', async () => {
+    const query = metricsQuerySchema.parse({ ...queryOf({ metrics: ['offers_lost', 'lost_reasons'], period: '2026-10', basis: 'decided', filters: {} }), compare: 'previous_period' });
+    const result = await runMetricsQuery(query, demoDeps('admin'));
+    expect(result.status).toBe('invalid');
   });
 });

@@ -140,3 +140,43 @@ describe('agent loop', () => {
     expect(result.blocks).toEqual([{ type: 'clarify', options: [{ label: 'A', value: 'A' }] }]);
   });
 });
+
+describe('agent loop - a clicked button (pinned call)', () => {
+  const followUps = (label: string) => ({ type: 'followups' as const, question: 'Mogę też:', chips: [{ label, followUp: 'token' }] });
+
+  test('runs the pinned call before the model and hands it the result as untrusted data', async () => {
+    const session = scripted([say('W październiku 12 ofert.')]);
+    const result = await runAgent({
+      session, tools, runtime, userText: 'Porównaj z: wrzesień 2026', pinned: { name: 'count_offers', input: { month: 10 } },
+    });
+    expect(result).toMatchObject({ text: 'W październiku 12 ofert.', outcome: 'answer', steps: 1 });
+    expect(result.toolCalls).toMatchObject([{ name: 'count_offers', ok: true }]);
+    expect(result.blocks).toEqual([{ type: 'footer', lines: ['Okres: 10.2026'] }]);
+    const first = session.sent[0];
+    const sent = 'userText' in first ? first.userText : '';
+    expect(sent.startsWith('Porównaj z: wrzesień 2026')).toBe(true);
+    expect(sent).toContain('<tool_data name="count_offers" untrusted="true">');
+    expect(sent).toContain('"offers":12');
+  });
+
+  test('a pinned call is validated like any other: bad input reaches the model as an error', async () => {
+    const session = scripted([say('Nie udało się.')]);
+    const result = await runAgent({ session, tools, runtime, userText: 'x', pinned: { name: 'count_offers', input: { month: 13 } } });
+    expect(result.toolCalls).toMatchObject([{ name: 'count_offers', ok: false }]);
+    const first = session.sent[0];
+    expect('userText' in first ? first.userText : '').toContain('Invalid input');
+  });
+
+  test('only the last set of follow-up chips is shown', async () => {
+    let n = 0;
+    const chips = defineTool({
+      name: 'chips',
+      description: 'returns chips',
+      schema: z.object({}).strict(),
+      run: async () => ({ result: { status: 'ok' }, blocks: [followUps(`chip ${++n}`)] }),
+    });
+    const session = scripted([call('chips', {}), call('chips', {}, 'c2'), say('Gotowe.')]);
+    const result = await runAgent({ session, tools: [chips], runtime, userText: 'x' });
+    expect(result.blocks).toEqual([followUps('chip 2')]);
+  });
+});

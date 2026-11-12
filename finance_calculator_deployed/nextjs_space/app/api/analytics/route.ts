@@ -1,35 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAccess } from '@/lib/access/context';
 import { offerVisibilitySql } from '@/lib/access/scope';
-import {
-  CLIENT_DECISIONS,
-  DATE_BASES,
-  DIMENSIONS,
-  GRANULARITIES,
-  OFFER_STATUSES,
-  STEEL_TYPE_SERIES_ORDER,
-  isIsoDate,
-  parseEnum,
-  parseEnumList,
-  parseIdList,
-  type AnalyticsFilters,
-  type AnalyticsPayload,
-  type Dimension,
-} from '@/lib/analytics';
-import {
-  PERIOD_PRESETS,
-  fitGranularity,
-  previousPeriod,
-  resolvePreset,
-  suggestGranularity,
-  type PeriodPreset,
-  type ResolvedPeriod,
-} from '@/lib/analyticsPeriods';
+import { OFFER_STATUSES, CLIENT_DECISIONS, STEEL_TYPE_SERIES_ORDER, type AnalyticsPayload } from '@/lib/analytics';
+import { previousPeriod } from '@/lib/analyticsPeriods';
+import { parseAnalyticsRequest } from '@/lib/analyticsRequest';
 import { fetchAnalyticsRows, fetchFacets, fetchToday } from '@/lib/analyticsQuery';
 import { computeKpi, computeLostReasons, normalizeOffers, withinWindow } from '@/lib/analyticsAggregate';
 import { loadLostReasons } from '@/lib/lostReasonsDb';
 import { buildSeries, groupBy, splitKeysFrom } from '@/lib/analyticsSeries';
-import type { SteelType } from '@/lib/calculatorData';
 
 // GET - everything the analytics panel draws, for the period and filters in the query string.
 //
@@ -56,60 +34,9 @@ export async function GET(request: NextRequest) {
   const session = auth.ctx;
 
   try {
-    const sp = request.nextUrl.searchParams;
-    const preset = parseEnum<PeriodPreset>(sp.get('preset'), PERIOD_PRESETS, 'last90');
-    const basis = parseEnum(sp.get('basis'), DATE_BASES, 'created');
-    const split = parseEnum<Dimension | 'none'>(
-      sp.get('split'),
-      [...DIMENSIONS, 'none'] as const,
-      'none'
-    );
-
     // Today comes from the database so a preset resolves on the same clock the rows carry.
     const today = await fetchToday();
-
-    // 'custom' is the only preset that reads from/to; anything invalid degrades to unbounded
-    // rather than erroring, so a mistyped URL still renders a page.
-    const rawFrom = sp.get('from');
-    const rawTo = sp.get('to');
-    const period: ResolvedPeriod =
-      preset === 'custom'
-        ? {
-            from: isIsoDate(rawFrom) ? rawFrom : null,
-            to: isIsoDate(rawTo) ? rawTo : null,
-          }
-        : resolvePreset(preset, today);
-
-    // A reversed range is a slip, not an empty result - swap it instead of showing nothing.
-    if (period.from && period.to && period.from > period.to) {
-      const swapped = period.from;
-      period.from = period.to;
-      period.to = swapped;
-    }
-
-    // An explicit granularity is honoured, but only as far as it can be DRAWN: fitGranularity
-    // coarsens it if the window would otherwise blow past the bucket cap and leave the chart
-    // showing a different period than the totals above it. Absent one, the window length picks.
-    const requested = GRANULARITIES.includes(
-      (sp.get('granularity') ?? '') as (typeof GRANULARITIES)[number]
-    )
-      ? parseEnum(sp.get('granularity'), GRANULARITIES, 'month')
-      : suggestGranularity(period.from, period.to);
-    const granularity = fitGranularity(period.from, period.to, requested);
-
-    const filters: AnalyticsFilters = {
-      dateFrom: period.from ?? '',
-      dateTo: period.to ?? '',
-      basis,
-      granularity,
-      // The id list is ANDed onto the visibility predicate in visibilityClause, so it can only
-      // narrow what the caller already sees - safe to parse the raw ids for everyone.
-      userIds: parseIdList(sp.get('users')),
-      steelTypes: parseEnumList<SteelType>(sp.get('types'), STEEL_TYPE_SERIES_ORDER),
-      statuses: parseEnumList(sp.get('statuses'), OFFER_STATUSES),
-      decisions: parseEnumList(sp.get('decisions'), CLIENT_DECISIONS),
-      clientIds: parseIdList(sp.get('clients')),
-    };
+    const { period, filters, split } = parseAnalyticsRequest(request.nextUrl.searchParams, today);
 
     const comparison = previousPeriod(period);
 
@@ -165,7 +92,7 @@ export async function GET(request: NextRequest) {
                 : [];
     const splitKeys = splitKeysFrom(splitGroups);
 
-    const series = buildSeries(current, period.from, period.to, granularity, {
+    const series = buildSeries(current, period.from, period.to, filters.granularity, {
       split,
       splitKeys: splitKeys.map((s) => s.key),
     });

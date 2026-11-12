@@ -55,6 +55,8 @@ interface KpiTilesProps {
     vsPrevious: string;
     noComparison: string;
     decidedOffers: string;
+    /** Simple (per-offer) average margin, shown under the weighted one (plan D21). */
+    simpleMargin: string;
   };
   onFilterDecision?: (decision: ClientDecision) => void;
 }
@@ -166,6 +168,7 @@ export default function KpiTiles({
       accent: 'var(--accent-zm)',
       current: kpi.avgMarginPct ?? 0,
       previous: previousKpi?.avgMarginPct ?? null,
+      hint: `${labels.simpleMargin}: ${formatPct(kpi.avgMarginSimplePct, language)}`,
     },
   ];
 

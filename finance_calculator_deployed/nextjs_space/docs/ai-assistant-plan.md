@@ -725,6 +725,46 @@ Decisions taken while building (say if any should change):
 
 For IT / CEO (go-live only): data location, provider contract, log retention, pilot group.
 
+### 14.4 Phase 2 notes (11-12)
+
+How phase 2 was verified (still without a model):
+- `tests/assistant/metrics.test.ts`: the 11 golden comparison answers + D12 choices + edge cases
+  (base 0, negative base, compare with group_by / lost_reasons refused).
+- `tests/assistant/panelLink.test.ts`: link parity on 52 golden answers (aggregates, rankings,
+  comparisons, both windows). The link is read the way /analytics reads it (parseUrlState ->
+  toApiQuery -> parseAnalyticsRequest -> engine) and must give the answer's exact values.
+- `tests/analyticsUrlState.test.ts`, `followUps.test.ts` (every chip validated against the
+  tool's own schema), `tokens.test.ts`, `exportWorkbook.test.ts`, pinned call in `agentLoop.test.ts`.
+- Playwright on the dev server, CEO demo account: deep link scrolls to the focused section and
+  drops `focus` from the URL; panel edits (incl. two in one tick) are written back; reload
+  restores the view; a forged or oversized export token gets 403.
+
+Worked example (golden cmp-031, admin, "O ile więcej ofert wysłaliśmy w październiku niż we
+wrześniu?"): offers_sent, basis sent. October 2026 = 14, September 2026 = 10.
+Change = 14 - 10 = +4; % = 4 / 10 = 40,0%. Table row: "14 | 10 | +4; +40,0%".
+Live cross-check 11-12: October 2026 lost offers, decision date, CEO scope - /api/analytics on
+the seeded DB and the assistant engine both give 5 offers, 215,90 t, 196 883,24 EUR.
+
+Decisions taken while building (say if any should change):
+- **Follow-up question is written by the server** ("Mogę też:"), not phrased by the model -
+  the model has nothing to add and one less place to invent a suggestion.
+- **Panel and Excel are links in the footer, not chips** - chips are next questions, links are
+  ways to see the same answer elsewhere.
+- **Buttons are signed tokens** (HMAC, purpose + user bound, 24 h). Clicking runs the signed
+  tool call before the model ("pinned call"); the model writes the answer from that result and
+  never re-types parameters. A cached answer keeps its tokens, so a button older than 24 h says
+  "Ten przycisk jest już nieaktualny".
+- **The Excel file re-runs the query** with the clicker's current access and pinned dates - it
+  can differ from the chat answer if offers changed since. 10 exports / minute / user.
+- **compare is refused together with group_by or lost_reasons** - ask separately.
+- **D12 asks only when the current window ends after today.** last30 / ytd (ending today) are
+  compared with the window of the same length before, silently.
+- **No % change against a base of 0 or below** (a margin from -2% to -1% would read -50%).
+- **Margins on /analytics show 1 decimal, the assistant 2** - same values, different rounding
+  in the tile (e.g. 7,58% vs 7,6%). Simple-average margin is the margin tile's hint (D21).
+- **Panel edits do not add history entries** (`router.replace`): Back leaves /analytics.
+  An assistant link opens a new entry, so Back returns to the previous view.
+
 ---
 
 ## 15. TODO
@@ -767,24 +807,27 @@ For IT / CEO (go-live only): data location, provider contract, log retention, pi
 - [x] Tests 12.1-12.4 (428 pass), `verify-tools.ts` on the demo DB (110 checks), build green
 - [ ] Mati: Anthropic API key -> `scripts/assistant-eval.ts` (12.6, live golden run) + first
       real conversation; tune the system prompt on the results
-- [ ] /analytics KPI for the simple-average margin (D21) - the engine field exists
+- [x] /analytics KPI for the simple-average margin (D21) - hint on the margin tile (11-12)
 - [ ] Admin page `/api/admin/assistant` (usage, cost, guard hits, switches) - settings exist in DB
 - [ ] `flow` filter on metrics (needs an engine filter first, rule 3.2)
 - [ ] EN knowledge base
 
 ### Phase 2 - analytics outputs
-- [ ] compare + incomplete-period clarification (3.3)
-- [ ] MiniChart from series
-- [ ] Excel export route via `analyticsExport`
-- [ ] `lib/analyticsUrlState.ts` (Zod schema, parse / toSearch, defaults on bad input)
-- [ ] /analytics reads state from the URL on load + syncs it on change (`router.replace`),
+- [x] compare + incomplete-period clarification (3.3) - `lib/assistant/compare.ts`
+- [x] MiniChart from series
+- [x] Excel export route - `app/api/assistant/export/[token]`, workbook in `exportWorkbook.ts`
+      (server side; `analyticsExport.ts` is the panel's browser export, only column fitting shared)
+- [x] `lib/analyticsUrlState.ts` (Zod schema, parse / toSearch, defaults on bad input)
+- [x] /analytics reads state from the URL on load + syncs it on change (`router.replace`),
       incl. view state (measure, chart kinds, breakdown, role) and `focus` scroll
-- [ ] Metric -> panel view mapping table in `metrics.ts`; no button when the panel has no view
-- [ ] Two buttons for comparison answers
-- [ ] `lib/assistant/followUps.ts` rules + `FollowUpChips` block + structured follow-up handling
+- [x] Metric -> panel view mapping table (`lib/assistant/panelLink.ts`, not `metrics.ts`);
+      no button when the panel has no view
+- [x] Two buttons for comparison answers
+- [x] `lib/assistant/followUps.ts` rules + `FollowUpChips` block + structured follow-up handling
       in the chat route (6.2)
-- [ ] Tests: round-trip, link parity on the golden aggregates, Playwright deep-link check
-- [ ] Golden comparisons + rankings groups green
+- [x] Tests: round-trip, link parity on the golden aggregates, Playwright deep-link check
+- [x] Golden comparisons + rankings groups green
+- [ ] Seen with a real model: compare answers, chips, pinned turns (only the fake model so far)
 
 ### Phase 3 - actions
 - [ ] Extract `lib/offers/service.ts`, routes become wrappers, smoke-test every action in the UI

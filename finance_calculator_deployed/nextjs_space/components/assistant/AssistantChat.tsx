@@ -60,7 +60,7 @@ function Feedback({ turnId, strings }: { turnId: number; strings: PanelStrings }
 type MessageProps = {
   message: ChatMessage;
   strings: PanelStrings;
-  onChoose: ((value: string) => void) | null;
+  onChoose: ((value: string, followUp?: string) => void) | null;
 };
 
 function Message({ message, strings, onChoose }: MessageProps) {
@@ -124,9 +124,9 @@ export function AssistantChat({ autoFocus = false }: ChatProps) {
     if (autoFocus) inputRef.current?.focus();
   }, [autoFocus]);
 
-  const submit = (text: string) => {
+  const submit = (text: string, followUp?: string) => {
     if (busy || !text.trim()) return;
-    send(text);
+    send(text, followUp);
     setDraft('');
   };
 

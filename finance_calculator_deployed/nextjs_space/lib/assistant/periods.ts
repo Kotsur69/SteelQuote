@@ -13,7 +13,7 @@
 import { z } from 'zod';
 import { isIsoDate } from '../analytics';
 import { addDays, addMonths, resolvePreset, type PeriodPreset } from '../analyticsPeriods';
-import { formatDateRange, monthLabel, quarterLabel, type Lang } from './format';
+import { formatDate, formatDateRange, monthLabel, quarterLabel, type Lang } from './format';
 
 // 'custom' is expressed with from/to instead.
 export const ASSISTANT_PRESETS = [
@@ -62,6 +62,34 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const monthStart = (year: number, month: number) => `${year}-${pad(month)}-01`;
 const monthEnd = (year: number, month: number) => addDays(addMonths(monthStart(year, month), 1), -1);
 
+const monthEndOf = (iso: string) => addDays(addMonths(`${iso.slice(0, 7)}-01`, 1), -1);
+const isMonthEnd = (iso: string) => iso === monthEndOf(iso);
+const monthIndex = (iso: string) => Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7)) - 1;
+
+type Unit = 'month' | 'quarter' | 'year';
+
+/** The calendar unit a window covers exactly, if any. */
+export function calendarUnit(from: string, to: string): Unit | null {
+  if (!from.endsWith('-01') || !isMonthEnd(to)) return null;
+  const months = monthIndex(to) - monthIndex(from) + 1;
+  const startMonth = Number(from.slice(5, 7));
+  if (months === 1) return 'month';
+  if (months === 3 && (startMonth - 1) % 3 === 0) return 'quarter';
+  if (months === 12 && startMonth === 1) return 'year';
+  return null;
+}
+
+/** "październik 2026", "III kwartał 2026", "2025", or the dates for any other window. */
+export function windowLabel(from: string, to: string, lang: Lang): string {
+  const unit = calendarUnit(from, to);
+  const year = Number(from.slice(0, 4));
+  const month = Number(from.slice(5, 7));
+  if (unit === 'month') return monthLabel(year, month, lang);
+  if (unit === 'quarter') return quarterLabel(year, Math.floor((month - 1) / 3) + 1, lang);
+  if (unit === 'year') return String(year);
+  return from === to ? formatDate(from, lang) : `${formatDate(from, lang)} - ${formatDate(to, lang)}`;
+}
+
 function window(from: string | null, to: string | null, label: string, today: string): PeriodResolution {
   if (from && from > today) return { kind: 'future', label };
   return { kind: 'resolved', from, to, label, inProgress: to === null || to >= today };
@@ -102,7 +130,7 @@ export function resolvePeriod(input: PeriodInput, today: string, lang: Lang): Pe
     if (!from || !to) return { kind: 'invalid', message: 'Both "from" and "to" are required for an explicit range.' };
     // A reversed range is a slip, not an empty result (same rule as /api/analytics).
     const [a, b] = from <= to ? [from, to] : [to, from];
-    return window(a, b, formatDateRange(a, b, lang), today);
+    return window(a, b, windowLabel(a, b, lang), today);
   }
 
   if (month !== undefined) {
