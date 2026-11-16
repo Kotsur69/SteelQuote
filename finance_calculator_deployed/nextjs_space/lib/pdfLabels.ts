@@ -92,7 +92,7 @@ const deliveryTermsLine = (prefix: string, pickupNote: string, term: Incoterm, p
 
 export const PDF_LABELS: Record<Language, PdfLabels> = {
   pl: {
-    defaultOfferTitle: 'Oferta cenowa',
+    defaultOfferTitle: 'Oferta',
     offerNumberLabel: 'Nr oferty: ',
     dateLabel: 'Data: ',
     preparedByLabel: 'Sporządził: ',

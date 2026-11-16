@@ -51,4 +51,20 @@ describe('buildItemNotes - delivery terms', () => {
     const notes = buildItemNotes('HRS', inputs({ incoterm: 'EXW' as never }), pl, 'pl', route);
     expect(notes.some((n) => n.startsWith('Dostawa:'))).toBe(false);
   });
+
+  test('mill packaging (Opakowanie) and SSC packaging (Rodzaj opakowania) appear right next to each other for CR, HDG and ZM', () => {
+    for (const type of ['CR', 'HDG', 'ZM'] as const) {
+      const notes = buildItemNotes(
+        type,
+        inputs({ crOpakIdx: 0, hdgOpakIdx: 0, zmOpakIdx: 0, sscPackingIdx: 0 }),
+        pl,
+        'pl',
+        route
+      );
+      const millIdx = notes.findIndex((n) => n.startsWith(`${pl.huta.packaging}:`));
+      const sscIdx = notes.findIndex((n) => n.startsWith(`${pl.ssc.packaging}:`));
+      expect(millIdx).toBeGreaterThanOrEqual(0);
+      expect(sscIdx).toBe(millIdx + 1);
+    }
+  });
 });

@@ -68,7 +68,7 @@ export function buildItemNotes(
 
   // Huta (mill) — wspólne dla wszystkich typów
   push(t.huta.thicknessTolerance, p('tolerance', TOL_THICK_OPTIONS[type]));
-  if (own.cert !== offerTerms.cert) push(t.huta.certificate, p('cert', CERT_OPTIONS));
+  push(t.huta.certificate, p('cert', CERT_OPTIONS));
 
   if ((type === 'HDG' || type === 'ZM') && inputs.selectedCoating) {
     lines.push(`${t.huta.coating}: ${inputs.selectedCoating}`);
@@ -76,7 +76,6 @@ export function buildItemNotes(
 
   if (type === 'CR') {
     push(t.huta.protection, p('crProtection', CR_PROTECTION_OPTIONS));
-    push(t.huta.packaging, p('crPackaging', opts.crPackaging));
     push(t.huta.surface, p('crSurface', opts.crSurface));
     push(t.huta.surfaceFinish, p('crFinish', opts.crFinish));
     push(t.huta.weld, p('crWeld', opts.crWeld));
@@ -84,7 +83,6 @@ export function buildItemNotes(
 
   if (type === 'HDG') {
     push(t.huta.protection, p('hdgProtection', HDG_PROTECTION_OPTIONS));
-    push(t.huta.packaging, p('hdgPackaging', opts.hdgPackaging));
     push(t.huta.surface, p('hdgSurface', opts.hdgSurface));
     push(t.huta.surfaceFinish, p('hdgFinish', opts.hdgFinish));
     push(t.huta.weld, p('hdgWeld', opts.hdgWeld));
@@ -93,7 +91,6 @@ export function buildItemNotes(
   // ZM: bez osobnego "wykonania" (finish) — tylko 4 grupy dopłat, jak w Calculator.tsx
   if (type === 'ZM') {
     push(t.huta.protection, p('zmProtection', ZM_PROTECTION_OPTIONS));
-    push(t.huta.packaging, p('zmPackaging', opts.zmPackaging));
     push(t.huta.surface, p('zmSurface', opts.zmSurface));
     push(t.huta.weld, p('zmWeld', opts.zmWeld));
   }
@@ -105,9 +102,13 @@ export function buildItemNotes(
   push(t.ssc.maxPackWeight, p('sscMaxWeight', SSC_MAX_WEIGHT_OPTIONS));
   push(t.ssc.marking, p('sscMarking', opts.marking));
   push(t.ssc.edging, p('sscEdging', opts.edging));
+  // Mill packaging (CR / HDG / ZM) right before SSC packaging so both packaging notes sit together.
+  if (type === 'CR') push(t.huta.packaging, p('crPackaging', opts.crPackaging));
+  if (type === 'HDG') push(t.huta.packaging, p('hdgPackaging', opts.hdgPackaging));
+  if (type === 'ZM') push(t.huta.packaging, p('zmPackaging', opts.zmPackaging));
   // Packaging prints its description (the UI hover text), not the S01..SB3 code.
   const packing = own.packing === undefined ? undefined : packagingDescription(t, own.packing);
-  if (packing && own.packing !== offerTerms.packing) lines.push(`${t.ssc.packaging}: ${packing}`);
+  if (packing) lines.push(`${t.ssc.packaging}: ${packing}`);
   push(t.ssc.labels, p('sscLabels', opts.labels));
 
   // Komentarz do dopłaty dodatkowej — tylko gdy handlowiec jawnie zaznaczył, że ma

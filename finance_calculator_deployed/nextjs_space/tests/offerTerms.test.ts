@@ -46,35 +46,36 @@ describe('dominantValue', () => {
   });
 });
 
-describe('offer terms + exceptions in Uwagi', () => {
-  test('all items 3.1: terms say 3.1, no item repeats the certificate', () => {
+describe('offer terms + Uwagi', () => {
+  test('all items 3.1: every item prints its certificate in Uwagi', () => {
     const items = [item(CERT_31), item(CERT_31), item(CERT_31)];
     expect(offerTermKeys(items, route).cert).toBe(CERT_31);
-    expect(notesOf(items).flat().some((n) => n.startsWith(`${pl.huta.certificate}:`))).toBe(false);
+    notesOf(items).forEach((n) => expect(n).toContain(certLine('3.1')));
   });
 
-  test('3.1 x4 + 3.2 x1: terms say 3.1, only the 3.2 item lists it', () => {
+  test('3.1 x4 + 3.2 x1: every item prints its own certificate in Uwagi', () => {
     const items = [item(CERT_31), item(CERT_31), item(CERT_32), item(CERT_31), item(CERT_31)];
     expect(offerTermKeys(items, route).cert).toBe(CERT_31);
     const notes = notesOf(items);
     expect(notes[2]).toContain(certLine('3.2'));
-    [0, 1, 3, 4].forEach((i) => expect(notes[i].some((n) => n.startsWith(`${pl.huta.certificate}:`))).toBe(false));
+    [0, 1, 3, 4].forEach((i) => expect(notes[i]).toContain(certLine('3.1')));
   });
 
   test('certificate tie takes the default of the first item type (3.1 for HRS)', () => {
     const items = [item(CERT_22), item(CERT_31)];
     expect(offerTermKeys(items, route).cert).toBe(CERT_31);
     expect(notesOf(items)[0]).toContain(certLine('2.2'));
+    expect(notesOf(items)[1]).toContain(certLine('3.1'));
   });
 
-  test('S01 everywhere: no packaging line; one S03 item lists only itself', () => {
-    expect(notesOf([item(CERT_31), item(CERT_31)]).flat().some((n) => n.startsWith(`${pl.ssc.packaging}:`))).toBe(false);
+  test('packaging is always listed in Uwagi with its description, never the code', () => {
+    notesOf([item(CERT_31), item(CERT_31)]).forEach((n) => expect(n).toContain(packingLine(pl.ssc.packagingDesc.S01)));
     const items = [item(CERT_31), item(CERT_31, S03), item(CERT_31)];
     expect(offerTermKeys(items, route).packing).toBe(S01);
     const notes = notesOf(items);
+    expect(notes[0]).toContain(packingLine(pl.ssc.packagingDesc.S01));
     expect(notes[1]).toContain(packingLine(pl.ssc.packagingDesc.S03));
     expect(notes.flat().some((n) => n.includes('S03'))).toBe(false);
-    expect(notes[0].some((n) => n.startsWith(`${pl.ssc.packaging}:`))).toBe(false);
   });
 
   test('delivery: dominant CPT with the address in terms, only the FCA item lists its term', () => {
