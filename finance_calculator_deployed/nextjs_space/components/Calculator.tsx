@@ -50,7 +50,7 @@ import { useLanguage, LanguageSelector } from '@/contexts/LanguageContext';
 import AdminSettingsShortcut from '@/components/AdminSettingsShortcut';
 import { useCurrency, CurrencySelector } from '@/contexts/CurrencyContext';
 import { useUnsavedGuard } from '@/lib/unsavedGuard';
-import { pglBaseForType, type AppSettings } from '@/lib/currency';
+import { DEFAULT_SETTINGS, pglBaseForType, type AppSettings } from '@/lib/currency';
 import { fixedGrouped, groupThousands, tonDecimals } from '@/lib/numberFormat';
 import { quarterOfDateString, quarterOf, thisMonthValidityRange, type Quarter } from '@/lib/quarterUtils';
 import { addDaysToDateString, todayDateString, daysBetweenDateStrings } from '@/lib/dateUtils';
@@ -150,7 +150,7 @@ const INITIAL_OFFER_DATA: Record<string, unknown> = {
   // Option selection by index (+ the default prices); restore re-prices from the live book.
   ...optionSelectionFields(DEFAULT_PRICE_BOOK, 'HRS', defaultOptionSelection('HRS')),
   selectedCoating: 'Z275',
-  pglBase: 645, marginPct: 7, extra: 0, extraComment: '', extraCommentInPdf: false, transport: 20, tons: 1,
+  pglBase: 645, marginPct: DEFAULT_SETTINGS.defaultMarginPct, extra: 0, extraComment: '', extraCommentInPdf: false, transport: 20, tons: 1,
   quantitySource: 'tons', sheetCount: 0,
   incoterm: null,
   validFrom: '', validTo: '', paymentTermDays: null, quoteValidityHours: null,
@@ -358,7 +358,9 @@ export default function Calculator() {
 
   // Summary
   const [pglBase, setPglBase] = useState(645);
-  const [marginPct, setMarginPct] = useState(7);
+  // Starting margin = admin's "Domyślna marża"; the admin-defaults effect below re-applies it
+  // from freshly fetched settings for a new offer.
+  const [marginPct, setMarginPct] = useState(() => settings.defaultMarginPct);
   const [extra, setExtra] = useState(0);
   // Komentarz do dopłaty dodatkowej — pojawia się w UI tylko gdy extra !== 0, ale
   // wartość NIE jest czyszczona przy powrocie do 0 (żeby przypadkowe wyzerowanie
@@ -1372,6 +1374,7 @@ export default function Calculator() {
       const s = fresh ?? settings;
       setPglBase(pglBaseForType(currentType, s));
       setTransport(s.transportBase);
+      setMarginPct(s.defaultMarginPct);
       // Defaults for an offer with no client yet: "Ten miesiąc" price validity, 24h quote
       // validity and the global payment term — a picked client's own term overrides it
       // (applyClientSuggestion).
@@ -1566,6 +1569,7 @@ export default function Calculator() {
         const s = fresh ?? settings;
         setPglBase(pglBaseForType('HRS', s));
         setTransport(s.transportBase);
+        setMarginPct(s.defaultMarginPct);
         const { from, to } = thisMonthValidityRange();
         setValidFrom(from);
         setValidTo(to);

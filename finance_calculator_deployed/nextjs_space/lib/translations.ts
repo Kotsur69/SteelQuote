@@ -540,6 +540,8 @@ export interface Translations {
       pglBaseHint: string;
       minMarginPct: string;
       minMarginPctHint: string;
+      defaultMarginPct: string;
+      defaultMarginPctHint: string;
       scrapPct: string;
       scrapPctHint: string;
       paymentTermDays: string;
@@ -1362,6 +1364,8 @@ export const pl: Translations = {
       transportBase: 'Transport bazowy',
       minMarginPct: 'Minimalna marża (%)',
       minMarginPctHint: 'Poniżej tego progu kalkulator ostrzega o niskiej marży. Kto musi zatwierdzić ofertę, ustalają reguły w zakładce Uprawnienia.',
+      defaultMarginPct: 'Domyślna marża (%)',
+      defaultMarginPctHint: 'Marża, którą kalkulator wpisuje na start każdej nowej pozycji. Handlowiec z prawem zmiany marży może ją potem zmienić. Zapisane oferty się nie zmieniają.',
       scrapPct: 'Złom (%)',
       scrapPctHint: 'Procent ceny wsadu (PGL + Σ Huta) doliczany w podsumowaniu SSC jako "Złom".',
       paymentTermDays: 'Domyślny termin płatności (dni)',
@@ -1714,7 +1718,7 @@ export const pl: Translations = {
     decisionWon: 'Wygrana',
     decisionLost: 'Przegrana',
     clientDecision: 'Decyzja klienta',
-    markWon: 'Klient przyjął',
+    markWon: 'Klient zaakceptował',
     markLost: 'Klient odrzucił',
     clearDecision: 'Cofnij decyzję',
     decisionSaved: 'Decyzja klienta zapisana',
@@ -2213,6 +2217,8 @@ export const en: Translations = {
       transportBase: 'Base transport',
       minMarginPct: 'Minimum margin (%)',
       minMarginPctHint: 'Below this threshold the calculator warns about a low margin. Who has to approve the offer is set by the rules on the Permissions page.',
+      defaultMarginPct: 'Default margin (%)',
+      defaultMarginPctHint: 'The margin the calculator pre-fills for every new item. A salesperson allowed to change the margin can still edit it. Saved offers are not affected.',
       scrapPct: 'Scrap (%)',
       scrapPctHint: 'Percentage of the input price (PGL + Σ Mill) added in the SSC summary as "Scrap".',
       paymentTermDays: 'Default payment term (days)',
@@ -3063,6 +3069,8 @@ export const cs: Translations = {
       transportBase: 'Základní doprava',
       minMarginPct: 'Minimální marže (%)',
       minMarginPctHint: 'Pod touto hranicí kalkulačka upozorní na nízkou marži. Kdo musí nabídku schválit, určují pravidla na stránce Oprávnění.',
+      defaultMarginPct: 'Výchozí marže (%)',
+      defaultMarginPctHint: 'Marže, kterou kalkulačka předvyplní u každé nové položky. Obchodník s právem měnit marži ji může upravit. Uložené nabídky se nemění.',
       scrapPct: 'Šrot (%)',
       scrapPctHint: 'Procento ceny vsázky (PGL + Σ Huť) připočítané v souhrnu SSC jako "Šrot".',
       paymentTermDays: 'Výchozí splatnost (dny)',
@@ -3913,6 +3921,8 @@ export const de: Translations = {
       transportBase: 'Basis-Transport',
       minMarginPct: 'Mindestmarge (%)',
       minMarginPctHint: 'Unterhalb dieser Schwelle warnt der Kalkulator vor einer niedrigen Marge. Wer das Angebot freigeben muss, legen die Regeln auf der Seite Berechtigungen fest.',
+      defaultMarginPct: 'Standardmarge (%)',
+      defaultMarginPctHint: 'Die Marge, die der Kalkulator für jede neue Position vorbelegt. Ein Verkäufer mit dem Recht, die Marge zu ändern, kann sie anpassen. Gespeicherte Angebote bleiben unverändert.',
       scrapPct: 'Schrott (%)',
       scrapPctHint: 'Prozentsatz des Einsatzpreises (PGL + Σ Werk), der in der SSC-Summe als "Schrott" berechnet wird.',
       paymentTermDays: 'Standard-Zahlungsziel (Tage)',

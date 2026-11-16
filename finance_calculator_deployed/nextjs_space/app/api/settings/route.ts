@@ -17,6 +17,47 @@ const TRANSPORT_SETTINGS_COLUMNS =
 const SCRAP_SETTINGS_COLUMNS = 'scrap_pct';
 // Kolumna z migracji 023 (payment_term_days) — ten sam powód co SCRAP_SETTINGS_COLUMNS.
 const PAYMENT_TERM_SETTINGS_COLUMNS = 'payment_term_days';
+// Kolumna z migracji 037 (default_margin_pct) — ten sam powód co SCRAP_SETTINGS_COLUMNS.
+const DEFAULT_MARGIN_SETTINGS_COLUMNS = 'default_margin_pct';
+
+// Zestawy kolumn od najnowszego schematu do najstarszego. GET próbuje po kolei i przy braku
+// kolumny (42703) cofa się o jeden zestaw — brakujące pola wejdą z wartości domyślnych.
+// `missingHint` mówi, której migracji brakuje, gdy dany zestaw się nie udał.
+const SETTINGS_SELECT_TIERS: { columns: string[]; missingHint: string }[] = [
+  {
+    columns: [LEGACY_SETTINGS_COLUMNS, TRANSPORT_SETTINGS_COLUMNS, SCRAP_SETTINGS_COLUMNS, PAYMENT_TERM_SETTINGS_COLUMNS, DEFAULT_MARGIN_SETTINGS_COLUMNS],
+    missingHint: 'Brak kolumny default_margin_pct w app_settings — uruchom migrations/037_add_default_margin_pct.sql.',
+  },
+  {
+    columns: [LEGACY_SETTINGS_COLUMNS, TRANSPORT_SETTINGS_COLUMNS, SCRAP_SETTINGS_COLUMNS, PAYMENT_TERM_SETTINGS_COLUMNS],
+    missingHint: 'Brak kolumny payment_term_days w app_settings — uruchom migrations/023_add_payment_term.sql.',
+  },
+  {
+    columns: [LEGACY_SETTINGS_COLUMNS, TRANSPORT_SETTINGS_COLUMNS, SCRAP_SETTINGS_COLUMNS],
+    missingHint: 'Brak kolumny scrap_pct w app_settings — uruchom migrations/022_add_scrap_pct.sql.',
+  },
+  {
+    columns: [LEGACY_SETTINGS_COLUMNS, TRANSPORT_SETTINGS_COLUMNS],
+    missingHint: 'Brak kolumn transportowych w app_settings — uruchom migrations/020_transport_tariff.sql.',
+  },
+  { columns: [LEGACY_SETTINGS_COLUMNS], missingHint: '' },
+];
+
+async function readSettingsRow() {
+  for (let i = 0; i < SETTINGS_SELECT_TIERS.length; i++) {
+    const tier = SETTINGS_SELECT_TIERS[i];
+    try {
+      return await pool.query(`SELECT ${tier.columns.join(', ')} FROM app_settings WHERE id = 1`);
+    } catch (error) {
+      // 42703 = undefined_column: migracja jeszcze nie puszczona. Ostatni zestaw nie ma już
+      // dokąd się cofnąć — wtedy błąd leci dalej (42P01 obsługuje GET).
+      const isLast = i === SETTINGS_SELECT_TIERS.length - 1;
+      if ((error as { code?: string })?.code !== '42703' || isLast) throw error;
+      console.warn(tier.missingHint);
+    }
+  }
+  throw new Error('unreachable');
+}
 
 /**
  * Cennik transportowy. Pusta tablica (brak tabeli albo brak wierszy) oznacza dla
@@ -80,34 +121,7 @@ export async function GET(request: NextRequest) {
   const quarterlyTarget = parseQuarterlyTarget(new URL(request.url).searchParams);
 
   try {
-    let result;
-    try {
-      result = await pool.query(
-        `SELECT ${LEGACY_SETTINGS_COLUMNS}, ${TRANSPORT_SETTINGS_COLUMNS}, ${SCRAP_SETTINGS_COLUMNS}, ${PAYMENT_TERM_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`
-      );
-    } catch (error) {
-      // 42703 = undefined_column: migracja 020/022/023 jeszcze nie puszczona. Cofamy się
-      // stopniowo do starszych zestawów kolumn — brakujące parametry wejdą z wartości domyślnych.
-      if ((error as { code?: string })?.code !== '42703') throw error;
-      console.warn('Brak kolumny payment_term_days w app_settings — uruchom migrations/023_add_payment_term.sql.');
-      try {
-        result = await pool.query(
-          `SELECT ${LEGACY_SETTINGS_COLUMNS}, ${TRANSPORT_SETTINGS_COLUMNS}, ${SCRAP_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`
-        );
-      } catch (innerError) {
-        if ((innerError as { code?: string })?.code !== '42703') throw innerError;
-        console.warn('Brak kolumny scrap_pct w app_settings — uruchom migrations/022_add_scrap_pct.sql.');
-        try {
-          result = await pool.query(
-            `SELECT ${LEGACY_SETTINGS_COLUMNS}, ${TRANSPORT_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`
-          );
-        } catch (innerError2) {
-          if ((innerError2 as { code?: string })?.code !== '42703') throw innerError2;
-          console.warn('Brak kolumn transportowych w app_settings — uruchom migrations/020_transport_tariff.sql.');
-          result = await pool.query(`SELECT ${LEGACY_SETTINGS_COLUMNS} FROM app_settings WHERE id = 1`);
-        }
-      }
-    }
+    const result = await readSettingsRow();
     // Brak wiersza = migracja 007 nie została puszczona. Nie wywracamy kalkulatora —
     // oddajemy wartości domyślne (identyczne z seedem migracji).
     if (result.rows.length === 0) {
@@ -182,6 +196,7 @@ export async function PATCH(request: NextRequest) {
       { key: 'pglBaseZm', column: 'pgl_base_zm', label: 'PGL bazowe ZM', min: 0, max: 100000, steelType: 'ZM' },
       { key: 'transportBase', column: 'transport_base', label: 'Transport bazowy', min: 0, max: 100000, steelType: null },
       { key: 'minMarginPct', column: 'min_margin_pct', label: 'Minimalna marża', min: 0, max: 100, steelType: null },
+      { key: 'defaultMarginPct', column: 'default_margin_pct', label: 'Domyślna marża', min: 0, max: 100, steelType: null },
       { key: 'scrapPct', column: 'scrap_pct', label: 'Złom (%)', min: 0, max: 100, steelType: null },
       { key: 'paymentTermDays', column: 'payment_term_days', label: 'Domyślny termin płatności (dni)', min: 0, max: 365, steelType: null },
       // Ładowność 0 dzieliłaby przez zero przy liczbie kursów, dlatego minimum > 0.
@@ -262,7 +277,7 @@ export async function PATCH(request: NextRequest) {
 
       const result = await db.query(
         `UPDATE app_settings SET ${sets.join(', ')} WHERE id = 1
-         RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, pgl_base_pickled, pgl_base_teardrop, pgl_base_zm, transport_base, min_margin_pct, scrap_pct, payment_term_days`,
+         RETURNING eur_pln_rate, pgl_base_hrs, pgl_base_cr, pgl_base_hdg, pgl_base_pickled, pgl_base_teardrop, pgl_base_zm, transport_base, min_margin_pct, default_margin_pct, scrap_pct, payment_term_days`,
         values
       );
 
@@ -288,6 +303,14 @@ export async function PATCH(request: NextRequest) {
     }
   } catch (error) {
     console.error('Error updating settings:', error);
+    // 42703 = undefined_column: kod wdrożony przed migracją (np. 037 default_margin_pct).
+    // Admin dostaje wtedy konkretną wskazówkę zamiast ogólnego "nie udało się zapisać".
+    if ((error as { code?: string })?.code === '42703') {
+      return NextResponse.json(
+        { error: 'Brak kolumny w app_settings — uruchom najnowsze migracje (np. migrations/037_add_default_margin_pct.sql)' },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
   }
 }

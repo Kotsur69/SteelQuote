@@ -192,8 +192,14 @@ export async function loadBaseResolver(validFrom: unknown, db: Db = pool): Promi
   return (type: string) => pglBaseForType(type as SteelType, live);
 }
 
-/** Default margin % new offer items start with (Ustawienia min_margin_pct). */
+/**
+ * Default margin % new offer items start with (Ustawienia default_margin_pct, migration 037) -
+ * the same value the calculator pre-fills, so a role without "may change price / margin" can
+ * save it unchanged. SELECT * (as loadBaseResolver) so a database without migration 037 falls
+ * back to the code default instead of failing - an undefined-column error would also abort the
+ * transaction of callers that pass a PoolClient.
+ */
 export async function loadDefaultMarginPct(db: Db = pool): Promise<number> {
-  const result = await db.query(`SELECT min_margin_pct FROM app_settings WHERE id = 1`);
-  return num(result.rows[0]?.min_margin_pct) ?? DEFAULT_SETTINGS.minMarginPct;
+  const result = await db.query(`SELECT * FROM app_settings WHERE id = 1`);
+  return num(result.rows[0]?.default_margin_pct) ?? DEFAULT_SETTINGS.defaultMarginPct;
 }

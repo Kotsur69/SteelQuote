@@ -2,11 +2,11 @@
 import fs from 'fs';
 import path from 'path';
 import type { Currency } from '@/lib/currency';
-import { translations, type Language } from '@/lib/translations';
+import type { Language } from '@/lib/translations';
 import { PDF_LABELS, PDF_DATE_LOCALE, OWS_URL, ESTEEL_URL, type PdfLabels } from '@/lib/pdfLabels';
 import { formatPricePeriod } from '@/lib/quarterUtils';
 import { fixedGrouped, tonDecimals } from '@/lib/numberFormat';
-import { certificateText, packagingDescription, type OfferTermKeys } from '@/lib/offerTerms';
+import type { OfferTermKeys } from '@/lib/offerTerms';
 
 // Wszystkie pola ponizej (nazwa oferty, dane klienta, gatunek stali) to wolny
 // tekst od uzytkownika i trafiaja do HTML wysylanego do zewnetrznej uslugi
@@ -108,12 +108,9 @@ function paymentLine(L: PdfLabels, days: number | undefined): string {
 // Sales terms in the order of the text from sales: "Warunki" list, "Pozostałe warunki" (OWS),
 // then the e-steel line. Every interpolated value is escaped; links are built here.
 function termsHtml(L: PdfLabels, language: Language, terms: PdfTermsInput): string {
-  const { cert, packing, incoterm, destAddress } = terms.offerTerms;
-  const packingText = packing === undefined ? undefined : packagingDescription(translations[language], packing);
-  const certText = cert === undefined ? undefined : certificateText(cert);
+  const { incoterm, destAddress } = terms.offerTerms;
   const lines = [
     L.invoiceNote,
-    packingText ? L.packagingNote(packingText) : '',
     terms.quoteValidityHours !== undefined ? L.quoteValidityNote(terms.quoteValidityHours) : '',
     terms.validFrom && terms.validTo
       ? L.priceValidityNote(formatPricePeriod(terms.validFrom, terms.validTo, PDF_DATE_LOCALE[language]))
@@ -122,7 +119,6 @@ function termsHtml(L: PdfLabels, language: Language, terms: PdfTermsInput): stri
     paymentLine(L, terms.paymentTermDays),
     L.minQuantityNote,
     L.toleranceNote,
-    certText ? L.certificateNote(certText) : '',
     L.orderDetailsNote,
   ].filter(Boolean);
 
@@ -203,8 +199,8 @@ export function buildOfferHtml(
   // identyczne szerokości kolumn, żeby "RAZEM" wizualnie wyrównywało się z
   // kolumnami powyżej mimo że to teraz DWIE osobne tabele (patrz niżej, dlaczego).
   const colgroup = `<colgroup>
-    <col style="width:22px"><col style="width:96px"><col style="width:56px"><col style="width:40px"><col style="width:40px">
-    <col style="width:40px"><col style="width:48px"><col style="width:50px"><col style="width:62px"><col>
+    <col style="width:22px"><col style="width:94px"><col style="width:52px"><col style="width:52px"><col style="width:48px">
+    <col style="width:42px"><col style="width:46px"><col style="width:62px"><col style="width:66px"><col>
   </colgroup>`;
 
   const infoRow = (label: string, value: string) => `<div class="ir"><span class="l">${label}</span><span class="v">${value}</span></div>`;
@@ -238,9 +234,10 @@ export function buildOfferHtml(
   body { font-family: Gilroy, Arial, sans-serif; color: var(--ink); font-size: 8.5pt; line-height: 1.35; }
   .g { font-weight: 600; } .c { text-align: center; } .r { text-align: right; }
   .n { font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .hd { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 8px; margin-bottom: 8px; position: relative; }
+  .hd { display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; margin-bottom: 8px; position: relative; }
   .hd:after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--grad); border-radius: 2px; }
-  .brand { text-align: right; } .brand .logo { height: 34px; display: block; margin-left: auto; }
+  .brand { text-align: right; } .brand .logo { height: 68px; display: block; margin-left: auto; }
+  .meta .co { font-size: 8.5pt; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
   .meta .title { font-size: 16pt; font-weight: 600; line-height: 1.15; }
   .mr { font-size: 7.8pt; color: var(--mut); margin-top: 1px; } .mr b { color: var(--ink); font-weight: 600; }
   .info { display: flex; gap: 10px; margin-bottom: 8px; }
@@ -251,7 +248,7 @@ export function buildOfferHtml(
   .ir .l { color: var(--mut); width: 56px; flex: none; } .ir .v { font-weight: 600; }
   .hlv { color: var(--or); font-size: 9.5pt; }
   table { width: 100%; table-layout: fixed; border-collapse: collapse; }
-  th { font-size: 6.4pt; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; padding: 5px 4px; text-align: left; line-height: 1.2; background: var(--ink); color: #fff; }
+  th { font-size: 6.4pt; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; padding: 5px 4px; text-align: left; line-height: 1.2; background: var(--ink); color: #fff; white-space: nowrap; }
   th.r { text-align: right; } th.c { text-align: center; }
   thead th:first-child { border-radius: 5px 0 0 0; } thead th:last-child { border-radius: 0 5px 0 0; }
   .it td { padding: 4px 4px; vertical-align: top; border-bottom: 1px solid var(--line); }
@@ -267,7 +264,7 @@ export function buildOfferHtml(
   .bt { display: inline-block; padding: 2px 9px; border-radius: 3px; background: var(--or); color: #fff; font-size: 9.5pt; }
   .ft { margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 7.4pt; color: var(--mut); line-height: 1.5; }
   .fs { margin-bottom: 7px; break-inside: avoid; page-break-inside: avoid; }
-  .ft ul { list-style: none; columns: 2; column-gap: 16px; }
+  .ft ul { list-style: none; }
   .ft ul li { break-inside: avoid; }
   .ft ol { padding-left: 14px; } .ft p { margin-bottom: 2px; }
   .ft a { color: var(--ink); text-decoration: underline; }
@@ -280,6 +277,7 @@ export function buildOfferHtml(
 <body>
   <div class="hd">
     <div class="meta">
+      <div class="co">ArcelorMittal Distribution Solutions Poland Sp. z o.o.</div>
       <div class="title">${L.defaultOfferTitle}</div>
       ${offerNumber ? `<div class="mr">${L.offerNumberLabel} <b>${escapeHtml(offerNumber)}</b></div>` : ''}
       <div class="mr">${L.dateLabel} <b>${escapeHtml(offerDate)}</b></div>

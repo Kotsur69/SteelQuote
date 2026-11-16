@@ -36,6 +36,10 @@ export interface AppSettings {
   // Próg marży (%), poniżej którego oferta wymaga zatwierdzenia przez seniora/admina
   // (patrz lib/offerReview.ts) — konfigurowalny w Ustawieniach, tak jak PGL bazowe.
   minMarginPct: number;
+  // Domyślna marża (%) — wartość startowa pola marży w kalkulatorze dla nowej pozycji
+  // (migracja 037). Osobna od minMarginPct: tamto to próg ostrzeżenia, to tylko punkt startu.
+  // Serwer traktuje ją też jako "wartość systemową" dla ról bez prawa zmiany marży.
+  defaultMarginPct: number;
   // Złom (migracja 022) — % ceny wsadu (pglBase + sumaHuta) doliczany w sumie SSC.
   // Dawniej stała kwota (SCRAP_CONSTANT = 10 €/t), teraz konfigurowalny przez admina.
   scrapPct: number;
@@ -67,6 +71,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   pglBaseZm: 650,
   transportBase: 20,
   minMarginPct: 7,
+  defaultMarginPct: 7,
   scrapPct: 2,
   paymentTermDays: 30,
   transportTruckCapacityT: DEFAULT_TRUCK_CAPACITY_T,
@@ -98,6 +103,8 @@ export function settingsRowToAppSettings(row: {
   scrap_pct?: string | number | null;
   // Kolumna z migracji 023. Opcjonalna z tego samego powodu co scrap_pct wyżej.
   payment_term_days?: string | number | null;
+  // Kolumna z migracji 037. Opcjonalna z tego samego powodu co scrap_pct wyżej.
+  default_margin_pct?: string | number | null;
 }, bands?: TariffBand[]): AppSettings {
   return {
     eurPlnRate: Number(row.eur_pln_rate),
@@ -109,6 +116,7 @@ export function settingsRowToAppSettings(row: {
     pglBaseZm: Number(row.pgl_base_zm),
     transportBase: Number(row.transport_base),
     minMarginPct: Number(row.min_margin_pct),
+    defaultMarginPct: numberOr(row.default_margin_pct, DEFAULT_SETTINGS.defaultMarginPct),
     scrapPct: numberOr(row.scrap_pct, DEFAULT_SETTINGS.scrapPct),
     paymentTermDays: numberOr(row.payment_term_days, DEFAULT_SETTINGS.paymentTermDays),
     transportTruckCapacityT: numberOr(row.transport_truck_capacity_t, DEFAULT_TRUCK_CAPACITY_T),
