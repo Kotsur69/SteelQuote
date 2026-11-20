@@ -1,93 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
 import { requireAccess } from '@/lib/access/context';
-import { loadVisibleOffer } from '@/lib/access/offerAccess';
-import { decidableSteps, loadSteps, rerouteIfOutgrown, snapshotOf } from '@/lib/access/workflow';
-import { accessError } from '@/lib/access/errors';
+import { approveComment, approveOffer, inTransaction } from '@/lib/offers/service';
+import { toResponse } from '@/lib/offers/http';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-const MAX_COMMENT_LENGTH = 1000;
-
-// POST - approve the pending step(s) the caller may decide: a role with the approve permission
-// in the offer's flow at that step's level or one standing in for it - a higher chain level, or
-// Head of Projects for N+1 / N+2 (workflow.decidableSteps; the superuser: any). The offer becomes
-// 'approved' once no step is pending - with an NPR step next to a chain step, both approvers
-// must approve, in any order. pending_review -> approved. When the current rules need a level
-// the stored steps do not cover, nothing is approved: the steps are re-planned (409 rerouted).
+// POST - approve the pending step(s) the caller may decide; body { comment? }.
+// Rules: lib/offers/transitions.ts approveOffer.
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const auth = await requireAccess();
     if ('error' in auth) return auth.error;
-    const { ctx } = auth;
     const { id } = await params;
     const body = (await request.json().catch(() => ({}))) as { comment?: unknown };
-    const comment = typeof body.comment === 'string' && body.comment.trim()
-      ? body.comment.trim().slice(0, MAX_COMMENT_LENGTH)
-      : null;
-
-    const db = await pool.connect();
-    try {
-      await db.query('BEGIN');
-      const offer = await loadVisibleOffer(ctx, Number.parseInt(id, 10), db, true);
-      if (!offer) {
-        await db.query('ROLLBACK');
-        return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
-      }
-      if (offer.status !== 'pending_review') {
-        await db.query('ROLLBACK');
-        return NextResponse.json(
-          { error: 'Oferta nie jest w statusie oczekującym na weryfikację' },
-          { status: 409 }
-        );
-      }
-      const steps = await loadSteps(offer.id, db);
-      if (decidableSteps(ctx, steps, offer.flow_id, offer.user_id).length === 0) {
-        await db.query('ROLLBACK');
-        return accessError('cannot_review');
-      }
-      // Steps were planned at submit; if the rules now need a higher level, re-route instead.
-      const reroute = await rerouteIfOutgrown(offer, steps, db);
-      if (reroute.kind === 'blocked') {
-        await db.query('ROLLBACK');
-        return accessError('level_conflict', { validation: snapshotOf(reroute.assessment) });
-      }
-      if (reroute.kind === 'rerouted') {
-        await db.query('COMMIT');
-        return accessError('rerouted', { levels: reroute.levels, validation: snapshotOf(reroute.assessment) });
-      }
-      const mine = decidableSteps(ctx, steps, offer.flow_id, offer.user_id);
-
-      await db.query(
-        `UPDATE offer_approval_steps
-         SET status = 'approved', decided_by = $2, decided_at = CURRENT_TIMESTAMP, comment = $3
-         WHERE id = ANY($1::int[])`,
-        [mine.map((s) => s.id), ctx.userId, comment]
-      );
-      const left = await db.query(
-        `SELECT 1 FROM offer_approval_steps WHERE offer_id = $1 AND status = 'pending' LIMIT 1`,
-        [offer.id]
-      );
-      const done = left.rows.length === 0;
-      const result = await db.query(
-        `UPDATE offers
-         SET status = CASE WHEN $3 THEN 'approved' ELSE status END,
-             reviewed_by = $2, reviewed_at = CURRENT_TIMESTAMP,
-             rejection_reason = NULL, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1
-         RETURNING id, status, reviewed_by, reviewed_at`,
-        [offer.id, ctx.userId, done]
-      );
-      await db.query('COMMIT');
-      return NextResponse.json({ offer: result.rows[0], fullyApproved: done });
-    } catch (error) {
-      await db.query('ROLLBACK').catch(() => undefined);
-      throw error;
-    } finally {
-      db.release();
-    }
+    const result = await inTransaction((tx) =>
+      approveOffer(tx, auth.ctx, Number.parseInt(id, 10), approveComment(body.comment))
+    );
+    return toResponse(result);
   } catch (error) {
     console.error('Error approving offer:', error);
     return NextResponse.json({ error: 'Failed to approve offer' }, { status: 500 });

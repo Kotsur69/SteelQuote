@@ -63,8 +63,16 @@ export interface AssessInput {
  */
 export function createAssessor(db: Db = pool): (input: AssessInput) => Promise<OfferAssessment> {
   const memo = new Map<string, Promise<unknown>>();
+  // A transaction client runs one query at a time (overlapping queries on one client are
+  // deprecated in pg 8 and refused in pg 9): there the loads queue up; the pool fans them out.
+  const serial = db !== pool;
+  let queue: Promise<unknown> = Promise.resolve();
   function once<T>(key: string, load: () => Promise<T>): Promise<T> {
-    if (!memo.has(key)) memo.set(key, load());
+    if (!memo.has(key)) {
+      const started = serial ? queue.then(load) : load();
+      if (serial) queue = started.catch(() => undefined);
+      memo.set(key, started);
+    }
     return memo.get(key) as Promise<T>;
   }
   return async (input) => {

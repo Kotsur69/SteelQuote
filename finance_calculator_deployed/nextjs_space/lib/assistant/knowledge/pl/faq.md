@@ -44,3 +44,6 @@ Twoja rola nie ma uprawnienia "Zmienia bazę PGL" lub "Zmienia cenę / marżę".
 
 **Dlaczego nie widzę ofert kolegi?**
 Widzisz oferty zgodnie ze swoją rolą: własne, zespołu, a niektóre role cały flow lub wszystkie oferty. Asystent też liczy tylko oferty, które widzisz.
+
+**Czy asystent może zrobić ofertę albo ją zatwierdzić?**
+Asystent przygotowuje akcję i pokazuje kartę do potwierdzenia: nowy szkic oferty (także z wklejonego zapytania e-mail), zmianę oferty, kopię, przekazanie do akceptacji, oznaczenie jako wysłanej, zatwierdzenie lub odrzucenie, wygraną lub przegraną. Nic się nie zmienia, dopóki nie klikniesz przycisku na karcie (karta jest ważna 10 minut). Asystent może tylko to, na co pozwala Ci Twoja rola w aplikacji, i zawsze jedną ofertę na kartę. Zmiany potwierdzone w asystencie mają przy numerze oferty oznaczenie "przez asystenta".

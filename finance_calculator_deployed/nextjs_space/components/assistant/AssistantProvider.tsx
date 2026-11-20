@@ -24,8 +24,25 @@ export interface ChatMessage {
   error: boolean;
 }
 
+/**
+ * What happened to a confirmation card (components/assistant/ActionCard.tsx). Kept here, above
+ * the panel, so a confirmed card stays confirmed when the panel closes or the chat moves to
+ * /asystent - the card component itself unmounts.
+ */
+export type CardOutcome =
+  | { kind: 'idle' }
+  | { kind: 'busy'; action: 'confirm' | 'cancel' }
+  | { kind: 'done'; message: string; href: string | null }
+  | { kind: 'cancelled' }
+  | { kind: 'used' }
+  | { kind: 'failed'; message: string }
+  | { kind: 'expired' };
+
 interface AssistantState {
   messages: ChatMessage[];
+  /** Outcome per card token; a card without an entry is idle. */
+  cardOutcomes: Readonly<Record<string, CardOutcome>>;
+  setCardOutcome: (token: string, outcome: CardOutcome) => void;
   busy: boolean;
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -64,6 +81,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  const [cardOutcomes, setCardOutcomes] = useState<Readonly<Record<string, CardOutcome>>>({});
   const abortRef = useRef<AbortController | null>(null);
   const nextId = useRef(1);
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -148,14 +166,19 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
   const stop = useCallback(() => abortRef.current?.abort(), []);
 
+  const setCardOutcome = useCallback((token: string, outcome: CardOutcome) => {
+    setCardOutcomes((all) => ({ ...all, [token]: outcome }));
+  }, []);
+
   const newChat = useCallback(() => {
     abortRef.current?.abort();
     setMessages([]);
+    setCardOutcomes({});
   }, []);
 
   const value = useMemo(
-    () => ({ messages, busy, open, setOpen, send, stop, newChat }),
-    [messages, busy, open, send, stop, newChat]
+    () => ({ messages, cardOutcomes, setCardOutcome, busy, open, setOpen, send, stop, newChat }),
+    [messages, cardOutcomes, setCardOutcome, busy, open, send, stop, newChat]
   );
   return <AssistantContext.Provider value={value}>{children}</AssistantContext.Provider>;
 }

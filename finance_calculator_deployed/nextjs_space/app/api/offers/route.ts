@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { escapeLikePattern } from '@/lib/search';
-import { upsertClientFromOffer } from '@/lib/clientDirectory';
-import { normalizeClientInfo } from '@/lib/pdfGenerator';
-import { can, requireAccess } from '@/lib/access/context';
+import { requireAccess } from '@/lib/access/context';
 import { offerVisibilitySql } from '@/lib/access/scope';
 import { createAssessor, loadStepsForOffers, offerActions, type OfferStatus } from '@/lib/access/workflow';
-import { fieldViolation } from '@/lib/access/fieldGuards';
-import { loadBaseResolver, loadDefaultMarginPct, loadPolicies } from '@/lib/access/config';
-import { accessError } from '@/lib/access/errors';
-import { validateOfferItems } from '@/lib/offerItemValidation';
+import { loadPolicies } from '@/lib/access/config';
+import { createOffer, inTransaction } from '@/lib/offers/service';
+import { toResponse } from '@/lib/offers/http';
 import { PREDECESSOR_COLUMNS, PREDECESSOR_JOIN } from '@/lib/offerVersions';
 import { withChangeSummary } from '@/lib/offerVersionDiff';
 
@@ -105,72 +102,15 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create a new offer in the caller's ACTIVE flow (flow switcher). Requires
-// can_create_offer there. Starts as 'draft' (DB default).
+// POST - Create a new offer in the caller's ACTIVE flow (flow switcher). Rules: lib/offers/create.ts.
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAccess();
     if ('error' in auth) return auth.error;
-    const { ctx } = auth;
 
-    const flowId = ctx.activeFlowId;
-    if (flowId === null) return accessError('no_flow');
-    if (!can(ctx, flowId, 'canCreateOffer')) return accessError('cannot_create');
-
-    const { offer_name, offer_data } = ((await request.json().catch(() => null)) ?? {}) as {
-      offer_name?: unknown;
-      offer_data?: Record<string, unknown>;
-    };
-
-    // Nazwa jest opcjonalna. Pusta => zapisujemy NULL, a baza (kolumna generowana
-    // display_name) sama nada "offer_<ID>" w tym samym INSERCIE.
-    if (!offer_data || typeof offer_data !== 'object') {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-    const itemsError = validateOfferItems(offer_data);
-    if (itemsError) {
-      return NextResponse.json({ error: itemsError }, { status: 400 });
-    }
-
-    const membership = ctx.memberships.find((m) => m.flowId === flowId);
-    const violation = fieldViolation(
-      ctx.isSuperuser || !membership ? 'all' : membership.permissions,
-      offer_data,
-      null,
-      await loadBaseResolver(offer_data.validFrom),
-      await loadDefaultMarginPct()
-    );
-    if (violation) return accessError(violation);
-
-    const name = typeof offer_name === 'string' && offer_name.trim() ? offer_name.trim() : null;
-
-    // Dane klienta z oferty trafiają też do katalogu `clients`, żeby wyszukiwarka
-    // firmy/NIP-u w kalkulatorze uczyła się nowych klientów (patrz lib/clientDirectory.ts).
-    // Klient i oferta zapisują się w JEDNEJ transakcji — nieudany INSERT oferty nie ma
-    // zostawiać w katalogu firmy bez ani jednej oferty.
-    const clientInfo = normalizeClientInfo(offer_data.clientInfo);
-
-    const db = await pool.connect();
-    try {
-      await db.query('BEGIN');
-
-      const clientId = await upsertClientFromOffer(db, clientInfo, ctx.userId);
-
-      const result = await db.query(
-        `INSERT INTO offers (user_id, offer_name, offer_data, client_id, flow_id, created_by)
-         VALUES ($1, $2, $3, $4, $5, $1)
-         RETURNING id, offer_name, display_name, offer_data, status, flow_id, created_at, updated_at`,
-        [ctx.userId, name, JSON.stringify(offer_data), clientId, flowId]
-      );
-
-      await db.query('COMMIT');
-      return NextResponse.json({ offer: result.rows[0] }, { status: 201 });
-    } catch (error) {
-      await db.query('ROLLBACK').catch(() => undefined);
-      throw error;
-    } finally {
-      db.release();
-    }
+    const body = ((await request.json().catch(() => null)) ?? {}) as { offer_name?: unknown; offer_data?: unknown };
+    const result = await inTransaction((tx) => createOffer(tx, auth.ctx, { name: body.offer_name, offerData: body.offer_data }));
+    return toResponse(result, 201);
   } catch (error) {
     console.error('Error creating offer:', error);
     return NextResponse.json({ error: 'Failed to create offer' }, { status: 500 });

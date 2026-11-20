@@ -1,81 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
 import { requireAccess } from '@/lib/access/context';
-import { describeOffer, loadVisibleOffer } from '@/lib/access/offerAccess';
-import { replacePendingSteps, snapshotOf } from '@/lib/access/workflow';
-import { accessError } from '@/lib/access/errors';
+import { submitOffer, inTransaction } from '@/lib/offers/service';
+import { toResponse } from '@/lib/offers/http';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// POST - submit an own draft/rejected offer to validation, or send an approved one back to it
-// when its approval expired or the rules now need more (ApprovalState.needsRevalidation). The flow's rules are evaluated for
-// the owner (lib/access/ruleEngine + routing) and one approval step is written per level that
-// must approve; the offer goes to pending_review. When no step is needed (no rule fired, or
-// the owner's level covers it) the offer is approved straight away and can be sent. A level
-// the flow has no approver for is resolved by the conflict policy; under 'block' the submit
-// fails with code 'level_conflict'.
-export async function POST(request: NextRequest, { params }: RouteParams) {
+// POST - submit an own draft/rejected offer to validation (or an approved one back to it when
+// its approval no longer holds). Rules: lib/offers/transitions.ts submitOffer.
+export async function POST(_request: NextRequest, { params }: RouteParams) {
   try {
     const auth = await requireAccess();
     if ('error' in auth) return auth.error;
-    const { ctx } = auth;
     const { id } = await params;
-
-    const db = await pool.connect();
-    try {
-      await db.query('BEGIN');
-      const offer = await loadVisibleOffer(ctx, Number.parseInt(id, 10), db, true);
-      if (!offer || offer.user_id !== ctx.userId) {
-        await db.query('ROLLBACK');
-        return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
-      }
-      const { assessment, actions } = await describeOffer(ctx, offer, db);
-      const revalidation = offer.status === 'approved' && actions.approval?.needsRevalidation === true;
-      if (offer.status !== 'draft' && offer.status !== 'rejected' && !revalidation) {
-        await db.query('ROLLBACK');
-        return accessError('wrong_status');
-      }
-
-      if (!assessment) {
-        await db.query('ROLLBACK');
-        return accessError('wrong_status');
-      }
-      const { plan } = assessment;
-      const snapshot = snapshotOf(assessment);
-      if (plan.blocked) {
-        await db.query('ROLLBACK');
-        return accessError('level_conflict', { validation: snapshot });
-      }
-
-      // Same gates as the buttons (offerActions): with steps the caller must be allowed to
-      // submit, without any the offer is approved only if the owner could send it directly.
-      const mayValidateDirectly = plan.steps.length === 0;
-      if (mayValidateDirectly ? !actions.canSend : !actions.canSubmit) {
-        await db.query('ROLLBACK');
-        return accessError(mayValidateDirectly ? 'cannot_send' : 'cannot_submit');
-      }
-
-      const status = mayValidateDirectly ? 'approved' : 'pending_review';
-      const result = await db.query(
-        `UPDATE offers
-         SET status = $2, rejection_reason = NULL, validation_snapshot = $3,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1
-         RETURNING id, status`,
-        [offer.id, status, JSON.stringify(snapshot)]
-      );
-      await replacePendingSteps(offer.id, plan, db, true);
-      await db.query('COMMIT');
-
-      return NextResponse.json({ offer: result.rows[0], validation: snapshot });
-    } catch (error) {
-      await db.query('ROLLBACK').catch(() => undefined);
-      throw error;
-    } finally {
-      db.release();
-    }
+    const result = await inTransaction((tx) => submitOffer(tx, auth.ctx, Number.parseInt(id, 10)));
+    return toResponse(result);
   } catch (error) {
     console.error('Error submitting offer:', error);
     return NextResponse.json({ error: 'Failed to submit offer' }, { status: 500 });

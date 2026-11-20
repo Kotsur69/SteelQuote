@@ -10,7 +10,11 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-export type TokenPurpose = 'followup' | 'export';
+/**
+ * action = a confirmation card (plan section 7): carries only the pending action's id; the row
+ * itself (user, expiry, single use) decides whether it may still run.
+ */
+export type TokenPurpose = 'followup' | 'export' | 'action';
 
 /** Cached answers live up to 24 h and keep their buttons, so the tokens live as long. */
 export const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;

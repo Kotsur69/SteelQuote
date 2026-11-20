@@ -13,7 +13,11 @@ import { loadOfferAccess } from '../../access/offerAccess';
 import { awaitingMyReviewSql, offerVisibilitySql } from '../../access/scope';
 import { offerRate, type OfferCurrencyMeta } from '../../currency';
 import { loadLostReasons } from '../../lostReasonsDb';
-import type { OfferCard, OffersBlock } from '../blocks';
+import type { FollowUpsBlock, OfferCard, OffersBlock } from '../blocks';
+import { offerActionCalls } from '../actionChips';
+import { assistantActionsFor } from '../actions/pending';
+import { followUpQuestion } from '../followUps';
+import { MAX_TOKEN_CHARS, signToken } from '../tokens';
 import { formatDate, formatMoney, formatPercent, formatTons, type Lang } from '../format';
 import { periodInputSchema, resolvePeriod } from '../periods';
 import { foldDiacritics } from '../polish';
@@ -23,8 +27,8 @@ const MAX_LIST = 20;
 
 const STATUS_PL: Record<OfferStatus, string> = { draft: 'szkic', pending_review: 'czeka na akceptację', approved: 'zatwierdzona', rejected: 'odrzucona', sent: 'wysłana' };
 const DECISION_PL: Record<ClientDecision, string> = { pending: 'bez decyzji', won: 'wygrana', lost: 'przegrana' };
-const statusLabel = (s: OfferStatus, lang: Lang) => (lang === 'pl' ? STATUS_PL[s] : s.replace('_', ' '));
-const decisionLabel = (d: ClientDecision, lang: Lang) => (lang === 'pl' ? DECISION_PL[d] : d === 'pending' ? 'no decision' : d);
+export const statusLabel = (s: OfferStatus, lang: Lang) => (lang === 'pl' ? STATUS_PL[s] : s.replace('_', ' '));
+export const decisionLabel = (d: ClientDecision, lang: Lang) => (lang === 'pl' ? DECISION_PL[d] : d === 'pending' ? 'no decision' : d);
 
 const NO_FILTERS: AnalyticsFilters = {
   dateFrom: '', dateTo: '', basis: 'created', granularity: 'month',
@@ -256,10 +260,11 @@ export const getOffer = defineTool({
     );
 
     const rate = offerRate(offer.offer_data as OfferCurrencyMeta | null);
-    const items = (Array.isArray(offer.offer_data?.zestawienie) ? (offer.offer_data!.zestawienie as RawItem[]) : []).map((it) => {
+    const items = (Array.isArray(offer.offer_data?.zestawienie) ? (offer.offer_data!.zestawienie as RawItem[]) : []).map((it, i) => {
       const length = n(it.length);
       const margin = it.inputs?.marginPct;
       return {
+        line: i + 1,
         type: String(it.type ?? ''),
         grade: String(it.grade ?? ''),
         dimensions: `${n(it.thickness)} x ${n(it.width)}${it.isCoil || length === 0 ? pick(lang, ' (krąg)', ' (coil)') : ` x ${length}`} mm`,
@@ -280,6 +285,11 @@ export const getOffer = defineTool({
     }
 
     const decision = (offer.client_decision ?? 'pending') as ClientDecision;
+    const viaAssistant = await assistantActionsFor(rt.db, offer.id);
+    const chips = offerActionCalls(offer.id, offer.status, actions, offer.client_decision, lang)
+      .map((call) => ({ label: call.label, followUp: signToken('followup', rt.ctx.userId, { tool: call.tool, input: call.input, label: call.label }) }))
+      .filter((chip) => chip.followUp.length <= MAX_TOKEN_CHARS);
+    const chipsBlock: FollowUpsBlock[] = chips.length > 0 ? [{ type: 'followups', question: followUpQuestion(lang), chips }] : [];
     return {
       result: {
         status: 'ok',
@@ -314,6 +324,9 @@ export const getOffer = defineTool({
           status: statusLabel(v.status as OfferStatus, lang),
           created: formatDate(String(v.created_date), lang),
         })),
+        ...(viaAssistant.length > 0 ? {
+          via_assistant: viaAssistant.map((a) => ({ action: a.kind, by: a.by, at: formatDate(a.at.slice(0, 10), lang) })),
+        } : {}),
         user_may: {
           edit: actions.canEdit, submit: actions.canSubmit, send: actions.canSend, review: actions.canReview,
           duplicate: actions.canDuplicate, record_client_decision: actions.canRecordDecision,
@@ -336,7 +349,7 @@ export const getOffer = defineTool({
           created: m.created_date ? formatDate(String(m.created_date), lang) : null,
           href: `/calculator?edit=${offer.id}&from=offers`,
         }],
-      }],
+      }, ...chipsBlock],
     };
   },
 });

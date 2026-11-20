@@ -11,6 +11,7 @@ import pool from '../db';
 import type { AccessContext } from '../access/types';
 import { fetchToday } from '../analyticsQuery';
 import { isIsoDate } from '../analytics';
+import { ACTION_CHIP_TOOLS } from './actionChips';
 import { runAgent, type AgentOutcome, type PinnedCall } from './agentLoop';
 import type { AnswerBlock } from './blocks';
 import { checkGate, denialText, logTurn } from './budget';
@@ -96,8 +97,9 @@ export async function resolveToday(): Promise<string> {
   return fetchToday(pool);
 }
 
-// The only tools a button may stand for (lib/assistant/followUps.ts emits nothing else).
-const FOLLOW_UP_TOOLS = ['query_metrics', 'search_offers'] as const;
+// The only tools a button may stand for (lib/assistant/followUps.ts and actionChips.ts emit
+// nothing else). An action chip only PROPOSES - it shows a confirmation card.
+const FOLLOW_UP_TOOLS = ['query_metrics', 'search_offers', ...ACTION_CHIP_TOOLS] as const;
 
 const followUpPayloadSchema = z
   .object({ tool: z.enum(FOLLOW_UP_TOOLS), input: z.unknown(), label: z.string().min(1).max(200) })
@@ -115,9 +117,10 @@ function pinnedCallOf(token: string, ctx: AccessContext): { call: PinnedCall; la
   return { call: { name: payload.data.tool, input: payload.data.input }, label: payload.data.label };
 }
 
-/** Only complete, read-only answers are cached - never questions back to the user or fallbacks. */
+/** Only complete, read-only answers are cached - never questions back to the user, fallbacks or proposals. */
 function isCacheable(outcome: AgentOutcome, blocks: AnswerBlock[]): boolean {
-  return outcome === 'answer' && !blocks.some((b) => b.type === 'clarify');
+  // A confirmation card holds a single-use token and must never be replayed to anyone.
+  return outcome === 'answer' && !blocks.some((b) => b.type === 'clarify' || b.type === 'action');
 }
 
 export interface ChatDeps {

@@ -8,7 +8,7 @@ import { ArrowUp, Square, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AnswerBlocks } from './AnswerBlocks';
 import { useAssistant, type ChatMessage } from './AssistantProvider';
-import { panelLang, STRINGS, type PanelStrings } from './strings';
+import { panelLang, STRINGS, type PanelLang, type PanelStrings } from './strings';
 
 const MAX_CHARS = 2000;
 
@@ -60,10 +60,11 @@ function Feedback({ turnId, strings }: { turnId: number; strings: PanelStrings }
 type MessageProps = {
   message: ChatMessage;
   strings: PanelStrings;
+  lang: PanelLang;
   onChoose: ((value: string, followUp?: string) => void) | null;
 };
 
-function Message({ message, strings, onChoose }: MessageProps) {
+function Message({ message, strings, lang, onChoose }: MessageProps) {
   if (message.role === 'user') {
     return (
       <li className="flex justify-end">
@@ -90,7 +91,7 @@ function Message({ message, strings, onChoose }: MessageProps) {
           {message.pending && message.working && <span className="ml-2 text-txt-muted">{strings.thinking}</span>}
         </p>
       )}
-      <AnswerBlocks blocks={message.blocks} strings={strings} onChoose={onChoose} />
+      <AnswerBlocks blocks={message.blocks} strings={strings} lang={lang} onChoose={onChoose} />
       {!message.pending && message.turnId !== null && (
         <div className="flex items-center gap-2">
           <Feedback turnId={message.turnId} strings={strings} />
@@ -108,7 +109,8 @@ type ChatProps = {
 
 export function AssistantChat({ autoFocus = false }: ChatProps) {
   const { language } = useLanguage();
-  const strings = STRINGS[panelLang(language)];
+  const lang = panelLang(language);
+  const strings = STRINGS[lang];
   const { messages, busy, send, stop } = useAssistant();
   const [draft, setDraft] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
@@ -172,6 +174,7 @@ export function AssistantChat({ autoFocus = false }: ChatProps) {
                 key={message.id}
                 message={message}
                 strings={strings}
+                lang={lang}
                 // Only the newest answer's buttons act: an old question is no longer pending.
                 onChoose={message.id === lastId && !busy ? submit : null}
               />

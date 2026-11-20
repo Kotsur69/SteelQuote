@@ -1,8 +1,8 @@
 # AI Assistant ("Luna w aplikacji") - plan v2
 
-Status: **phase 1 built, not yet run against a real model** (11-10: engine additions, metric
-catalog, guards, read tools, agent loop, chat route, cache, budget, panel UI - all verified
-without the model, see 14.3; waiting on Mati for the API key to run the live eval). v1 written 2026-11-02, v2 rewritten
+Status: **phases 1-3 built, not yet run against a real model** (phase 1 11-10, phase 2 11-12,
+phase 3 11-20: offer service, pending actions, all propose_* tools, confirmation cards - verified
+without the model, see 14.3 - 14.5; waiting on Mati for the API key to run the live eval). v1 written 2026-11-02, v2 rewritten
 2026-11-09 (planning session with Mati, decisions D1-D24 below). This file is the single source of truth - update it as
 decisions are made.
 
@@ -48,6 +48,8 @@ provides.** Section 3 is the contract that enforces this in code, not in the pro
 | D21 | 11-09 | Simple-average margin also shown on **/analytics as a small KPI** next to the weighted one | keeps "every number the agent says is visible in Analytics" |
 | D22 | 11-09 | Demo budget **$20 / month**: hard stop in the app (`AI_MONTHLY_BUDGET_USD=20`) + spend limit in the Anthropic console | dev + eval + demo fit easily |
 | D24 | 11-09 | **Proactive follow-ups.** After an answer the assistant offers the next useful step as a short question + up to 3 clickable chips, e.g. "Chcesz zobaczyć szczegóły w panelu analizy?" [Pokaż w panelu analizy] [Porównaj z wrześniem] [Rozbij na handlowców]. Chips are built by the server from the query that was run (section 6.2), the model only phrases the question | feels smart, but every suggestion is guaranteed to be valid and answerable |
+| D25 | 11-20 | **Audit of assistant actions = the confirmed `ai_pending_actions` row** (who, what, which offer, when). The calculator shows a small "przez asystenta" badge next to the offer number; `get_offer` returns the same list. No separate history table | least moving parts; the app had no offer history log to extend |
+| D26 | 11-20 | Phase 3 delivered in one go (service refactor + actions together) | decided by Mati 11-20 |
 | D23 | 11-09 | **Every data-analysis answer gets a "Otwórz panel analizy" button that opens /analytics with exactly the matching settings selected** (period, date basis, filters, measure, breakdown, chart, the relevant section scrolled into view). Requires /analytics to restore its full state from the URL (section 6.1) | the user sees the whole panel behind the answer in one click, and can keep exploring from there |
 
 ---
@@ -268,17 +270,26 @@ lib/analyticsUrlState.ts                        NEW shared panel-state schema, u
                                                  AND the assistant's deep links (6.1)
 lib/assistant/cache.ts                          data-versioned answer cache (section 8)
 lib/assistant/budget.ts                         rate limits, spend
-lib/assistant/pendingActions.ts                 create / load / expire pending actions
-lib/assistant/tools/*.ts                        one file per tool (section 6, 7)
+lib/assistant/actions/{kinds,pending,execute,confirm,route}.ts
+                                                 pending actions (038): payloads, token -> row,
+                                                 confirm through the offer service (section 7)
+lib/assistant/actionChips.ts                    action chips under a single-offer answer (6.2)
+lib/assistant/tools/*.ts                        read tools (section 6)
+lib/assistant/tools/actions/*.ts                propose_* tools (section 7)
 lib/assistant/knowledge/*.md                    knowledge base, Polish first (+ EN)
-lib/offers/service.ts                           NEW shared offer service, extracted from the
-                                                 API routes (create, update, duplicate, submit,
-                                                 send, approve, reject, decision) - see 7.1
+lib/offers/service.ts                           shared offer service (create, update, duplicate,
+                                                 submit, send, approve, reject, decision) - 7.1;
+                                                 code in lib/offers/{create,update,transitions}.ts
+lib/offers/buildOfferData.ts, editOfferData.ts  server-built offer_data, calculator parity (7.2)
+lib/pricing/priceItem.ts                        one item priced like a calculator line + live
+                                                 price book / settings (price_item + builders)
 app/asystent/page.tsx                           full-page view of the same chat (D17)
 components/assistant/AssistantBubble.tsx
 components/assistant/AssistantPanel.tsx
-components/assistant/blocks/{OfferCard,DataTable,MiniChart,Footer,ClarifyButtons,ActionCard}.tsx
+components/assistant/{AnswerBlocks,DataTable,MiniChart,ActionCard}.tsx
+components/assistant/AssistantActionsBadge.tsx  "przez asystenta" in the calculator (D25)
 migrations/037_ai_assistant.sql                 (035 and 036 are already taken)
+migrations/038_ai_pending_actions.sql           confirmation cards + audit of assistant actions
 tests/assistant/*.test.ts
 scripts/assistant-eval.ts
 ```
@@ -459,13 +470,30 @@ byte-compatible, or the calculator will open it wrong. Mitigation: a server-side
 built by the builder produce identical `offer_data` (fixtures captured from the real calculator).
 If parity is too costly, fallback = D3 variant "prefill calculator, user saves".
 
-### 7.3 Worked example (required by repo rules - fill with real numbers in phase 3)
+### 7.3 Worked example (real numbers, 11-20)
 
-"zrób ofertę dla Stalprofilu: 20 t HRS S235JR 3 x 1500 x 3000, marża 8%" ->
-`find_clients("Stalprofil")` -> 1 match -> `propose_offer_draft` -> server: PGL HRS Q4, grade,
-dimension and length surcharges from the price book -> `computeItemPricing` -> card with SumaHuta,
-SumaSSC, cena końcowa per t, value EUR + PLN. Fixture with expected numbers goes to
-`tests/assistant/draft-pricing.test.ts`, checked against the same item typed into the calculator.
+"Zrób ofertę dla Profilex: 20 t HRS S235JR+N 3 x 1500 x 3000, marża 8%" (golden act-104, Marek
+Nowak, demo DB, Q4 2026) -> `propose_offer_draft{client:{company:"Profilex"}, items:[...]}` ->
+the server prices the line with the calculator engine:
+
+| Component | EUR/t |
+|---|---|
+| PGL HRS Q4 2026 | 660,00 |
+| Mill surcharges (SumaHuta, incl. grade S235JR+N 24) | 48,00 |
+| Input price (PGL + SumaHuta) | 708,00 |
+| Margin 8% of 708,00 | 56,64 |
+| SSC surcharges (SumaSSC) | 55,00 |
+| Transport (CPT, base rate) | 20,00 |
+| **Final price** 708,00 + 56,64 + 55,00 + 20,00 | **839,64** |
+| Line value 839,64 x 20 t | **16 792,80 EUR** (x 4,30 = 72 209,04 PLN) |
+
+The same item typed into the real calculator saved exactly these values (fixture
+`tests/offers/fixtures/calculator-save-hrs-hdg.json`, test `tests/offers/buildOfferData.test.ts`).
+One-time grade (D20), "5 t S999XYZ 3 x 1500 x 3000" with a user surcharge of 40 EUR/t, margin 7%:
+660 + 64 (48 - 24 + 40) = 724,00; margin 7% = 50,68; SSC 55,00; transport 20,00; small-quantity
+surcharge 5,00 (5 t is below the threshold) -> **854,68 EUR/t**, 4 273,40 EUR. With a surcharge
+of 24 the one-time grade prices exactly like S235JR+N (837,56 at 5 t) - the D20 path uses the
+same engine value.
 
 ---
 
@@ -532,7 +560,7 @@ the panel ("Asystent AI - liczby pochodzą z danych aplikacji, sprawdź w Analit
 - [ ] `AI_DATA_MODE=live` refuses any provider not on the approved list
 - [ ] Data minimisation review of every tool
 - [ ] Eval re-run on the go-live configuration, 100% on accuracy-critical groups
-- [ ] Prod env vars + migration 037 in the AbacusAI deploy prompt
+- [ ] Prod env vars + migrations 037 and 038 in the AbacusAI deploy prompt
 - [ ] Panel notice updated
 
 ---
@@ -765,6 +793,84 @@ Decisions taken while building (say if any should change):
 - **Panel edits do not add history entries** (`router.replace`): Back leaves /analytics.
   An assistant link opens a new entry, so Back returns to the previous view.
 
+### 14.5 Phase 3 notes (11-20)
+
+How phase 3 was verified (still without a model):
+- **Offer service** (`lib/offers/`): the 8 write paths moved out of the routes unchanged; the
+  routes are thin wrappers. The existing tests stay green, plus an HTTP smoke test of every route
+  on a copy of the demo DB (same bodies, statuses and Polish errors as before; PUT with a change
+  still creates a version).
+- **Draft parity (7.2)**: a two-line offer (HRS sheet + HDG coil) typed into the real calculator
+  and saved is the fixture; `buildOfferData` reproduces it byte for byte. A server-built draft
+  (incl. a one-time grade) opened in the calculator with no warnings, PGL and one-time grade intact.
+- `tests/offers/editOfferData.test.ts`, `tests/assistant/actions.test.ts` (payloads, card tokens,
+  action chips). 544 tests in total.
+- `scripts/assistant-demo/verify-actions.ts` on a throwaway copy of `steelquote_ai`
+  (`createdb -T steelquote_ai steelquote_ai_actions`): 54 checks - every golden action case gives
+  the right card or question and changes no offer; confirms through the real path (draft, approve,
+  mark sent, lost "Cena", duplicate for another client, edit -> new version at 846,72 EUR/t);
+  refusals for a used, foreign, expired, cancelled and stale card.
+- Playwright on the dev server with a MOCKED chat stream carrying real cards: approve and draft
+  confirmed from the browser, "przez asystenta" badge, 390 px width, light + dark.
+
+Decisions taken while building (say if any should change):
+- **Clients for a draft / copy / edit come from the whole client directory**, exactly like the
+  calculator's client field (`/api/clients/search` serves every signed-in user). NIP or company
+  name; several matches -> buttons; no match -> a new client, added on save (said on the card).
+  `find_clients` (analytics) stays scoped to clients with visible offers.
+- **Card = snapshot + optimistic check**: the card stores `offers.updated_at` as text; a confirm
+  after any change of the offer (or a newer version) answers "oferta zmieniła się, odśwież". A
+  refused confirm marks the card `failed` - a card can never be retried into a different outcome.
+- **Confirm needs `Content-Type: application/json`** (blocks cross-site form posts) and respects
+  the kill switch and per-user switch, not the message limits or budget (no model call).
+- **Edit re-prices only what was asked** with `computeItemPricing`, keeping the line's own PGL and
+  option values (the calculator re-prices options from the live book when a line is opened).
+  Lines saved before ItemInputs cannot be edited by the assistant. Changing the validity period is
+  not an edit option (it would move the PGL quarter) - done in the calculator.
+- **Duplicate can change only the client** (and with it the payment term); tons etc. via an edit.
+- **Drafts take the calculator's new-offer defaults**: validity today .. end of month, the client's
+  payment term or the global one, 24 h quote validity, CPT with the base transport rate (FCA /
+  FCA Kraków on request), default options per steel type, the default margin when none is given.
+- **Action chips** under a single-offer answer (6.2 "Akcje"): approve / submit / mark sent / won /
+  lost / copy, max 3, only when the app allows it. No reject chip - it needs the reviewer's reason.
+- **Approve does not require the id to come from a tool result of the turn** (section 7): the card
+  shows the full offer and only the approver's own click executes; to be watched in the eval.
+- **Golden cards and the real clock**: approval validity (48 h) runs on the real clock while the
+  demo "today" is pinned to 09.11, so an approved demo offer counts as expired when tested later
+  (act-107 then refuses with "wymaga akceptacji"). `verify-actions.ts` refreshes that approval on
+  its copy.
+
+Review round (11-20: security, database, TypeScript, React + a11y reviewers; no CRITICAL, one
+HIGH, all fixed and re-verified - 549 tests, 54 DB checks, build, browser):
+- **HIGH fixed:** a line added by an edit defaulted to CPT, so adding to an FCA offer charged the
+  base transport. Now it takes the term the offer's lines use; mixed or no terms -> the assistant
+  asks (`add_incoterm`). FCA test: 839,64 - 20,00 transport = 819,64 EUR/t.
+- **Retired grades** cannot start a new line (draft, added line, price_item), not even as a
+  one-time grade - same as the calculator, which offers only active grades.
+- **Edit card tells the truth about re-pricing**: table surcharges come from the current price
+  book (as in the calculator); lines whose mill / SSC surcharges moved since the save are listed.
+- **Confirm race closed**: the offer row is locked before the stale check, and a refused action is
+  rolled back to a savepoint and marked `failed` in the same commit (no double-click window).
+- **Draft pinned to its flow**: switching the active flow before the click refuses the card.
+- **Copy for another client** links the client and adds a new company to the directory, like a save.
+- `lib/access/workflow.ts` assessor no longer overlaps queries on a transaction client (pg 9).
+- Migration 038: plain indexes for the offer foreign keys; `user_id` SET NULL so the audit outlives
+  a deleted user; unconfirmed cards older than 30 days are purged on the user's next proposal.
+- Card: outcome kept above the panel (survives closing it), focus moves to the result, keyboard
+  badge (`<details>`), result link reloads an already open offer, danger button readable in dark.
+- Pricing core moved to `lib/pricing/priceItem.ts` (shared by the tool and the offer builders).
+
+Left as is (say if any should change):
+- Confirming user shown by name only in "przez asystenta" (no e-mail fallback).
+- A client name matching exactly one directory company is taken without asking - the card shows
+  company + NIP before the click.
+- `offer_version` is `updated_at::text`; a different session TimeZone/DateStyle would only make
+  cards stale (fail-safe), never wrongly accepted.
+- Model-written free text (reject reason, approve comment, e-mail line) is shown verbatim on the
+  card before the click; approve/reject proposals from injected text are stopped by that click.
+- Existing light-mode contrast of `text-accent` on `--bg-input` (about 3:1 for small text) predates
+  the assistant - a theme-wide fix, not done here.
+
 ---
 
 ## 15. TODO
@@ -830,13 +936,19 @@ Decisions taken while building (say if any should change):
 - [ ] Seen with a real model: compare answers, chips, pinned turns (only the fake model so far)
 
 ### Phase 3 - actions
-- [ ] Extract `lib/offers/service.ts`, routes become wrappers, smoke-test every action in the UI
-- [ ] `buildOfferData.ts` + parity fixtures from the real calculator
-- [ ] `pendingActions.ts` + confirm / cancel routes (token, expiry, single use, optimistic check)
-- [ ] `propose_*` tools + ActionCard
-- [ ] Offer history entry "przez asystenta"
-- [ ] Worked pricing example 7.3 with real numbers
-- [ ] Golden actions group green (never executes without click)
+- [x] Extract `lib/offers/service.ts`, routes become wrappers, HTTP smoke test of every route (11-20)
+- [x] `buildOfferData.ts` + parity fixture from the real calculator (11-20)
+- [x] Migration 038 `ai_pending_actions` + `lib/assistant/actions/` + confirm / cancel routes
+      (token, expiry, single use, optimistic check) - applied on `steelquote_ai` only
+- [x] `propose_*` tools (draft, edit, duplicate, submit, mark sent, approve, reject, decision) +
+      ActionCard + action chips under `get_offer`
+- [x] "przez asystenta" (D25): badge in the calculator + `via_assistant` in `get_offer`
+- [x] Worked pricing example 7.3 with real numbers
+- [x] Golden actions group on the real tools (`verify-actions.ts`, 54 checks)
+- [ ] Seen with a real model: proposals, never claiming "zatwierdziłam", RFQ e-mail extraction
+- [x] Pre-existing, found in phase 3: `assessOffer` ran parallel queries on one transaction
+      client (pg warned; breaks on pg 9) - fixed 11-20
+- [x] Review round (security, database, TypeScript, React) - findings fixed, see 14.5
 
 ### Phase 4-5
 - [ ] Demo script (10 questions, mostly PL + one EN, one refused injection, one refused

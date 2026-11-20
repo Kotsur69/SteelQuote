@@ -1,6 +1,9 @@
-// Registry of the assistant's tools. Phase 1 = read tools only; the propose_* action tools
-// (docs/ai-assistant-plan.md section 7) join here in phase 3.
+// Registry of the assistant's tools: read tools (plan section 6) and the propose_* action tools
+// (section 7), which only store a pending action and show a confirmation card.
 
+import { proposeOfferDraft } from './actions/draft';
+import { proposeOfferEdit } from './actions/edit';
+import { STATUS_TOOLS } from './actions/status';
 import { findClients, findPeople } from './directory';
 import { getOffer, myQueue, searchOffers } from './offers';
 import { calculateTransport, priceItem } from './pricing';
@@ -21,6 +24,9 @@ export const TOOLS: readonly AssistantTool[] = [
   getPgl,
   listLostReasons,
   getApprovalRules,
+  proposeOfferDraft,
+  proposeOfferEdit,
+  ...STATUS_TOOLS,
 ];
 
 const BY_NAME = new Map(TOOLS.map((tool) => [tool.name, tool]));

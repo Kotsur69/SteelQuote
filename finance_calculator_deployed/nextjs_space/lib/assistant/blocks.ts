@@ -91,4 +91,32 @@ export interface FollowUpsBlock {
   chips: FollowUpChip[];
 }
 
-export type AnswerBlock = TableBlock | OffersBlock | FooterBlock | ClarifyBlock | ChartBlock | FollowUpsBlock;
+/** Same list as lib/assistant/actions/kinds.ts ACTION_KINDS (kept here so the browser bundle stays zod-free). */
+export type ActionCardKind = 'draft' | 'edit' | 'duplicate' | 'submit' | 'send' | 'approve' | 'reject' | 'decision';
+
+/**
+ * A confirmation card (plan section 7): exactly what will happen if the user clicks confirm.
+ * Built by the server from the checked proposal; the model never writes any of it. Confirm /
+ * cancel post the token to /api/assistant/actions/<token>/(confirm|cancel).
+ */
+export interface ActionCardBlock {
+  type: 'action';
+  kind: ActionCardKind;
+  title: string;
+  /** Offer the card is about (absent for a new draft). */
+  offer?: { name: string; href: string };
+  /** Current -> new status, already worded for the UI. */
+  transition?: { from: string; to: string };
+  /** Label / value pairs, pre-formatted. */
+  rows: [string, string][];
+  /** Priced lines of a draft, or the changes of an edit. */
+  table?: TableBlock;
+  /** Things the user must know before confirming (one-time grade, defaults used, ...). */
+  notes: string[];
+  confirmLabel: string;
+  token: string;
+  /** ISO time after which the server refuses the card. */
+  expiresAt: string;
+}
+
+export type AnswerBlock = TableBlock | OffersBlock | FooterBlock | ClarifyBlock | ChartBlock | FollowUpsBlock | ActionCardBlock;

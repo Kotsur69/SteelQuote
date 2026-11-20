@@ -20,6 +20,11 @@ const MESSAGES = {
 
 export type AccessErrorCode = keyof typeof MESSAGES;
 
+/** Polish text and HTTP status of a code, for callers that do not answer with a NextResponse. */
+export function accessErrorInfo(code: AccessErrorCode): { status: number; text: string } {
+  return MESSAGES[code];
+}
+
 export function accessError(code: AccessErrorCode, extra: Record<string, unknown> = {}): NextResponse {
   const m = MESSAGES[code];
   return NextResponse.json({ error: m.text, code, ...extra }, { status: m.status });

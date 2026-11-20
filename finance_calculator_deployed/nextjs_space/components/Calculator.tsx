@@ -12,6 +12,7 @@ import { nextItemSort, sortItems, type ItemSort, type ItemSortKey } from '@/lib/
 import TransportPanel, { EMPTY_TRANSPORT_ROUTE, type TransportRoute } from '@/components/TransportPanel';
 import QuoteValidityPicker from '@/components/QuoteValidityPicker';
 import { DEFAULT_QUOTE_VALIDITY_HOURS, resolveQuoteValidityHours } from '@/lib/quoteValidity';
+import { AssistantActionsBadge, toAssistantRecords, type AssistantActionRecord } from '@/components/assistant/AssistantActionsBadge';
 import OfferValidityPicker from '@/components/OfferValidityPicker';
 import OfferReviewBar, { reviewReturnPath } from '@/components/OfferReviewBar';
 import { useAccess } from '@/lib/useAccess';
@@ -420,6 +421,8 @@ export default function Calculator() {
   // Etykieta typu "offer_27.1" — liczona z root_offer_id + version_number, bo surowe `id`
   // wiersza (np. 30) nie ma nic wspólnego z numerem, który handlowiec widzi na liście ofert.
   const [currentOfferLabel, setCurrentOfferLabel] = useState<string>('');
+  // Assistant-confirmed changes of the loaded row, keyed by its id so a later save/new offer hides them.
+  const [assistantActions, setAssistantActions] = useState<{ offerId: number; records: AssistantActionRecord[] } | null>(null);
   // True when a senior/admin opened an offer that is pending review (server decides, see GET
   // /api/offers/[id]) - shows the approve/reject bar. Cleared for new offers.
   const [canReview, setCanReview] = useState(false);
@@ -1316,6 +1319,7 @@ export default function Calculator() {
             setCurrentOfferName(offer.display_name);
             setCurrentOfferRawName(offer.offer_name ?? '');
             setCurrentOfferLabel(offerNumberLabel(offer));
+            setAssistantActions({ offerId: offer.id, records: toAssistantRecords(offer.assistant_actions) });
             setCanReview(offer.can_review === true);
             setOfferMode(
               offer.actions?.canEdit !== true
@@ -1817,6 +1821,9 @@ export default function Calculator() {
             <span className="font-bold text-[var(--accent-cr)]">
               {currentOfferLabel || `offer_${currentOfferId}`}
             </span>
+            {assistantActions && assistantActions.offerId === currentOfferId && (
+              <AssistantActionsBadge records={assistantActions.records} language={language} />
+            )}
           </span>
         </div>
       )}
